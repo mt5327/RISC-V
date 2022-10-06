@@ -23,7 +23,9 @@ architecture behavioral of branch_unit is
 
 begin
 
-	wrong_target <= '1' when target_address /= branch_predict_i.predicted_address else '0';
+	wrong_target <= '1' when target_address /= branch_predict_i.predicted_address else 
+	                '0';
+	
 	mispredict <= (alu_cmp_i xor branch_predict_i.cf_type(0)) or wrong_target;
 
 	next_pc <= unsigned(pc_i) + FOUR;
