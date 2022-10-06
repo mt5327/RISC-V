@@ -142,4 +142,5 @@ begin
 
 	mul_valid <= '1' when state = FINALIZE else '0';
 	mul_valid_o <= mul_valid;
+	
 end behavioral;
