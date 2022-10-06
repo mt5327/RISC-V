@@ -331,7 +331,7 @@ begin
 				end case;
 			when others => imm <= (others => '0');
 		end case;
-	end process;
+end process;
 
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
