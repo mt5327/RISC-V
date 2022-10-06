@@ -121,7 +121,7 @@ begin
 					when "111" => alu_operator <= ALU_GEU;
 					when others => invalid_instruction <= '1';
 				end case;
-	        -- LOAD / STORE
+	                -- LOAD / STORE
 			when LOAD =>
 				case funct3 is
 					when "000" => mem_operator <= LSU_LB;
@@ -318,7 +318,7 @@ begin
 
 	OFFSET_SELECT : process (IR_i, imm_s, branch_target_address, y_fp_i, z_fp_i)
 	begin
-		case opcode is
+        case opcode is
 			when LUI | AUIPC => imm <= STD_LOGIC_VECTOR(resize(signed(IR_i(31 downto 12)) & X"000", 64));
 			when BRANCH => imm <= branch_target_address;
 			when STORE | STORE_FP => imm <= STD_LOGIC_VECTOR(resize(signed(imm_s), 64));
