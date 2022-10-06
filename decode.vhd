@@ -121,7 +121,7 @@ begin
 					when "111" => alu_operator <= ALU_GEU;
 					when others => invalid_instruction <= '1';
 				end case;
-	                -- LOAD / STORE
+	        -- LOAD / STORE
 			when LOAD =>
 				case funct3 is
 					when "000" => mem_operator <= LSU_LB;
@@ -153,7 +153,7 @@ begin
 					when "011" => mem_operator <= LSU_FSD;
 					when others => invalid_instruction <= '1';
 				end case;
-	     		-- Integer Arithmetic
+	     	-- Integer Arithmetic
 			when RI =>
 				case funct3 is
 					when "000" => alu_operator <= ALU_ADD;
@@ -331,7 +331,7 @@ begin
 				end case;
 			when others => imm <= (others => '0');
 		end case;
-end process;
+	end process;
 
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
