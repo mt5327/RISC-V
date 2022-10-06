@@ -153,7 +153,7 @@ begin
 					when "011" => mem_operator <= LSU_FSD;
 					when others => invalid_instruction <= '1';
 				end case;
-	     	-- Integer Arithmetic
+	        -- Integer Arithmetic
 			when RI =>
 				case funct3 is
 					when "000" => alu_operator <= ALU_ADD;
@@ -227,7 +227,7 @@ begin
 					when "0000001111" => alu_operator <= ALU_REMUW;
 					when others => invalid_instruction <= '1';
 				end case;
-			-- FPU 
+				-- FPU 
 			when FMADD => fpu_operator <= FPU_FMADD;
 				invalid_instruction <= IR_i(26) or check_rm(funct3, frm_i);
 			when FMSUB => fpu_operator <= FPU_FMSUB;
@@ -318,7 +318,7 @@ begin
 
 	OFFSET_SELECT : process (IR_i, imm_s, branch_target_address, y_fp_i, z_fp_i)
 	begin
-        case opcode is
+		case opcode is
 			when LUI | AUIPC => imm <= STD_LOGIC_VECTOR(resize(signed(IR_i(31 downto 12)) & X"000", 64));
 			when BRANCH => imm <= branch_target_address;
 			when STORE | STORE_FP => imm <= STD_LOGIC_VECTOR(resize(signed(imm_s), 64));
@@ -331,7 +331,7 @@ begin
 				end case;
 			when others => imm <= (others => '0');
 		end case;
-	end process;
+end process;
 
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
@@ -445,6 +445,7 @@ begin
 			end if;
 		end if;
 	end process;
+	
 	CS_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
