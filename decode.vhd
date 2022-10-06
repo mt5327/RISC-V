@@ -153,7 +153,7 @@ begin
 					when "011" => mem_operator <= LSU_FSD;
 					when others => invalid_instruction <= '1';
 				end case;
-	        -- Integer Arithmetic
+	     		-- Integer Arithmetic
 			when RI =>
 				case funct3 is
 					when "000" => alu_operator <= ALU_ADD;
@@ -227,7 +227,7 @@ begin
 					when "0000001111" => alu_operator <= ALU_REMUW;
 					when others => invalid_instruction <= '1';
 				end case;
-				-- FPU 
+			-- FPU 
 			when FMADD => fpu_operator <= FPU_FMADD;
 				invalid_instruction <= IR_i(26) or check_rm(funct3, frm_i);
 			when FMSUB => fpu_operator <= FPU_FMSUB;
