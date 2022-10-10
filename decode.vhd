@@ -433,6 +433,7 @@ end process;
 		if rising_edge(clk_i) then
 			if rst_i = '1' or flush_i = '1' then
 				fp_regs_IDEX.write <= '0';
+				fp_regs_IDEX.fp_op <= FPU_NONE;
 			else
 				if pipeline_stall_i = '0' then
 					fp_regs_IDEX.fp_op <= fpu_operator;
