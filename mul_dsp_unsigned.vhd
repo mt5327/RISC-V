@@ -31,8 +31,8 @@ begin
 			if enable_i = '1' then
 				X <= x_i;
 				Y <= y_i;
-			end if;
-			product <= X * Y;
+		    end if;
+		    product <= X * Y;
 		end if;
 	end process;
 
