@@ -52,7 +52,7 @@ architecture behavioral of data_cache is
 	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(ADDRESS_WIDTH - 1 downto OFFSET_WIDTH);
 
 	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH - 1 downto OFFSET_WIDTH);
-	signal cache_offset : INTEGER range 0 to 64 * OFFSET_WIDTH;
+	signal cache_offset : INTEGER range 0 to 64 * OFFSET_WIDTH-3;
 
 	type state_type is (CHECK, WRITE_BACK, WRITE_ALLOCATE);
 	signal state, next_state : state_type := CHECK;
@@ -148,7 +148,7 @@ begin
 	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH - 1 downto OFFSET_WIDTH);
 	cache_line_o <= cache(to_integer(unsigned(block_address)));
 
-	DOUBLE_WORD_SELECT : for i in 0 to OFFSET_WIDTH - 1 generate
+	DOUBLE_WORD_SELECT : for i in 0 to OFFSET_WIDTH - 4 generate
 		data_o <= cache(to_integer(unsigned(block_address)))(i * 64 + 63 downto i * 64) when unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 0)) = i else (others => 'Z');
 	end generate;
 	

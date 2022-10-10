@@ -30,7 +30,6 @@ architecture behavioral of memory is
 
 	signal data_fwd : STD_LOGIC_VECTOR (63 downto 0);
 	signal csr : CSR := ('0', X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
-	signal column : ram_column;
 	signal reg_dst, reg_dst_fp : REG;
 
 begin

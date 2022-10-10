@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity execute is
 	generic (
-		ADDRESS_WIDTH : NATURAL := 14;
+		ADDRESS_WIDTH : NATURAL := 21;
 		BHT_INDEX_WIDTH : NATURAL := 2);
 	port (
 		clk_i : in STD_LOGIC;
@@ -46,7 +46,7 @@ entity execute is
 		result_fwd_o : out STD_LOGIC_VECTOR (63 downto 0);
 		result_fp_fwd_o : out STD_LOGIC_VECTOR (63 downto 0);
 
-		mem_req_o : out MEMORY_REQUEST;
+		mem_req_o : out MEMORY_REQUEST (MAR(ADDRESS_WIDTH-1 downto 0));
 
 		fp_regs_IDEX_i : in FP_IDEX;
 		reg_write_fp_o : out STD_LOGIC;
@@ -127,7 +127,6 @@ architecture behavioral of execute is
 	signal fp_valid, instr_misaligned, instr_fault, load_fault, store_fault, mem_write_reg, reg_write_fp : STD_LOGIC := '0';
 	signal alu_cmp, multiply, divide, div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, csr_write : STD_LOGIC := '0';
 	signal fflags_r : STD_LOGIC_VECTOR (4 downto 0);
-	signal column : ram_column;
 	signal mem_req : MEMORY_REQUEST (MAR (ADDRESS_WIDTH - 1 downto 0));
 	signal reg_dst : REG;
 	signal MAR : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
@@ -206,7 +205,7 @@ begin
 
 	result <= result_mul when multiply = '1' else
 		result_div when divide = '1' else
-		result_fp when fp_i = '1' else
+		result_fp when fp_i = '1'else
 		z;
 
 	instr_misaligned <= (or branch_inf.target_address(1 downto 0)) and branch_inf.mispredict;
@@ -217,8 +216,7 @@ begin
 	--    Y_fp <= X"FFFFFFFF" & fp_regs_IDEX_i.y(31 downto 0) when (or fp_regs_IDEX_i.y(63 downto 31)) = '0' else 
 	--                                       fp_regs_IDEX_i.y; 
 
-	MAR <= z(ADDRESS_WIDTH - 1 + 3 downto 3);
-	column <= to_integer(unsigned(Z(2 downto 0)));
+	MAR <= z(ADDRESS_WIDTH - 1 downto 0);
 
 	with mem_operator_i select MDR <= y_fp when LSU_FSW | LSU_FSD,
 		y_i when others;
@@ -242,7 +240,6 @@ begin
 					mem_req.enable_mem <= enable_mem;
 					mem_req.MEMOp <= mem_operator_i;
 
-					mem_req.column <= column;
 					mem_req.MAR <= MAR;
 					mem_req.MDR <= MDR;
 				end if;
@@ -275,14 +272,14 @@ begin
 	enable_mem <= (mem_write_i or mem_read_i) and (z(14) or z(13));
 	enable_mul <= multiply and (not mul_valid);
 	enable_div <= divide and (not div_valid);
-	enable_fp <= fp_i and (not fp_valid);
+--	enable_fp <= fp_i and (not fp_valid);
 
-	multicycle_op_o <= enable_mul or enable_div or enable_fp;
+	multicycle_op_o <= enable_mul or enable_div;-- or enable_fp;
 
 	reg_dst_o <= reg_dst;
 
 	result_fwd_o <= result;
-	--result_fp_fwd_o <= result_fp;
+--	result_fp_fwd_o <= result_fp;
 
 	reg_write_fp_o <= reg_write_fp;
 

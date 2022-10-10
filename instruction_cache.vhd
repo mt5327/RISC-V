@@ -86,7 +86,7 @@ begin
 		end if;
 	end process;
 
-	DOUBLE_WORD_SELECT : for i in 0 to OFFSET_WIDTH - 1 generate
+	DOUBLE_WORD_SELECT : for i in 0 to OFFSET_WIDTH - 4 generate
 		IR_o <= cache(to_integer(unsigned(block_address)))(i * 64 + 63 downto i * 64) when unsigned(instr_address_i(OFFSET_WIDTH - 1 downto 0)) = i else (others => 'Z');
 	end generate;
 

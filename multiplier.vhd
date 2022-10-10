@@ -35,13 +35,13 @@ architecture behavioral of multiplier is
 	signal A0B3, A1B3, A2B0, A2B1, A2B2 : signed(42 downto 0);
 
 	signal P0 : signed(78 downto 0);
-	signal P5, S0 : signed(81 downto 0);
+	signal P5 : signed(81 downto 0);
 
 	signal P1 : signed(95 downto 0);
-	signal P4, S1 : signed(105 downto 0);
+	signal P4 : signed(105 downto 0);
 
 	signal P2 : signed (112 downto 0);
-	signal P3, S2, S : signed(127 downto 0);
+	signal P3, S : signed(127 downto 0);
 
 	signal x_is_signed, y_is_signed, start_mul, mul_valid : STD_LOGIC;
 
@@ -67,7 +67,10 @@ architecture behavioral of multiplier is
 
 begin
 
-	with op_i select x_is_signed <= '1' when ALU_MULH | ALU_MULHSU, '0' when others;
+	with op_i select
+	   x_is_signed <= '1' when ALU_MULH | ALU_MULHSU, 
+	                  '0' when others;
+	
 	y_is_signed <= '1' when op_i = ALU_MULH else '0';
 	start_mul <= '1' when state = IDLE and enable_i = '1' else '0';
 
@@ -95,8 +98,11 @@ begin
 		end case;
 	end process;
 
-	x <= signed((x_i(x_i'left) and x_is_signed) & x_i) when enable_i else (others => '0');
-	y <= signed((y_i(y_i'left) and y_is_signed) & y_i) when enable_i else (others => '0');
+	x <= signed((x_i(x_i'left) and x_is_signed) & x_i) when enable_i else 
+	     (others => '0');
+	
+	y <= signed((y_i(y_i'left) and y_is_signed) & y_i) when enable_i else 
+	     (others => '0');
 
 	MUL_A0B0 : mul_dsp_signed generic map(17, 14, 29) port map(clk_i, start_mul, ('0' & A0), ('0' & B0), A0B0);
 	MUL_A0B1 : mul_dsp_signed port map(clk_i, start_mul, ('0' & A0 & X"00"), ('0' & B1), A0B1);
@@ -120,11 +126,7 @@ begin
 	P4 <= A1B3 & A0B2 & X"00000" & "00";
 	P5 <= A0B3 & X"000000000" & "000";
 
-	S0 <= resize(P0, 82) + P5;
-	S1 <= resize(P1, 106) + P4;
-	S2 <= resize(P2, 128) + P3;
-
-	MULR <= STD_LOGIC_VECTOR(resize(S0, 128) + resize(S1, 128) + S2);
+	MULR <= STD_LOGIC_VECTOR(resize(P0, 128) + resize(P1, 128) + resize(P2, 128) + P3 + resize(P4, 128) + resize(P5, 128));
 
 	MUX_OUTPUT : process (op_i, MULR, mul_valid)
 	begin

@@ -133,8 +133,6 @@ constant QUIET_NAN : STD_LOGIC_VECTOR (9 downto 0) := (9 => '1', others => '0');
 
 constant BIAS_DIFF : unsigned(10 downto 0) := "01110000000"; -- 1023 - 127 = 896 
 
-subtype ram_column is natural range 0 to 7;
-
 subtype word_t is STD_LOGIC_VECTOR(63 downto 0);
 type reg_t is array(0 to 31) of word_t;
 
@@ -163,7 +161,6 @@ end record;
 
 type MEMORY_REQUEST is record
     enable_mem : STD_LOGIC;
-    column : ram_column;
     MAR : STD_LOGIC_VECTOR;
     MDR : STD_LOGIC_VECTOR (63 downto 0);    
     MEMOp : MEM_OP;
