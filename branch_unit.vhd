@@ -30,7 +30,10 @@ begin
 
 	next_pc <= unsigned(pc_i) + FOUR;
 	jlr_address <= unsigned(x_i) + unsigned(offset_i);
-	target_address <= jlr_address when branch_predict_i.cf_type(1) = '0' else unsigned(offset_i);
+	
+	target_address <= jlr_address when branch_predict_i.cf_type(1) = '0' else 
+		              unsigned(offset_i);
+	
 	BRANCH_INFO : process (ctrl_flow_i, alu_cmp_i, branch_predict_i.cf_type, mispredict, pc_i, target_address)
 	begin
 		branch_info_o.taken <= '0';
