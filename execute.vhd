@@ -48,7 +48,7 @@ entity execute is
 
 		mem_req_o : out MEMORY_REQUEST (MAR(ADDRESS_WIDTH-1 downto 0));
 
-		fp_regs_IDEX_i : in FP_IDEX;
+		fp_regs_idex_i : in FP_IDEX;
 		reg_write_fp_o : out STD_LOGIC;
 
 		csr_fwd_o : out CSR;
@@ -78,7 +78,7 @@ architecture behavioral of execute is
 			ctrl_flow_i : in STD_LOGIC;
 			alu_cmp_i : in STD_LOGIC;
 			branch_predict_i : in BRANCH_PREDICTION;
-			branch_info_o : out BRANCH_INFO);
+			branch_info_o : out BRANCH_INFO); 
 	end component branch_unit;
 
 	component multiplier is
@@ -118,15 +118,13 @@ architecture behavioral of execute is
 			y_i : in STD_LOGIC_VECTOR (63 downto 0);
 			z_i : in STD_LOGIC_VECTOR (63 downto 0);
 			x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
-			result_o : out STD_LOGIC_VECTOR (63 downto 0);
-			fp_valid_o : out STD_LOGIC;
-			fflags_o : out STD_LOGIC_VECTOR (4 downto 0));
+			result_o : out FP_RESULT);
 	end component FPU;
 
-	signal result, result_fp, result_mul, result_div, Y_fp, x, y, z, csr_data, MDR : STD_LOGIC_VECTOR (63 downto 0);
-	signal fp_valid, instr_misaligned, instr_fault, load_fault, store_fault, mem_write_reg, reg_write_fp : STD_LOGIC := '0';
+    signal result_fp : FP_RESULT;
+	signal result, result_mul, result_div, Y_fp, x, y, z, csr_data, MDR : STD_LOGIC_VECTOR (63 downto 0);
+	signal instr_misaligned, instr_fault, load_fault, store_fault, mem_write_reg, reg_write_fp : STD_LOGIC := '0';
 	signal alu_cmp, multiply, divide, div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, csr_write : STD_LOGIC := '0';
-	signal fflags_r : STD_LOGIC_VECTOR (4 downto 0);
 	signal mem_req : MEMORY_REQUEST (MAR (ADDRESS_WIDTH - 1 downto 0));
 	signal reg_dst : REG;
 	signal MAR : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
@@ -192,21 +190,19 @@ begin
 		y_i => fp_regs_IDEX_i.y,
 		z_i => imm_i,
 		x_int_i => x_i,
-		result_o => result_fp,
-		fp_valid_o => fp_valid,
-		fflags_o => fflags_r
+		result_o => result_fp
 	);
 
 	x <= pc_i when pc_src_i = '1' else
-		x_i;
+	     x_i;
 
-	y <= imm_i when imm_src_i = '1' else
-		y_i;
+    y <= imm_i when imm_src_i = '1' else
+	  	 y_i;
 
 	result <= result_mul when multiply = '1' else
-		result_div when divide = '1' else
-		result_fp when fp_i = '1'else
-		z;
+		      result_div when divide = '1' else
+		      result_fp.value when fp_i = '1'else
+		      z;
 
 	instr_misaligned <= (or branch_inf.target_address(1 downto 0)) and branch_inf.mispredict;
 	instr_fault <= (or branch_inf.target_address(14 downto 13)) and branch_inf.mispredict;
@@ -218,8 +214,9 @@ begin
 
 	MAR <= z(ADDRESS_WIDTH - 1 downto 0);
 
-	with mem_operator_i select MDR <= y_fp when LSU_FSW | LSU_FSD,
-		y_i when others;
+	with mem_operator_i select 
+	   MDR <= y_fp when LSU_FSW | LSU_FSD,
+		      y_i when others;
 
 	REGS : process (clk_i)
 	begin
@@ -272,9 +269,9 @@ begin
 	enable_mem <= (mem_write_i or mem_read_i) and (z(14) or z(13));
 	enable_mul <= multiply and (not mul_valid);
 	enable_div <= divide and (not div_valid);
---	enable_fp <= fp_i and (not fp_valid);
+	enable_fp <= fp_i and (not result_fp.valid);
 
-	multicycle_op_o <= enable_mul or enable_div;-- or enable_fp;
+	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 
 	reg_dst_o <= reg_dst;
 
@@ -284,12 +281,13 @@ begin
 	reg_write_fp_o <= reg_write_fp;
 
 	csr.exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else
-	INSTRUCTION_ACCESS_FAULT when instr_fault = '1' else
-	LOAD_ACCESS_FAULT when load_fault = '1' else
-	STORE_ACCESS_FAULT when store_fault = '1' else csr_i.exception_id;
+	                    INSTRUCTION_ACCESS_FAULT when instr_fault = '1' else
+	                    LOAD_ACCESS_FAULT when load_fault = '1' else
+	                    STORE_ACCESS_FAULT when store_fault = '1' else csr_i.exception_id;
+	
 	csr.write <= csr_i.write or fp_i;
 	csr.write_addr <= FFLAGS when fp_i = '1' else csr_i.write_addr;
-	csr.data <= (63 downto 5 => '0') & fflags_r when fp_i = '1' else csr_i.data;
+	csr.data <= (63 downto 5 => '0') & result_fp.fflags when fp_i = '1' else csr_i.data;
 	csr.epc <= csr_i.epc;
 
 	--csr_o <= csr_reg;
@@ -298,4 +296,5 @@ begin
 	mem_req_o <= mem_req;
 	mem_write_o <= mem_write_reg;
 	branch_info_o <= branch_inf;
+   
 end behavioral;

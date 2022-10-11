@@ -10,6 +10,8 @@ entity FP_Converter_int_to_float is
 		E : NATURAL;
 		M : NATURAL);
 	port (
+	    clk_i : in STD_LOGIC;
+	    rst_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -59,9 +61,14 @@ begin
 	int_exp <= to_unsigned(31, E) + BIAS - resize(int_lz_counter, E);
 	long_exp <= to_unsigned(63, E) + BIAS - resize(long_lz_counter, E);
 
-	shifted_int_mantissa <= shift_left(int_mantissa, to_integer(int_lz_counter));
-	shifted_long_mantissa <= shift_left(long_mantissa, to_integer(long_lz_counter));
-
+    process (clk_i) 
+    begin
+        if rising_edge(clk_i) then
+	      shifted_int_mantissa <= shift_left(int_mantissa, to_integer(int_lz_counter));
+    	   shifted_long_mantissa <= shift_left(long_mantissa, to_integer(long_lz_counter));
+        end if;
+    end process;
+    
 	SINGLE_PRECISION : if P = 32 generate
 		num <= int_exp & shifted_int_mantissa(30 downto 8) when mode_i(1) = '0' else
 		long_exp & shifted_long_mantissa(62 downto 40);
@@ -80,11 +87,10 @@ begin
 		sticky_bit <= (or shifted_long_mantissa(9 downto 0)) and mode_i(1);
 	end generate;
 
-	--ROUNDING: rounder generic map (num'length) port map (num, sign, rm_i, round_bit & sticky_bit, rounded_num);
+	ROUNDING: rounder generic map (num'length) port map (num, sign, rm_i, round_bit & sticky_bit, rounded_num);
 
 	sign <= int_sign when mode_i(1) = '0' else long_sign;
 
-	rounded_num <= STD_LOGIC_VECTOR(num);
 	result_o <= (63 downto P - 1 => sign) & rounded_num;
 
 	invalid <= and rounded_num(P - 2 downto P - E - 1);

@@ -195,6 +195,12 @@ type FP_INFO is record
     quiet_nan : STD_LOGIC;
 end record;
 
+type FP_RESULT is record
+    value : STD_LOGIC_VECTOR (63 downto 0); 
+    fflags : STD_LOGIC_VECTOR (4 downto 0);
+    valid : STD_LOGIC;
+end record;
+
 type fp_infos_t is array (natural range <>) of FP_INFO;
 
 function num_bits(size : natural) return natural;

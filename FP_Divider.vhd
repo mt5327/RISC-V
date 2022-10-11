@@ -14,9 +14,7 @@ entity FP_Divider is
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
-		result_o : out STD_LOGIC_VECTOR (63 downto 0);
-		fflags_o : out STD_LOGIC_VECTOR (4 downto 0);
-		fp_valid_o : out STD_LOGIC);
+		result_o : out FP_RESULT);
 end FP_Divider;
 
 architecture behavioral of FP_Divider is
@@ -77,8 +75,8 @@ begin
 	enable(0) <= '1' when enable_i = '1' and valid(0) = '0' and fp_precision_i = '0' else '0';
 	enable(1) <= '1' when enable_i = '1' and valid(1) = '0' and fp_precision_i = '1' else '0';
 
-	result_o <= result_sp when fp_precision_i = '0' else result_dp;
-	fflags_o <= fflags_sp when fp_precision_i = '0' else fflags_dp;
-	fp_valid_o <= or valid;
+	result_o.value <= result_sp when fp_precision_i = '0' else result_dp;
+	result_o.fflags <= fflags_sp when fp_precision_i = '0' else fflags_dp;
+	result_o.valid <= or valid;
 
 end behavioral;

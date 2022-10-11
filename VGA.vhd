@@ -18,7 +18,7 @@ entity VGA is
 		fcsr_i : in STD_LOGIC_VECTOR (7 downto 0);
 
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-		VGA_RGB_o : out STD_LOGIC_VECTOR (11 downto 0));
+		rgb_o : out STD_LOGIC_VECTOR (11 downto 0));
 end VGA;
 
 architecture behavioral of VGA is
@@ -226,7 +226,7 @@ begin
 
 	row_font <= frame_buffer(conv_integer(row(8 downto 3)))(639 - 8 * conv_integer(column(9 downto 3)) downto 632 - 8 * conv_integer(column(9 downto 3))) & row(2 downto 0);
 
-	VGA_RGB_o <= (others => '1') when font_data(7 - conv_integer(column(2 downto 0))) = '1' and display = '1' else (others => '0');
+	rgb_o <= (others => '1') when font_data(7 - conv_integer(column(2 downto 0))) = '1' and display = '1' else (others => '0');
 
 	FONT : font_ROM
 	port map(

@@ -1,0 +1,3 @@
+forwarding_unit.vhd
+normalizer.vhd
+pipeline_control.vhd

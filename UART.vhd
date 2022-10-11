@@ -18,8 +18,8 @@ architecture behavioral of UART is
 
 	constant MAX_VALUE : NATURAL := 868; -- ( 100 * 10^6 ) / 115200
 	constant HALF_MAX_VALUE : NATURAL := MAX_VALUE / 2;
+	
 	signal counter : unsigned (9 downto 0) := (others => '0');
-
 	signal uart_clk, uart_clk_enable, uart_rx_start, rx, rx_reg, cpu_enable : STD_LOGIC;
 
 	type state_type is (READY, START, B0, B1, B2, B3, B4, B5, B6, B7, PARITY, STOP);

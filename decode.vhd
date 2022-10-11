@@ -490,8 +490,8 @@ end process;
 
 	pc_o <= pc;
 
-	X_o <= X;
-	Y_o <= Y;
+	x_o <= X;
+	y_o <= Y;
 
 	fp_regs_IDEX_o <= fp_regs_IDEX;
 	CSR_read_addr_o <= csr_addr;

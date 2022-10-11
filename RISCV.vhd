@@ -20,7 +20,7 @@ entity RISCV is
 		-- VGA            
 		hsync_o : out STD_LOGIC;
 		vsync_o : out STD_LOGIC;
-		VGA_RGB_o : out STD_LOGIC_VECTOR (11 downto 0);
+		rgb_o : out STD_LOGIC_VECTOR (11 downto 0);
 
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
 
@@ -108,7 +108,7 @@ architecture behavioral of RISCV is
 			reg_src1_valid_o : out STD_LOGIC;
 			reg_src2_valid_o : out STD_LOGIC;
 
-			fp_regs_IDEX_o : out FP_IDEX;
+			fp_regs_idex_o : out FP_IDEX;
 			csr_o : out CSR;
 			csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
 
@@ -159,7 +159,7 @@ architecture behavioral of RISCV is
 
 			mem_req_o : out MEMORY_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
 
-			fp_regs_IDEX_i : in FP_IDEX;
+			fp_regs_idex_i : in FP_IDEX;
 			reg_write_fp_o : out STD_LOGIC;
 
 			csr_fwd_o : out CSR;
@@ -180,7 +180,7 @@ architecture behavioral of RISCV is
 			reg_dst_i : in REG;
 			reg_write_fp_i : in STD_LOGIC;
 
-			Data_fwd_o : out STD_LOGIC_VECTOR (63 downto 0);
+			data_fwd_o : out STD_LOGIC_VECTOR (63 downto 0);
 
 			mem_data_i : in STD_LOGIC_VECTOR (63 downto 0);
 
@@ -277,7 +277,7 @@ architecture behavioral of RISCV is
 			enable_mem_i : in STD_LOGIC;
 			memory_busy_i : in STD_LOGIC;
 			cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
-
+ 
 			mem_write_i : in STD_LOGIC;
 			mem_write_o : out STD_LOGIC;
 			cache_line_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
@@ -311,16 +311,17 @@ architecture behavioral of RISCV is
 
 			fcsr_i : in STD_LOGIC_VECTOR (7 downto 0);
 			pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-			VGA_RGB_o : out STD_LOGIC_VECTOR (11 downto 0));
+			rgb_o : out STD_LOGIC_VECTOR (11 downto 0));
 	end component VGA;
 
-	signal pipeline_stall, pipeline_stall_if, pipeline_stall_id, load_hazard, exception, cpu_enable, float : STD_LOGIC := '0';
+	signal pipeline_stall, pipeline_stall_if, pipeline_stall_id : STD_LOGIC := '0';
+	signal load_hazard, exception, cpu_enable : STD_LOGIC := '0';
 	signal multicycle_op, r4_type, miss_instr, miss_data, id_flush : STD_LOGIC;
 
 	signal mem_init, mem_write_execute, mem_write_lsu, mem_write, mem_read : STD_LOGIC;
 
 	signal x_fwd, y_fwd, result_fwd, result_fp_fwd, x, y, reg_src1_data, reg_src2_data : STD_LOGIC_VECTOR (63 downto 0);
-	signal X_fwd_fp, Y_fwd_fp, Z_fwd_fp, Data_fwd : STD_LOGIC_VECTOR (63 downto 0);
+	signal x_fwd_fp, y_fwd_fp, z_fwd_fp, data_fwd : STD_LOGIC_VECTOR (63 downto 0);
 	signal UART_data : STD_LOGIC_VECTOR (3 downto 0);
 
 	signal alu_operator : ALU_OP;
@@ -332,7 +333,7 @@ architecture behavioral of RISCV is
 
 	signal imm : STD_LOGIC_VECTOR (63 downto 0);
 
-	signal pc_src, imm_src, ctrl_flow : STD_LOGIC;
+	signal pc_src, imm_src, ctrl_flow, float : STD_LOGIC;
 
 	signal fp_op : STD_LOGIC_VECTOR (6 downto 0);
 
@@ -342,7 +343,7 @@ architecture behavioral of RISCV is
 	signal reg_src1, reg_src2, reg_src3, reg_dst_execute : STD_LOGIC_VECTOR (4 downto 0);
 	signal reg_write, reg_write_fp, reg_src1_valid, reg_src2_valid : STD_LOGIC := '0';
 
-	signal fp_regs_IDEX : FP_IDEX;
+	signal fp_regs_idex : FP_IDEX;
 	signal reg_dst_memory, reg_dst, reg_dst_fp : REG;
 	signal csr_write_execute, csr_write_memory, csr_write, csr_fwd : CSR;
 	signal mpc, data : STD_LOGIC_VECTOR (63 downto 0);
@@ -425,17 +426,17 @@ begin
 		branch_predict_i => branch_predict_id,
 		branch_predict_o => branch_predict,
 
-		X_i => X_fwd,
-		Y_i => Y_fwd,
+		x_i => x_fwd,
+		y_i => y_fwd,
 
-		X_o => X,
-		Y_o => Y,
+		x_o => x,
+		y_o => y,
 
-		X_fp_i => X_fwd_fp,
-		Y_fp_i => Y_fwd_fp,
-		Z_fp_i => Z_fwd_fp,
+		x_fp_i => x_fwd_fp,
+		y_fp_i => y_fwd_fp,
+		z_fp_i => z_fwd_fp,
 
-		fp_regs_IDEX_o => fp_regs_IDEX,
+		fp_regs_idex_o => fp_regs_idex,
 
 		reg_write_o => reg_write,
 
@@ -492,15 +493,15 @@ begin
 		branch_predict_i => branch_predict,
 		branch_info_o => branch_inf,
 
-		fp_regs_IDEX_i => fp_regs_IDEX,
+		fp_regs_idex_i => fp_regs_idex,
 
 		csr_i => csr_write_execute,
 		csr_o => csr_write_memory,
 		csr_data_i => csr_data,
 		csr_fwd_o => csr_fwd,
 
-		X_i => X,
-		Y_i => Y,
+		X_i => x,
+		Y_i => y,
 
 		result_fwd_o => result_fwd,
 		result_fp_fwd_o => result_fp_fwd
@@ -521,7 +522,7 @@ begin
 		reg_dst_i => reg_dst_memory,
 		reg_dst_o => reg_dst,
 
-		Data_fwd_o => Data_fwd,
+		data_fwd_o => data_fwd,
 
 		mem_data_i => mem_data,
 		csr_i => csr_write_memory,
@@ -647,43 +648,47 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		hsync_o => hsync_o,
-		vsync_o => vsync_o,
+
 
 		pc_i => mpc,
 		fcsr_i => fcsr,
 		registers_i => registers,
 		registers_fp_i => registers_fp,
-
-		VGA_RGB_o => VGA_RGB_o
+		
+		hsync_o => hsync_o,
+		vsync_o => vsync_o,
+	    rgb_o => rgb_o
 	);
 
-	ANODE_ENABLE : process (clk_i)
-	begin
-		if rising_edge(clk_i) then
-			if rst_i = '1' then
-				anode <= '1';
-				counter <= (others => '0');
-				else
-				if counter = REFRESH_RATE then
-					anode <= not anode;
-					counter <= (others => '0');
-					else
-					counter <= counter + 1;
-				end if;
-			end if;
-		end if;
-	end process;
-
-	read_address <= read_address_instr when miss_instr = '1' else
-	read_address_data;
+    ANODE_ENABLE : process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_i = '1' then
+                anode <= '1';
+                counter <= (others => '0');
+            else
+                if counter = REFRESH_RATE then
+                    anode <= not anode;
+                    counter <= (others => '0');
+                else
+                    counter <= counter + 1;
+                end if;
+            end if;
+        end if;
+    end process;
 
 	exception <= nand exception_num;
-	with exception_num select cathode <= "1000000" when "0000",
-	"0100100" when "0010",
-	"0110000" when "0011",
-	"0000000" when "1000",
-	"1111111" when others;
+	
+	with exception_num select 
+	   cathode <= "1000000" when "0000",
+	              "0100100" when "0010",
+	              "0110000" when "0011",
+	              "0000000" when "1000",
+	              "1111111" when others;
+	
+    read_address <= read_address_instr when miss_instr = '1' else
+                    read_address_data;
+	
 	-- HAZARD AND STALL CHECK  
 	load_hazard <= '1' when mem_read = '1' and (x_fwd_ex = '1' or y_fwd_ex = '1') else '0';
 
@@ -699,32 +704,32 @@ begin
 	x_fwd_wb <= '1' when reg_src1 = reg_dst.dest and reg_src1_valid = '1' and reg_dst.write = '1' else '0';
 
 	x_fwd <= result_fwd when x_fwd_ex = '1' else
-	data_fwd when x_fwd_mem = '1' else
-	reg_dst.data when x_fwd_wb = '1' else
-	registers(to_integer(unsigned(reg_src1)));
+	         data_fwd when x_fwd_mem = '1' else
+	         reg_dst.data when x_fwd_wb = '1' else
+	         registers(to_integer(unsigned(reg_src1)));
 
 	y_fwd_ex <= '1' when reg_src2 = reg_dst_execute and reg_src2_valid = '1' and reg_write = '1' else '0';
 	y_fwd_mem <= '1' when reg_src2 = reg_dst_memory.dest and reg_src2_valid = '1' and reg_dst_memory.write = '1' else '0';
 	y_fwd_wb <= '1' when reg_src2 = reg_dst.dest and reg_src2_valid = '1' and reg_dst.write = '1' else '0';
 
-	Y_fwd <= result_fwd when y_fwd_ex = '1' else
-	data_fwd when y_fwd_mem = '1' else
-	reg_dst.data when Y_fwd_wb = '1' else
-	registers(to_integer(unsigned(reg_src2)));
+	y_fwd <= result_fwd when y_fwd_ex = '1' else
+	         data_fwd when y_fwd_mem = '1' else
+	         reg_dst.data when Y_fwd_wb = '1' else
+	         registers(to_integer(unsigned(reg_src2)));
 
 	-- FORWARDING LOGIC FLOATING POINT
-	X_fwd_fp <= -- result_fp_fwd when reg_src1 = reg_dst_execute and fp_regs_IDEX.write = '1' else  
-	--Data_fwd when reg_src1 = reg_dst_memory.dest and reg_write_fp = '1' else  
+	x_fwd_fp <= -- result_fp_fwd when reg_src1 = reg_dst_execute and fp_regs_idex.write = '1' else  
+	--data_fwd when reg_src1 = reg_dst_memory.dest and reg_write_fp = '1' else  
 	--       reg_dst_fp.data when reg_src1 = reg_dst_fp.dest and reg_dst_fp.write = '1' else  
 	registers_fp(to_integer(unsigned(reg_src1)));
 
-	Y_fwd_fp <= -- result_fp_fwd when reg_src2 = reg_dst_execute and fp_regs_IDEX.write = '1' else  
-	--         Data_fwd when reg_src2 = reg_dst_memory.dest and reg_write_fp = '1' else  
+	y_fwd_fp <= -- result_fp_fwd when reg_src2 = reg_dst_execute and fp_regs_idex.write = '1' else  
+	--         data_fwd when reg_src2 = reg_dst_memory.dest and reg_write_fp = '1' else  
 	--         reg_dst_fp.data when reg_src2 = reg_dst_fp.dest and reg_dst_fp.write = '1' else  
 	registers_fp(to_integer(unsigned(reg_src2)));
 
-	Z_fwd_fp <= -- result_fp_fwd when reg_src3 = reg_dst_execute and fp_regs_IDEX.write = '1' else  
-	--         Data_fwd when reg_src3 = reg_dst_memory.dest and reg_write_fp = '1' else  
+	z_fwd_fp <= -- result_fp_fwd when reg_src3 = reg_dst_execute and fp_regs_idex.write = '1' else  
+	--         data_fwd when reg_src3 = reg_dst_memory.dest and reg_write_fp = '1' else  
 	--         reg_dst_fp.data when reg_src3 = reg_dst_fp.dest and reg_dst_fp.write = '1' else  
 	registers_fp(to_integer(unsigned(reg_src3)));
 

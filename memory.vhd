@@ -35,7 +35,7 @@ architecture behavioral of memory is
 begin
 
 	data_fwd <= mem_data_i when enable_mem_i = '1' else
-		reg_dst_i.data;
+		        reg_dst_i.data;
 
 	REGS : process (clk_i)
 	begin
