@@ -112,7 +112,7 @@ begin
     end process;
 
 	fflags_fi <= fflags_fi_sp when fp_precision_i = '0' else fflags_fi_dp;
-    fflags_if <= fflags_if_sp when fp_precision_i = '0' else fflags_if_dp;
+	fflags_if <= fflags_if_sp when fp_precision_i = '0' else fflags_if_dp;
 	fflags_ff <= fflags_ff_sp when fp_precision_i = '0' else fflags_ff_dp;
     
     FFLAGS_SELECT : process (fflags_fi, fflags_ff, fp_op_i)

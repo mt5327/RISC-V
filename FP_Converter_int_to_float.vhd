@@ -37,6 +37,8 @@ architecture behavioral of FP_Converter_int_to_float is
 	signal num : unsigned(P - 2 downto 0);
 	signal rounded_num : STD_LOGIC_VECTOR(P - 2 downto 0);
 
+	alias exp_result : STD_LOGIC_VECTOR (E-1 downto 0) is rounded_num(P - 2 downto P - £ - 1);
+
 	component rounder is
 		generic (SIZE : NATURAL);
 		port (
@@ -71,19 +73,20 @@ begin
     
 	SINGLE_PRECISION : if P = 32 generate
 		num <= int_exp & shifted_int_mantissa(30 downto 8) when mode_i(1) = '0' else
-		long_exp & shifted_long_mantissa(62 downto 40);
+		       long_exp & shifted_long_mantissa(62 downto 40);
 
 		round_bit <= shifted_int_mantissa(7) when mode_i(1) = '0' else
-		shifted_long_mantissa(39);
+		             shifted_long_mantissa(39);
 
 		sticky_bit <= or shifted_int_mantissa(6 downto 0) when mode_i(1) = '0' else
-		or shifted_long_mantissa(38 downto 0);
+	                  or shifted_long_mantissa(38 downto 0);
 	end generate;
 
 	DOUBLE_PRECISION : if P = 64 generate
 		num <= int_exp & shifted_int_mantissa(30 downto 0) & (20 downto 0 => '0') when mode_i(1) = '0' else
-		long_exp & shifted_long_mantissa(62 downto 11);
-		round_bit <= shifted_long_mantissa(10) and mode_i(1);
+		       long_exp & shifted_long_mantissa(62 downto 11);
+		
+	    round_bit <= shifted_long_mantissa(10) and mode_i(1);
 		sticky_bit <= (or shifted_long_mantissa(9 downto 0)) and mode_i(1);
 	end generate;
 
@@ -93,9 +96,10 @@ begin
 
 	result_o <= (63 downto P - 1 => sign) & rounded_num;
 
-	invalid <= and rounded_num(P - 2 downto P - E - 1);
-	overflow <= and rounded_num(P - 2 downto P - E - 1);
-	underflow <= (or rounded_num(P - 2 downto P - E - 1)) and inexact;
+	invalid <= and exp_result;
+	overflow <= and exp_result;
+	underflow <= (or exp_result) and inexact;
+	
 	inexact <= round_bit or sticky_bit;
 
 	fflags_o <= invalid & '0' & overflow & underflow & inexact;

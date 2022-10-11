@@ -102,7 +102,7 @@ begin
         if rising_edge(clk_i) then
             if rst_i = '1' then
                 state <= IDLE;
-                else
+            else
                 state <= next_state;
             end if;
         end if;
@@ -112,12 +112,14 @@ begin
     begin
         next_state <= state;
         case state is
-            when IDLE => if start_div = '1' then
-                next_state <= DIVIDE;
-        end if;
-        when DIVIDE => if counter = 0 then
-        next_state <= FINALIZE;
-    end if;
+            when IDLE => 
+                if start_div = '1' then
+                    next_state <= DIVIDE;
+                end if;
+        when DIVIDE => 
+            if counter = 0 then
+                next_state <= FINALIZE;
+            end if;
     when FINALIZE => next_state <= IDLE;
     when others => next_state <= IDLE;
     end case;
@@ -187,6 +189,7 @@ begin
                     if lda = '1' then
                         q <= qm;
                     end if;
+
                     if ldb = '1' then
                         qm <= q;
                     end if;
@@ -204,11 +207,11 @@ begin
     
     div_valid_o <= '1' when state = FINALIZE else '0';
     
-    with q_digit select a <=
-    q_digit(1 downto 0) when "000" | "001" | "010",
-    "11" when "101",
-    "10" when "110",
-    "00" when others;
+    with q_digit select
+        a <= q_digit(1 downto 0) when "000" | "001" | "010",
+             "11" when "101",
+             "10" when "110",
+             "00" when others;
     
     --     with q_digit select a <=
     --         "00" when "0000",
@@ -218,12 +221,12 @@ begin
     --         "10" when "1000",
     --         "--" when others;
     
-    with a select b <=
-    "11" when "00",
-    "00" when "01",
-    "01" when "10",
-    "10" when "11",
-    "00" when others;
+    with a select
+        b <= "11" when "00",
+             "00" when "01",
+             "01" when "10",
+             "10" when "11",
+             "00" when others;
     
     q_comp <= (not q) and k;
     
@@ -232,12 +235,12 @@ begin
     minus_one <= "000" & y & "00000" when sqrt = '0' else ("00" & qm) or append_one;
     minus_two <= "00" & y & "0" & "00000" when sqrt = '0' else ("0" & qm & "0") or append_two;
     
-    with q_digit select F <=
-    one when "001",
-    two when "010",
-    minus_one when "101",
-    minus_two when "110",
-    (others => '0') when others;
+    with q_digit select 
+        F <= one when "001",
+             two when "010",
+             minus_one when "101",
+             minus_two when "110",
+             (others => '0') when others;
     
     --       with q_digit select F <=
     --          minus_two when "0001",
@@ -246,8 +249,8 @@ begin
     --          two when "1000",
     --         (others => '0') when others;
     square_estimate <= "100" when counter = (M/2 + 1) else
-    "111" when q(q'left) = '1' else
-    q(q'left - 2 downto q'left - 4);
+                       "111" when q(q'left) = '1' else
+                       q(q'left - 2 downto q'left - 4);
     
     estimate <= square_estimate when sqrt = '1' else y(y'left - 1 downto y'left - 3);
     PR_new <= STD_LOGIC_VECTOR(unsigned(PR) + unsigned(F) + carry);

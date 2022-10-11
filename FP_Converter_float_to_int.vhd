@@ -94,24 +94,30 @@ begin
 		end if;
 	end process;
 
-	with mode_i select overflow_value <= (30 downto 0 => '1', others => '0') when "00",
-	(31 downto 0 => '1', others => '0') when "01",
-	(63 => '0', others => '1') when "10",
-	(others => '1') when others;
+	with mode_i select 
+		overflow_value <= (30 downto 0 => '1', others => '0') when "00",
+	                      (31 downto 0 => '1', others => '0') when "01",
+	                      (63 => '0', others => '1') when "10",
+	                      (others => '1') when others;
 
-	overflow_value_final <= not overflow_value when sign = '1' and fp_class.nan = '0' else overflow_value;
+	overflow_value_final <= not overflow_value when sign = '1' and fp_class.nan = '0' else 
+		                    overflow_value;
+	
 	mantissa <= fp_class.normal & unsigned(x_i(M - 2 downto 0)) & (64 downto 0 => '0');
 
 	mantissa_shifted <= shift_right(mantissa, to_integer(shamt));
-    process (clk_i)
+    
+	process (clk_i)
     begin
         if rising_edge(clk_i) then
             mantissa_shifted_reg <= mantissa_shifted;
         end if;
     end process;
+	
 	round_sticky <= mantissa_shifted_reg(M) & (or mantissa_shifted_reg(M - 1 downto 0));
 
 	ROUNDING : rounder generic map(64) port map(mantissa_shifted_reg(mantissa_shifted_reg'left downto M + 1), sign, rm_i, round_sticky, int);
+	
 	result <= overflow_value_final when overflow else int;
     result_o <= result;
 end behavioral;

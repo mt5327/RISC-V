@@ -54,16 +54,16 @@ begin
 
 	num <= exp_sp & mantissa_sp;
 
-	ROUND : rounder generic map(num'length)
-	port map(num, x_i(63), rm_i, x_i(28) & sticky_bit, rounded_num);
+	ROUND : rounder generic map(num'length) port map(num, x_i(63), rm_i, x_i(28) & sticky_bit, rounded_num);
 
 	result_o <= (63 downto 31 => x_i(63)) & STD_LOGIC_VECTOR(rounded_num) when fp_class.nan = '0' else
-		(30 downto 22 => '1', others => '0');
+		        (30 downto 22 => '1', others => '0');
 
 	overflow <= (not fp_class.inf) and (and rounded_num(30 downto 23));
 	underflow <= or rounded_num(30 downto 23);
 	inexact <= x_i(28) or sticky_bit or overflow;
+
 	fflags_o <= "00" & overflow & underflow & inexact when fp_class.nan = '0' else
-		fp_class.signaling_nan & "0000";
+		        fp_class.signaling_nan & "0000";
 
 end behavioral;

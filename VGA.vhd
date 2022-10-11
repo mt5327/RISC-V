@@ -156,7 +156,7 @@ begin
 				if counter = 3 then
 					counter <= "00";
 					pixel_clk <= '1';
-					else
+				else
 					counter <= counter + 1;
 					pixel_clk <= '0';
 				end if;
@@ -176,10 +176,10 @@ begin
 						hcount <= (others => '0');
 						if vcount = TV - 1 then
 							vcount <= (others => '0');
-							else
+						else
 							vcount <= vcount + 1;
 						end if;
-						else
+					else
 						hcount <= hcount + 1;
 					end if;
 				end if;
@@ -192,7 +192,7 @@ begin
 		if rising_edge(clk_i) then
 			if hcount < HDT + HFP or hcount >= HDT + HFP + HSP then
 				hsync_reg <= '1';
-				else
+			else
 				hsync_reg <= '0';
 			end if;
 		end if;

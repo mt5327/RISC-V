@@ -41,7 +41,7 @@ begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				state <= IDLE;
-				else
+			else
 				state <= next_state;
 			end if;
 		end if;
@@ -96,12 +96,13 @@ begin
 	b <= remainder - estimated_divisor_div_2;
 
 	new_q <= quotient or q_bit2 when a(a'left) = '1' else
-	quotient or q_bit1;
+	         quotient or q_bit1;
 
 	new_r <= b when a(a'left) = '1' else
 	         a(63 downto 0);
 
 	div_by_zero <= (and clz_r) and (not x(0));
+	
 	terminate <= '1' when remainder < divisor else '0';
 
 	DIVISION : process (clk_i)

@@ -67,7 +67,7 @@ begin
 			if rst_i = '1' then
 				state <= CHECK;
 				mem_write_o <= '0';
-				else
+			else
 				state <= next_state;
 				mem_write_o <= mem_write;
 			end if;
@@ -104,9 +104,10 @@ begin
 				end if;
 			when WRITE_BACK => mem_write <= '1';
 			when WRITE_ALLOCATE => WriteAllocate <= '1';
-			when others => mem_write <= '0';
+			when others => 
+				mem_write <= '0';
 				WriteAllocate <= '0';
-				cache_write <= '0';
+				scache_write <= '0';
 		end case;
 	end process;
 
@@ -116,7 +117,7 @@ begin
 			if rst_i = '1' then
 				valid <= (others => '0');
 				dirty <= (others => '0');
-				else
+			else
 				if cache_write = '1' then
 					for i in 0 to 7 loop
 						if cache_req_i.we(i) = '1' then

@@ -158,8 +158,13 @@ begin
 	sgnj_out <= '1' when fp_op_i = FPU_SGNJ else '0';
 	result_sgnj <= fp_sgnj when sgnj_out = '1' else (others => '0');
 
-	with fp_op_i select enable_fma <= '1' when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, '0' when others;
-	with fp_op_i select enable_div_sqrt <= '1' when FPU_DIV | FPU_SQRT, '0' when others;
+	with fp_op_i select enable_fma <= 
+		'1' when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
+		'0' when others;
+	
+	with fp_op_i select enable_div_sqrt <= '1' 
+		when FPU_DIV | FPU_SQRT, '0' 
+		when others;
 
 	MUX_RESULT_FP_OUTPUT : process (result_cvt, fp_op_i)
 	begin

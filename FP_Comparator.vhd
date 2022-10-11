@@ -90,7 +90,7 @@ begin
 
 	with fp_op_i select
 		result_o <= min_max_result when FPU_MINMAX,
-		(0 => cmp, others => '0') when FPU_CMP,
-		(others => '0') when others;
+			        (0 => cmp, others => '0') when FPU_CMP,
+		            (others => '0') when others;
 
 end behavioral;

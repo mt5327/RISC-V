@@ -54,12 +54,12 @@ begin
 
 	with op_i select
 		is_sub <= '1' when ALU_SUB | ALU_SUBW,
-		'0' when others;
+		          '0' when others;
 
 	with op_i select
 		is_signed <= '1' when ALU_SLT | ALU_LT | ALU_GE,
-		'0' when others;
-
+		             '0' when others;
+ 
 	x <= x_i & '1';
 	y <= (y_i & '0') xor (64 downto 0 => is_sub);
 	add_sub_r <= STD_LOGIC_VECTOR(unsigned(x) + unsigned(y));
@@ -68,11 +68,9 @@ begin
 	or_r <= x_i or y_i;
 	and_r <= x_i and y_i;
 
-	eq_r <= '1' when x_i = y_i else
-		'0';
+	eq_r <= '1' when x_i = y_i else '0';
 
-	lt_r <= '1' when signed((x_i(63) and is_signed) & x_i) < signed((y_i(63) and is_signed) & y_i) else
-		'0';
+	lt_r <= '1' when signed((x_i(63) and is_signed) & x_i) < signed((y_i(63) and is_signed) & y_i) else '0';
 
 	CMP_OUTPUT : process (op_i, eq_r, lt_r)
 	begin

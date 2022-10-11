@@ -7,7 +7,7 @@ use work.constants.all;
 entity fetch is
 	generic (
 		ADDRESS_WIDTH : NATURAL := 14;
-		BHT_INDEX_WIDTH : NATURAL := 2);
+		BHT_INDEX_WIDTH : NATURAL := ADDRESS_WIDTH);
 	port (
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;

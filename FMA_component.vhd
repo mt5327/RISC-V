@@ -394,19 +394,19 @@ begin
 	end process;
 
 	s <= unsigned(-signed(mantissa_sum_reg)) when ((not effective_substraction_reg) and sum_carry) = '1' else
-		mantissa_sum_reg;
+		 mantissa_sum_reg;
 
 	exponent_pa <= exponent_p_reg - resize(lz_counter_reg, exponent_p'length);
 
 	norm_shamt_pa <= to_unsigned(M + 2, norm_shamt_pa'length) + resize(lz_counter_reg, norm_shamt_pa'length);
 
 	exp <= (others => '0') when is_product_anchored_reg = '1' and exponent_pa(exponent_pa'left) = '1' else
-		exponent_pa(E - 1 downto 0) when is_product_anchored_reg = '1' else
-		exponent_tent_reg(E - 1 downto 0);
+		   exponent_pa(E - 1 downto 0) when is_product_anchored_reg = '1' else
+		   exponent_tent_reg(E - 1 downto 0);
 
 	norm_shamt <= norm_shamt_pa when (is_product_anchored_reg and (not exponent_pa(exponent_pa'left))) = '1' else
-		norm_shamt_subnormal_reg when is_product_anchored = '1' else
-		add_shamt_reg;
+		          norm_shamt_subnormal_reg when is_product_anchored = '1' else
+		          add_shamt_reg;
 
 	mantissa <= shift_left(s, to_integer(norm_shamt));
 	--NORMALIZATION: normalizer generic map (s'length) port map (s_reg, norm_shamt, mantissa);
@@ -434,13 +434,15 @@ begin
 			end if;
 		end if;
 	end process;
+
 	ROUNDING : rounder generic map(P - 1) port map(exp_fin & mantissa_final(M - 1 downto 1), sign_reg, rm, mantissa_final(0) & '0', rounded_num);
 
 	underflow <= (nor rounded_num(rounded_num'left downto M - 1)) and inexact;
 	overflow <= and rounded_num(rounded_num'left downto M - 1);
 	inexact <= mantissa_final(0) or '0' or overflow;
 
-	result <= sign_reg & rounded_num when special_case = '0' else special_value;
+	result <= sign_reg & rounded_num when special_case = '0' else 
+		      special_value;
 
 	result_o <= result_reg;
 	process (clk_i) begin
@@ -448,9 +450,11 @@ begin
 			result_reg <= result;
 		end if;
 	end process;
+	
 	fflags_o <= "00" & overflow & underflow & inexact when special_case = '0' else
-		invalid & "0000";
+		        invalid & "0000";
 
-	fp_valid_o <= '1' when state = FINALIZE else '0';
+	fp_valid_o <= '1' when state = FINALIZE else 
+		          '0';
 
 end behavioral;
