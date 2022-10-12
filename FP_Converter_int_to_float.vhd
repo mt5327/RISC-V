@@ -37,7 +37,7 @@ architecture behavioral of FP_Converter_int_to_float is
 	signal num : unsigned(P - 2 downto 0);
 	signal rounded_num : STD_LOGIC_VECTOR(P - 2 downto 0);
 
-	alias exp_result : STD_LOGIC_VECTOR (E-1 downto 0) is rounded_num(P - 2 downto P - £ - 1);
+	alias exp_result : STD_LOGIC_VECTOR (E-1 downto 0) is rounded_num(P - 2 downto P - E - 1);
 
 	component rounder is
 		generic (SIZE : NATURAL);

@@ -50,6 +50,7 @@ architecture behavioral of FPU is
 	component FP_Converter is
 		port (
 			clk_i : in STD_LOGIC;
+			rst_i : in STD_LOGIC;
 			fp_precision_i : in STD_LOGIC;
 			fp_op_i : in FPU_OP;
 			mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -125,6 +126,7 @@ begin
 	FP_CVT : FP_Converter
 	port map(
 		clk_i => clk_i,
+		rst_i => rst_i,
 		fp_precision_i => fp_precision_i,
 		fp_op_i => fp_op_i,
 		mode_i => z_i(1 downto 0),

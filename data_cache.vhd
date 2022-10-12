@@ -107,7 +107,7 @@ begin
 			when others => 
 				mem_write <= '0';
 				WriteAllocate <= '0';
-				scache_write <= '0';
+				cache_write <= '0';
 		end case;
 	end process;
 
