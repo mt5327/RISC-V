@@ -64,6 +64,6 @@ begin
 	inexact <= x_i(28) or sticky_bit or overflow;
 
 	fflags_o <= "00" & overflow & underflow & inexact when fp_class.nan = '0' else
-		        fp_class.signaling_nan & "0000";
+		         fp_class.signaling_nan & "0000";
 
 end behavioral;

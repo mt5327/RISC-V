@@ -16,8 +16,8 @@ end mul_dsp_unsigned;
 
 architecture behavioral of mul_dsp_unsigned is
 
-	signal X : unsigned(X_SIZE - 1 downto 0);
-	signal Y : unsigned(Y_SIZE - 1 downto 0);
+	signal x : unsigned(X_SIZE - 1 downto 0);
+	signal y : unsigned(Y_SIZE - 1 downto 0);
 
 	signal product : unsigned(X_SIZE + Y_SIZE - 1 downto 0);
 	attribute USE_DSP : STRING;
@@ -29,10 +29,10 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			if enable_i = '1' then
-				X <= x_i;
-				Y <= y_i;
+				x <= x_i;
+				y <= y_i;
 		    end if;
-		    product <= X * Y;
+		    product <= x * y;
 		end if;
 	end process;
 

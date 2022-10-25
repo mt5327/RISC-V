@@ -22,15 +22,13 @@ begin
 
 	registers_o <= registers;
 
-	reg_write <= reg_dst_i.write and (or reg_dst_i.dest);
-
 	REGISTER_WRITE : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' or cpu_enable_i = '0' then
 				registers <= (others => (others => '0'));
 			else
-				if reg_write = '1' then
+				if reg_dst_i.write = '1' then
 					registers(to_integer(unsigned(reg_dst_i.dest))) <= reg_dst_i.data;
 				end if;
 			end if;

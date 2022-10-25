@@ -23,7 +23,7 @@ entity data_cache is
 
 		cache_line_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 		read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
-
+ 
 		write_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
 		data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 		data_o : out STD_LOGIC_VECTOR (63 downto 0);
@@ -46,21 +46,21 @@ architecture behavioral of data_cache is
 	signal dirty : STD_LOGIC_VECTOR (2 ** INDEX_WIDTH - 1 downto 0) := (others => '0');
 
 	signal miss : STD_LOGIC := '0';
-	signal mem_write, cache_write, WriteAllocate : STD_LOGIC := '0';
+	signal mem_write, cache_write, write_alloc : STD_LOGIC := '0';
 
 	alias tag : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0) is cache_req_i.MAR(ADDRESS_WIDTH - 1 downto INDEX_WIDTH + OFFSET_WIDTH);
 	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(ADDRESS_WIDTH - 1 downto OFFSET_WIDTH);
 
 	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH - 1 downto OFFSET_WIDTH);
-	signal cache_offset : INTEGER range 0 to 64 * OFFSET_WIDTH-3;
+	signal cache_offset : INTEGER range 0 to 64 * (OFFSET_WIDTH-2);
 
 	type state_type is (CHECK, WRITE_BACK, WRITE_ALLOCATE);
 	signal state, next_state : state_type := CHECK;
 
 begin
 
-	cache_offset <= to_integer(unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 0))) * 64;
-
+    cache_offset <= to_integer(unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 3)) & "000000");
+    
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
@@ -96,17 +96,17 @@ begin
 	begin
 		mem_write <= '0';
 		cache_write <= '0';
-		WriteAllocate <= '0';
+		write_alloc <= '0';
 		case state is
 			when CHECK =>
 				if miss = '0' and mem_write_i = '1' then
 					cache_write <= '1';
 				end if;
 			when WRITE_BACK => mem_write <= '1';
-			when WRITE_ALLOCATE => WriteAllocate <= '1';
+			when WRITE_ALLOCATE => write_alloc <= '1';
 			when others => 
 				mem_write <= '0';
-				WriteAllocate <= '0';
+				write_alloc <= '0';
 				cache_write <= '0';
 		end case;
 	end process;
@@ -125,7 +125,7 @@ begin
 						end if;
 					end loop;
 					dirty(to_integer(unsigned(block_address))) <= '1';
-					elsif WriteAllocate = '1' then
+				elsif write_alloc = '1' then
 					valid(to_integer(unsigned(block_address))) <= '1';
 					dirty(to_integer(unsigned(block_address))) <= '0';
 					tags(to_integer(unsigned(block_address))) <= tag;
@@ -134,11 +134,13 @@ begin
 			end if;
 		end if;
 	end process;
+	
+	
 
-	CHECK_MISS : process (state, valid, tag, tags, block_address)
+	CHECK_MISS : process (valid, tag, tags, block_address)
 	begin
 		miss <= '1';
-		if state = CHECK and valid(to_integer(unsigned(block_address))) = '1' and
+		if valid(to_integer(unsigned(block_address))) = '1' and
 			(tag xor tags(to_integer(unsigned(block_address)))) = (TAG_BITS - 1 downto 0 => '0') then
 			miss <= '0';
 		end if;

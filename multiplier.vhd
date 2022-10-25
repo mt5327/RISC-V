@@ -72,6 +72,7 @@ begin
 	                  '0' when others;
 	
 	y_is_signed <= '1' when op_i = ALU_MULH else '0';
+	
 	start_mul <= '1' when state = IDLE and enable_i = '1' else '0';
 
 	SYNC_PROC : process (clk_i)
@@ -98,7 +99,7 @@ begin
 		end case;
 	end process;
 
-	x <= signed((x_i(x_i'left) and x_is_signed) & x_i) when enable_i else 
+	x <= signed((x_i(x_i'left) and x_is_signed) & x_i) when enable_i else
 	     (others => '0');
 	
 	y <= signed((y_i(y_i'left) and y_is_signed) & y_i) when enable_i else 

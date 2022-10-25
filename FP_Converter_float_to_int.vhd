@@ -10,7 +10,6 @@ entity FP_Converter_float_to_int is
 		E : NATURAL;
 		M : NATURAL);
 	port (
-		clk_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -29,11 +28,9 @@ architecture behavioral of FP_Converter_float_to_int is
 
 	alias sign : STD_LOGIC is x_i(P - 1);
 
-	signal rounded_int, rounded_int_underflow : STD_LOGIC_VECTOR (63 downto 0);
+	signal int, rounded_int : STD_LOGIC_VECTOR (63 downto 0);
 	signal exponent : signed (E - 1 downto 0);
-	signal sticky_bit, inexact, underflow, no_rounding, sgnj_out : STD_LOGIC;
-	signal result, int : STD_LOGIC_VECTOR (63 downto 0);
-	signal overflows : STD_LOGIC_VECTOR (3 downto 0);
+	signal sticky_bit : STD_LOGIC;
 
 	component FP_Classifier is
 		generic (
@@ -64,12 +61,12 @@ architecture behavioral of FP_Converter_float_to_int is
 			z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
 	end component rounder;
 
-	signal less_than_one, overflow : STD_LOGIC;
+	signal less_than_one, overflow, underflow : STD_LOGIC;
 	signal overflow_value, overflow_value_final : STD_LOGIC_VECTOR(63 downto 0);
 	signal fp_class : FP_INFO;
 	signal shamt, normal_shamt : unsigned(6 downto 0);
 	signal mantissa : unsigned(64 + M downto 0);
-	signal mantissa_shifted, mantissa_shifted_reg : unsigned(64 + M downto 0);
+	signal mantissa_shifted : unsigned(64 + M downto 0);
 	signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
 	constant MAX_SHIFT : unsigned(6 downto 0) := to_unsigned(65, shamt'length);
@@ -81,7 +78,8 @@ begin
 	exponent <= signed(exp) - BIAS;
 	normal_shamt <= unsigned(63 - resize(exponent, 7));
 
-	less_than_one <= '1' when exponent <- 1 else '0';
+	less_than_one <= '1' when exponent < - 1 else '0';
+
 	overflow <= '1' when exponent >= INT_WIDTHS(to_integer(unsigned(mode_i))) else '0';
 
 	SHIFT_AMOUNT : process (normal_shamt, overflow, less_than_one)
@@ -104,20 +102,12 @@ begin
 		                    overflow_value;
 	
 	mantissa <= fp_class.normal & unsigned(x_i(M - 2 downto 0)) & (64 downto 0 => '0');
-
 	mantissa_shifted <= shift_right(mantissa, to_integer(shamt));
-    
-	process (clk_i)
-    begin
-        if rising_edge(clk_i) then
-            mantissa_shifted_reg <= mantissa_shifted;
-        end if;
-    end process;
-	
-	round_sticky <= mantissa_shifted_reg(M) & (or mantissa_shifted_reg(M - 1 downto 0));
+	round_sticky <= mantissa_shifted(M) & (or mantissa_shifted(M - 1 downto 0));
 
-	ROUNDING : rounder generic map(64) port map(mantissa_shifted_reg(mantissa_shifted_reg'left downto M + 1), sign, rm_i, round_sticky, int);
+	ROUNDING : rounder generic map(64) port map(mantissa_shifted(mantissa_shifted'left downto M + 1), sign, rm_i, round_sticky, int);
 	
-	result <= overflow_value_final when overflow else int;
-    result_o <= result;
+	result_o <= overflow_value when overflow = '1' else int;
+    fflags_o <= "10000" when overflow = '1' else "0000" & (or round_sticky);
+        
 end behavioral;

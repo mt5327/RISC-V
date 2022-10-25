@@ -46,14 +46,14 @@ begin
 	check_miss <= '1' when state = CHECK else '0';
 	we <= '1' when state = WRITE_TO_CACHE else '0';
 
-	miss <= cache(to_integer(unsigned(block_address)))(CACHE_SET_SIZE) and tag_eq and check_miss;
+	miss <= not ( cache(to_integer(unsigned(block_address)))(CACHE_SET_SIZE) and tag_eq and check_miss );
 
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				state <= CHECK;
-				else
+			else
 				state <= next_state;
 			end if;
 		end if;
@@ -78,7 +78,7 @@ begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				cache <= (others => (others => '0'));
-				else
+			else
 				if we = '1' then
 					cache(to_integer(unsigned(block_address))) <= '1' & tag & data_i;
 				end if;

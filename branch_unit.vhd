@@ -33,17 +33,18 @@ begin
 	
 	BRANCH_INFO : process (ctrl_flow_i, alu_cmp_i, branch_predict_i.cf_type, mispredict, pc_i, target_address)
 	begin
+		branch_info_o.target_address <= (others => '0');
+		branch_info_o.pc <= (others => '0');
 		branch_info_o.taken <= '0';
 		branch_info_o.mispredict <= '0';
-		branch_info_o.pc <= (others => '0');
-		branch_info_o.target_address <= (others => '0');
 		if ctrl_flow_i = '1' then
 			branch_info_o.target_address <= target_address;
+			branch_info_o.pc <= pc_i(BHT_INDEX_WIDTH + 2 - 1 downto 2);
 			branch_info_o.taken <= alu_cmp_i;
 			branch_info_o.mispredict <= mispredict;
-			branch_info_o.pc <= pc_i(BHT_INDEX_WIDTH + 2 - 1 downto 2);
 		end if;
 	end process;
+	
 	branch_info_o.valid <= ctrl_flow_i;
 
 end behavioral;

@@ -9,16 +9,14 @@ entity memory is
 		rst_i : in STD_LOGIC;
 
 		pipeline_stall_i : in STD_LOGIC;
-		enable_mem_i : in STD_LOGIC;
-
+        mem_read_i : in STD_LOGIC;
 		reg_dst_i : in REG;
-
+        
 		reg_write_fp_i : in STD_LOGIC;
-
-		data_fwd_o : out STD_LOGIC_VECTOR (63 downto 0);
-
+        result_fp_i : in STD_LOGIC_VECTOR (63 downto 0);
+        
 		mem_data_i : in STD_LOGIC_VECTOR (63 downto 0);
-
+       
 		reg_dst_o : out REG;
 		reg_dst_fp_o : out REG;
 
@@ -28,14 +26,14 @@ end memory;
 
 architecture behavioral of memory is
 
-	signal data_fwd : STD_LOGIC_VECTOR (63 downto 0);
+	signal data, data_fp : STD_LOGIC_VECTOR (63 downto 0);
 	signal csr : CSR := ('0', X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
 	signal reg_dst, reg_dst_fp : REG;
 
 begin
 
-	data_fwd <= mem_data_i when enable_mem_i = '1' else
-		        reg_dst_i.data;
+    data <= mem_data_i when mem_read_i else reg_dst_i.data;
+	data_fp <= mem_data_i when mem_read_i else result_fp_i;
 
 	REGS : process (clk_i)
 	begin
@@ -44,11 +42,11 @@ begin
 				reg_dst.write <= '0';
 			else
 				if pipeline_stall_i = '0' then
+					reg_dst.data <= data;
 					reg_dst.write <= reg_dst_i.write;
 					reg_dst.dest <= reg_dst_i.dest;
-					reg_dst.data <= data_fwd;
 				end if;
-			end if;
+ 			end if;
 		end if;
 	end process;
 
@@ -59,9 +57,9 @@ begin
 				reg_dst_fp.write <= '0';
 			else
 				if pipeline_stall_i = '0' then
+					reg_dst_fp.data <= data_fp;
 					reg_dst_fp.write <= reg_write_fp_i;
 					reg_dst_fp.dest <= reg_dst_i.dest;
-					reg_dst_fp.data <= data_fwd;
 				end if;
 			end if;
 		end if;
@@ -81,7 +79,7 @@ begin
 		end if;
 	end process;
 
-	data_fwd_o <= data_fwd;
+
 	reg_dst_o <= reg_dst;
 	reg_dst_fp_o <= reg_dst_fp;
 

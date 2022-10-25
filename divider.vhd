@@ -20,18 +20,18 @@ architecture behavioral of divider is
 
 	signal a : unsigned (64 downto 0); -- sign bit
 	signal quotient, new_q : STD_LOGIC_VECTOR (63 downto 0);
-	signal x, y, remainder, new_r, b, divisor : unsigned(63 downto 0);
-	signal normalized_divisor, estimated_divisor, estimated_divisor_div_2 : unsigned(63 downto 0);
-	signal is_signed, sign, div_out, div_by_zero, terminate : STD_LOGIC;
+	signal x, y, remainder, new_r, b : unsigned(63 downto 0);
+	signal normalized_divisor, estimated_divisor, estimated_divisor_div_2, divisor : unsigned(63 downto 0);
+	signal is_signed, sign, div_out, div_by_zero, terminate, div_valid : STD_LOGIC;
 
-	signal clz_r, clz_y, clz_delta : unsigned (5 downto 0);
+	signal clz_r, clz_y, clz_y_reg, clz_delta : unsigned (5 downto 0);
 
 	signal q_new, z : STD_LOGIC_VECTOR (63 downto 0);
 	signal q_bit1, q_bit2, result : STD_LOGIC_VECTOR (63 downto 0);
 
 	type state_type is (IDLE, DIVIDE, FINALIZE);
 	signal state, next_state : state_type;
-
+ 
 	constant NEW_BIT_MASK : STD_LOGIC_VECTOR(63 downto 0) := (0 => '1', others => '0');
 
 begin
@@ -80,16 +80,15 @@ begin
 	y <= unsigned(-signed(y_i)) when (y_i(y_i'left) and is_signed) = '1' else unsigned(y_i);
 
 	clz_r <= leading_zero_counter(remainder, clz_r'length);
-	clz_y <= leading_zero_counter(y, clz_y'length);
-
-	normalized_divisor <= shift_left(y, to_integer(clz_y));
+	clz_y <= leading_zero_counter(divisor, clz_y'length);
 
 	clz_delta <= clz_y - clz_r;
+    normalized_divisor <= shift_left(divisor, to_integer(clz_y));
 
 	q_bit1 <= STD_LOGIC_VECTOR(shift_left(unsigned(NEW_BIT_MASK), to_integer(clz_delta)));
 	q_bit2 <= '0' & q_bit1(63 downto 1);
 
-	estimated_divisor <= shift_right(divisor, to_integer(clz_r));
+	estimated_divisor <= shift_right(normalized_divisor, to_integer(clz_r));
 	estimated_divisor_div_2 <= '0' & estimated_divisor(63 downto 1);
 
 	a <= ('0' & remainder) - ('0' & estimated_divisor);
@@ -100,7 +99,10 @@ begin
 
 	new_r <= b when a(a'left) = '1' else
 	         a(63 downto 0);
-
+   with op_i select sign <=
+		(x_i(x_i'left) xor y_i(y_i'left)) and (or y_i) when ALU_DIV | ALU_DIVW, 
+		 x_i(x_i'left) when ALU_REM | ALU_REMW,
+			'0'	when others;
 	div_by_zero <= (and clz_r) and (not x(0));
 	
 	terminate <= '1' when remainder < divisor else '0';
@@ -111,14 +113,9 @@ begin
 			case state is
 				when IDLE =>
 					if enable_i = '1' then
-						quotient <= (others => '0');
 						remainder <= x;
-						divisor <= normalized_divisor;
-						case op_i is
-							when ALU_DIV | ALU_DIVW => sign <= (x_i(x_i'left) xor y_i(y_i'left)) and (or y_i);
-							when ALU_REM | ALU_REMW => sign <= x_i(x_i'left);
-							when others => sign <= '0';
-						end case;
+						quotient <= (others => '0');
+						divisor <= y;
 					end if;
 				when DIVIDE =>
 					if terminate = '0' then
@@ -135,8 +132,9 @@ begin
 
 	z <= STD_LOGIC_VECTOR(-signed(result)) when sign = '1' else
 	     result;
-
-	z_o <= z when enable_i = '1' else (others => '0');
-	div_valid_o <= '1' when state = FINALIZE else '0';
+	
+	z_o <= z when div_valid = '1' else (others => '0');
+    div_valid <= '1' when state = FINALIZE else '0';
+    div_valid_o <= div_valid;
 
 end behavioral;

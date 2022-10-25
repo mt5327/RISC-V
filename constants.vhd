@@ -10,7 +10,7 @@ type ALU_OP is
       ALU_XOR, ALU_OR, ALU_AND, -- Logical operators
       ALU_SLL, ALU_SLLW, ALU_SRL, ALU_SRLW, ALU_SRA, ALU_SRAW, -- Shifts
       ALU_MUL, ALU_MULW, ALU_MULH, ALU_MULHSU, ALU_MULHU, -- Multiplication
-      ALU_DIV, ALU_DIVW, ALU_DIVU, ALU_DIVUW, ALU_REM, ALU_REMW, ALU_REMU, ALU_REMUW ); -- Division
+      ALU_DIV, ALU_DIVW, ALU_DIVU, ALU_DIVUW, ALU_REM, ALU_REMW, ALU_REMU, ALU_REMUW); -- Division
 
 type FPU_OP is 
     ( FPU_ADD, FPU_SUB, FPU_MUL, FPU_DIV, FPU_SQRT,
@@ -161,7 +161,6 @@ end record;
 
 type MEMORY_REQUEST is record
     enable_mem : STD_LOGIC;
-    MAR : STD_LOGIC_VECTOR;
     MDR : STD_LOGIC_VECTOR (63 downto 0);    
     MEMOp : MEM_OP;
 end record;
@@ -201,6 +200,18 @@ type FP_RESULT is record
     valid : STD_LOGIC;
 end record;
 
+type FP_FORMAT is record
+    P : NATURAL;
+    E : NATURAL;
+    M : NATURAL;
+end record;
+
+type fp_formats_array is array(0 to 1) of FP_FORMAT;
+constant FP_FORMATS : fp_formats_array := (
+    (32, 8, 24),
+    (64, 11, 53)
+);
+
 type fp_infos_t is array (natural range <>) of FP_INFO;
 
 function num_bits(size : natural) return natural;
@@ -218,7 +229,7 @@ package body constants is
 
 function num_bits(size : natural) return natural is
 begin
-    for i in 0 to size-1 loop
+    for i in 0 to 31 loop
         if 2**i >= size then
             return i;
         end if;

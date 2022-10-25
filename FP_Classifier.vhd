@@ -28,4 +28,4 @@ begin
 	fp_class_o.signaling_nan <= (and exp) and x_i(M - 2) and (nor x_i(M - 3 downto 0));
 	fp_class_o.quiet_nan <= (and exp) and (or man) and (not x_i(M - 2) or (or x_i(M - 3 downto 0)));
 
-end behavioral;
+end behavioral; 
