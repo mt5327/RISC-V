@@ -43,7 +43,6 @@ architecture behavioral of RISCV is
 
 			cpu_enable_i : in STD_LOGIC;
 			pipeline_stall_i : in STD_LOGIC;
-
 			branch_info_i : in BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 			IR_i : in STD_LOGIC_VECTOR(31 downto 0);
 			instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 3 downto 0);
@@ -94,7 +93,7 @@ architecture behavioral of RISCV is
             reg_dst_i : in REG;
             reg_dst_fp_i : in REG;
             
-            reg_wb_i : in STD_LOGIC_VECTOR (4 downto 0);
+            reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
             x_o : out STD_LOGIC_VECTOR (63 downto 0);
             y_o : out STD_LOGIC_VECTOR (63 downto 0);
         
@@ -428,11 +427,14 @@ begin
 		fp_regs_idex_o => fp_regs_idex,
 
 		reg_write_o => reg_write,
-        reg_wb_i => reg_dst.dest,
+        reg_mem_i => reg_dst_memory.dest,
 		reg_src3_o => reg_src3,
 
         reg_cmp1_mem_o => reg_cmp1_mem,
         reg_cmp1_wb_o => reg_cmp1_wb,
+    
+        rs1_valid_o => reg_src1_valid,
+        rs2_valid_o => reg_src2_valid,
     
         reg_cmp2_mem_o => reg_cmp2_mem,
         reg_cmp2_wb_o => reg_cmp2_wb,             

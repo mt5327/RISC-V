@@ -41,7 +41,7 @@ begin
 			branch_info_o.target_address <= target_address;
 			branch_info_o.pc <= pc_i(BHT_INDEX_WIDTH + 2 - 1 downto 2);
 			branch_info_o.taken <= alu_cmp_i;
-			branch_info_o.mispredict <= mispredict;
+			branch_info_o.mispredict <= mispredict and alu_cmp_i;
 		end if;
 	end process;
 	

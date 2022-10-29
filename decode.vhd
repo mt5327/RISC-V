@@ -46,7 +46,7 @@ entity decode is
 		reg_dst_i : in REG;
 		reg_dst_fp_i : in REG;
 		
-		reg_wb_i : in STD_LOGIC_VECTOR (4 downto 0);
+		reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
 		x_o : out STD_LOGIC_VECTOR (63 downto 0);
 	    y_o : out STD_LOGIC_VECTOR (63 downto 0);
     
@@ -366,10 +366,10 @@ begin
     end process;
 
     reg_cmp1_mem <= '1' when reg_src1 = reg_dst else '0';
-    reg_cmp1_wb <= '1' when reg_src1 = reg_wb_i else '0';
+    reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i else '0';
     
     reg_cmp2_mem <= '1' when reg_src2 = reg_dst else '0';
-    reg_cmp2_wb <= '1' when reg_src2 = reg_wb_i else '0';
+    reg_cmp2_wb <= '1' when reg_src2 = reg_mem_i else '0';
 
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 

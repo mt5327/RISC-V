@@ -61,7 +61,7 @@ begin
 			if rst_i = '1' or cpu_enable_i = '0' then
 				pc <= (others => '0');
 			else
-				if branch_info_i.mispredict = '1' then
+				if branch_info_i.taken = '1' then
 					pc <= branch_info_i.target_address;
 				elsif pipeline_stall_i = '1' then
 					pc <= pc;
