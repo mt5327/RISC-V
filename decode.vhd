@@ -70,7 +70,7 @@ end decode;
 
 architecture behavioral of decode is
 
-	signal x, y, x_data, y_data, x_fp, y_fp, pc, imm, imm_reg, branch_target_address : STD_LOGIC_VECTOR (63 downto 0);
+	signal x, y, x_data, y_data, x_data_reg, y_data_reg, x_fp, y_fp, pc, imm, imm_reg, branch_target_address : STD_LOGIC_VECTOR (63 downto 0);
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
 	signal mem_read, mem_read_reg, mem_write, mem_write_reg, reg_src1_valid, reg_src2_valid : STD_LOGIC := '0';
@@ -408,13 +408,13 @@ begin
     
     with opcode select 
         x_data <= csr_data_i when SYSTEM, 
-              registers(to_integer(unsigned(reg_src1))) when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP,
+              x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP,
               (others => '0') when others;
         
 
 	with opcode select
 		y_data <= (2 => '1', others => '0') when JAL | JALR,
-		          registers(to_integer(unsigned(reg_src2))) when BRANCH | STORE | RR | RR32,
+		          y_data_reg when BRANCH | STORE | RR | RR32,
 		          (others => '0') when others;
 
 	with opcode select
@@ -469,8 +469,10 @@ begin
 		end if;
 	end process;
 
-    x_fp <= registers_fp(to_integer(unsigned(reg_src1)));
-    y_fp <= registers_fp(to_integer(unsigned(reg_src2)));
+    x_data_reg <= reg_dst_i.data when reg_src1 = reg_dst_i.dest else registers(to_integer(unsigned(reg_src1)));
+    y_data_reg <= reg_dst_i.data when reg_src2 = reg_dst_i.dest else registers(to_integer(unsigned(reg_src2)));
+    x_fp <= reg_dst_fp_i.data when reg_src1 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src1)));
+    y_fp <= reg_dst_fp_i.data when reg_src2 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src2)));
 
 	process (clk_i)
 	begin
