@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity fetch is
 	generic (
-		ADDRESS_WIDTH : NATURAL := 14;
+		ADDRESS_WIDTH : NATURAL := 18;
 		BHT_INDEX_WIDTH : NATURAL := ADDRESS_WIDTH);
 	port (
 		clk_i : in STD_LOGIC;
@@ -14,8 +14,8 @@ entity fetch is
 		cpu_enable_i : in STD_LOGIC;
 		pipeline_stall_i : in STD_LOGIC;
 		branch_info_i : in BRANCH_INFO;
-		IR_i : in STD_LOGIC_VECTOR(63 downto 0);
-		instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 1 downto 0);
+		IR_i : in STD_LOGIC_VECTOR(31 downto 0);
+		instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 3 downto 0);
 		pc_o : out STD_LOGIC_VECTOR(63 downto 0);
 		IR_o : out STD_LOGIC_VECTOR(31 downto 0);
 		branch_predict_o : out BRANCH_PREDICTION);
@@ -37,7 +37,6 @@ architecture behavioral of fetch is
 	signal pc : unsigned(63 downto 0) := (others => '0');
 	signal pc_reg : unsigned(63 downto 0) := (others => '0');
 
-	signal current_instruction : STD_LOGIC_VECTOR(31 downto 0);
 	signal IR : STD_LOGIC_VECTOR(31 downto 0) := NOP;
 
 	signal branch_predict, branch_predict_reg : BRANCH_PREDICTION;
@@ -52,7 +51,7 @@ begin
 		rst_i => rst_i,
 		pc_i => pc,
 		branch_info_i => branch_info_i,
-		current_instruction_i => current_instruction,
+		current_instruction_i => IR_i,
 		branch_predict_o => branch_predict
 	);
 
@@ -85,22 +84,20 @@ begin
 			else
 				if pipeline_stall_i = '0' then
 					pc_reg <= pc;
-					IR <= current_instruction;
+					IR <= IR_i;
 					branch_predict_reg <= branch_predict;
 				end if;
 			end if;
 		end if;
 	end process;
 
-	with current_instruction(6 downto 0) select
+	with IR_i(6 downto 0) select
 	   predict_taken <= '1' when JAL,
 		                and branch_predict.cf_type when BRANCH,
-		                '0' when others;
+		                '0' when others; 
 
-	current_instruction <= IR_i(31 downto 0) when pc(2) = '0' else
-		                   IR_i(63 downto 32);
 
-	instr_address_o <= STD_LOGIC_VECTOR(pc(ADDRESS_WIDTH - 1 + 3 downto 3));
+	instr_address_o <= STD_LOGIC_VECTOR(pc(ADDRESS_WIDTH-1 downto 2));
 	pc_o <= STD_LOGIC_VECTOR(pc_reg);
 	IR_o <= IR;
 	branch_predict_o <= branch_predict_reg;

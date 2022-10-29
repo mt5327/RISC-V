@@ -15,7 +15,8 @@ entity FPU is
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
 		z_i : in STD_LOGIC_VECTOR (63 downto 0);
 		x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
-		result_o : out FP_RESULT);
+		result_o : out FP_RESULT;
+		result_int_o : out STD_LOGIC_VECTOR (63 downto 0));
 end FPU;
 
 architecture behavioral of FPU is
@@ -203,19 +204,27 @@ begin
 	begin
 		case fp_op_i is 
 	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o.value <= result_fma.value;
-            when FPU_CVT_FI => result_int_o <= result_cvt_fi;
 			when FPU_CVT_IF => result_o.value <= result_cvt_if;
 			when FPU_CVT_FF => result_o.value <= result_cvt_ff;
 			when FPU_DIV | FPU_SQRT => result_o.value <= results_div(0).value;
 			when others => result_o.value <= (others => '0');
-		end case;
+		end case; 
 	end process;
-        
-
+         
    
    with fp_op_i select result_o.valid <= 
         result_fma.valid when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB,
         '1' when FPU_CVT_FI | FPU_CVT_IF | FPU_CVT_FF, '0' when others;
+	
+	
+	process(all)
+	begin
+	   case fp_op_i is 
+	       when FPU_CVT_FI => result_int_o <= result_cvt_fi; 
+	       when FPU_CLASS => result_int_o <= (63 downto 10 => '0') & result_class;
+	       when others => result_int_o <= (others => '0'); 
+	   end case;
+	end process;
 	
 	process (all)
 	begin
@@ -225,7 +234,7 @@ begin
 			when FPU_CVT_IF => result_o.fflags <= fflags_cvt_if;
 			when FPU_CVT_FF => result_o.fflags <= fflags_cvt_ff;
 			when FPU_DIV | FPU_SQRT => result_o.fflags <= results_div(0).fflags;
-			when others => result_o.fflags <= (others => '0');
+			when others => result_o.fflags <= (others => '0'); 
         end case;
 	end process;
 	

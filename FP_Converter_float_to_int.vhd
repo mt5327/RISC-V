@@ -64,6 +64,8 @@ architecture behavioral of FP_Converter_float_to_int is
 	signal less_than_one, overflow, underflow : STD_LOGIC;
 	signal overflow_value, overflow_value_final : STD_LOGIC_VECTOR(63 downto 0);
 	signal fp_class : FP_INFO;
+	
+	signal overflows : STD_LOGIC_VECTOR (3 downto 0);
 	signal shamt, normal_shamt : unsigned(6 downto 0);
 	signal mantissa : unsigned(64 + M downto 0);
 	signal mantissa_shifted : unsigned(64 + M downto 0);
@@ -80,8 +82,17 @@ begin
 
 	less_than_one <= '1' when exponent < - 1 else '0';
 
-	overflow <= '1' when exponent >= INT_WIDTHS(to_integer(unsigned(mode_i))) else '0';
+    OVERFLOW_CHECK: for i in 0 to 3 generate 
+        overflows(i) <= '1' when exponent >= INT_WIDTHS(i) else '0';
+    end generate; 
 
+
+	with mode_i select overflow <= overflows(0) when "00",
+	                               overflows(1) when "01",
+	                               overflows(2) when "10",
+	                               overflows(3) when "11",
+	                               '0' when others;
+        
 	SHIFT_AMOUNT : process (normal_shamt, overflow, less_than_one)
 	begin
 		shamt <= normal_shamt;
@@ -101,7 +112,7 @@ begin
 	overflow_value_final <= not overflow_value when sign = '1' and fp_class.nan = '0' else 
 		                    overflow_value;
 	
-	mantissa <= fp_class.normal & unsigned(x_i(M - 2 downto 0)) & (64 downto 0 => '0');
+	mantissa <= '1' & unsigned(x_i(M - 2 downto 0)) & (64 downto 0 => '0');
 	mantissa_shifted <= shift_right(mantissa, to_integer(shamt));
 	round_sticky <= mantissa_shifted(M) & (or mantissa_shifted(M - 1 downto 0));
 

@@ -19,7 +19,8 @@ entity decode is
 		branch_predict_i : in BRANCH_PREDICTION;
 
 		csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
-
+        csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+		
 		pc_o : out STD_LOGIC_VECTOR (63 downto 0);
 
 		branch_predict_o : out BRANCH_PREDICTION;
@@ -45,7 +46,7 @@ entity decode is
 		reg_dst_i : in REG;
 		reg_dst_fp_i : in REG;
 		
-		reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
+		reg_wb_i : in STD_LOGIC_VECTOR (4 downto 0);
 		x_o : out STD_LOGIC_VECTOR (63 downto 0);
 	    y_o : out STD_LOGIC_VECTOR (63 downto 0);
     
@@ -64,10 +65,7 @@ entity decode is
 		reg_src3_o : out STD_LOGIC_VECTOR (4 downto 0);
 
 		fp_regs_IDEX_o : out FP_IDEX;
-		csr_o : out CSR;
-		csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
-
-		csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0));
+		csr_o : out CSR);
 end decode;
 
 architecture behavioral of decode is
@@ -85,7 +83,6 @@ architecture behavioral of decode is
 	signal branch_predict : BRANCH_PREDICTION;
 
 	signal load_hazard, invalid_instruction : STD_LOGIC;
-	signal exception_cause : STD_LOGIC_VECTOR (3 downto 0);
 
     signal reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
     signal reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
@@ -95,11 +92,7 @@ architecture behavioral of decode is
     signal reg_cmp1_mem_reg, reg_cmp1_wb_reg : STD_LOGIC;
     signal reg_cmp2_mem_reg, reg_cmp2_wb_reg : STD_LOGIC;
 
-	signal csr : CSR;
-	signal csr_write : STD_LOGIC;
-	signal csr_data_read, csr_data, csr_data_reg : STD_LOGIC_VECTOR (63 downto 0);
-	signal csr_addr : STD_LOGIC_VECTOR (11 downto 0);
-	signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
+	signal csr, csr_reg : CSR;
 
 	alias opcode : STD_LOGIC_VECTOR(6 downto 0) is IR_i(6 downto 0);
 
@@ -112,6 +105,7 @@ architecture behavioral of decode is
 	alias funct7 : STD_LOGIC_VECTOR(6 downto 0) is IR_i(31 downto 25);
 
     signal registers, registers_fp : reg_t;
+    signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
 
 	component regfile is
 		port (
@@ -320,6 +314,7 @@ begin
 				end if;
 			when SYSTEM =>
 				case funct3 is
+					when "000" =>
 					when "001" | "010" | "011" | "101" | "110" | "111" =>
 						csr_operator <= IR_i(13 downto 12);
 					when others =>
@@ -371,10 +366,10 @@ begin
     end process;
 
     reg_cmp1_mem <= '1' when reg_src1 = reg_dst else '0';
-    reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i else '0';
+    reg_cmp1_wb <= '1' when reg_src1 = reg_wb_i else '0';
     
     reg_cmp2_mem <= '1' when reg_src2 = reg_dst else '0';
-    reg_cmp2_wb <= '1' when reg_src2 = reg_mem_i else '0';
+    reg_cmp2_wb <= '1' when reg_src2 = reg_wb_i else '0';
 
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
@@ -405,19 +400,17 @@ begin
 	    mem_read <= '1' when LOAD | LOAD_FP, 
 	                '0' when others;
 
-	with csr_operator select
-		csr_data <= csr_data_i when CSR_RW,
-		            csr_data_i or csr_data_read when CSR_RS,
-		            csr_data_i and (not csr_data_read) when CSR_RC,
-		            (others => '0') when others;
-
-	csr_write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0);
-	csr_data_read <= (63 downto 5 => '0') & IR_i(19 downto 15) when IR_i(14) = '1' else registers(to_integer(unsigned(reg_src1)));
-
-	csr_addr <= IR_i(31 downto 20);
-
-    x_data <= registers(to_integer(unsigned(reg_src1))) when reg_src1_valid = '1' else
-		          (others => '0');
+	csr.write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0);
+	csr.data <= (63 downto 5 => '0') & IR_i(19 downto 15) when IR_i(14) = '1' else registers(to_integer(unsigned(reg_src1)));
+    csr.op <= csr_operator;
+	csr.write_addr <= IR_i(31 downto 20);
+    csr.epc <= pc_i;
+    
+    with opcode select 
+        x_data <= csr_data_i when SYSTEM, 
+              registers(to_integer(unsigned(reg_src1))) when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP,
+              (others => '0') when others;
+        
 
 	with opcode select
 		y_data <= (2 => '1', others => '0') when JAL | JALR,
@@ -432,7 +425,7 @@ begin
 		reg_src2_valid <= '1' when BRANCH | STORE | RR | RR32,
 		                  '0' when others;
 
-	exception_cause <= ILLEGAL_INSTRUCTION when invalid_instruction = '1' else
+	csr.exception_id <= ILLEGAL_INSTRUCTION when invalid_instruction = '1' else
 		               BREAKPOINT when IR_i = X"00100073" else
 		               ENVIROMENT_CALL_USER_MODE when IR_i = X"00000073" else
 		               NO_EXCEPTION;
@@ -502,16 +495,11 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' or flush_i = '1' then
-				csr.write <= '0';
-				csr.exception_id <= NO_EXCEPTION;
+				csr_reg.write <= '0';
+				csr_reg.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-					csr.write <= csr_write;
-					csr.exception_id <= exception_cause;
-                    csr.epc <= pc_i;
-                    csr.data <= csr_data;
-                    csr.write_addr <= csr_addr;
-                    csr_data_reg <= csr_data_i;
+				    csr_reg <= csr;
 				end if;
 			end if;
 		end if;
@@ -520,7 +508,7 @@ begin
 	pc_src_o <= pc_src_reg;
 	imm_src_o <= imm_src_reg;
 
-	csr_o <= csr;
+	csr_o <= csr_reg;
 
 	mem_read_o <= mem_read_reg;
 	mem_write_o <= mem_write_reg;
@@ -539,8 +527,7 @@ begin
 	pc_o <= pc;
 
 	fp_regs_IDEX_o <= fp_regs_IDEX;
-	CSR_read_addr_o <= csr_addr;
-	csr_data_o <= csr_data_reg;
+	CSR_read_addr_o <= IR_i(31 downto 20);
 
     x_o <= x;
 	rs1_valid <= (or reg_src1) and reg_src1_valid;

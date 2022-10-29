@@ -12,7 +12,7 @@ entity load_store_unit is
 		exception_i : in STD_LOGIC;
 		mem_req_i : in MEMORY_REQUEST;
 		MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
-		cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
+		cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 4 downto 0));
 		unaligned_access_o : out STD_LOGIC;
 		data_i : in STD_LOGIC_VECTOR (63 downto 0);
 		data_o : out STD_LOGIC_VECTOR (63 downto 0));
@@ -28,7 +28,7 @@ architecture behavioral of load_store_unit is
 	signal h : STD_LOGIC_VECTOR (15 downto 0);
 	signal w : STD_LOGIC_VECTOR (31 downto 0);
 	signal lb, lh, lw, d, MDR : STD_LOGIC_VECTOR (63 downto 0);
-	signal unaligned_address, unaligned_address_reg : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
+	signal unaligned_address, unaligned_address_reg : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 4 downto 0);
     signal halfword_unaligned : STD_LOGIC;
     signal int_column : integer range 0 to 7;
     
@@ -189,12 +189,12 @@ begin
 		           (others => '0') when others;
 
 
-    unaligned_address <= STD_LOGIC_VECTOR(unsigned(MAR_i) + 1);
+    unaligned_address <= STD_LOGIC_VECTOR(unsigned(MAR_i(MAR_i'left downto 3)) + 1);
 	unaligned_access_o <= unaligned and (not unaligned_access);
 	
 	data_o <= data_mem when mem_req_i.enable_mem else (others => '0');
 	
-	cache_req_o.MAR <= MAR_i when unaligned_access = '0' else unaligned_address_reg;
+	cache_req_o.MAR <= MAR_i(MAR_i'left downto 3) when unaligned_access = '0' else unaligned_address_reg;
 
 	cache_req_o.MDR <= MDR;
 	cache_req_o.we <= we;

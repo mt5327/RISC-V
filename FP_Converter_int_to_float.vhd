@@ -27,7 +27,7 @@ architecture behavioral of FP_Converter_int_to_float is
 
 	signal int_mantissa : unsigned(63 downto 0);
 	signal long_mantissa : unsigned (63 downto 0);
-	signal int_exp, long_exp, exp : unsigned(E - 1 downto 0);
+	signal exp, exp_init : unsigned(E - 1 downto 0);
 	signal sign : STD_LOGIC;
 	signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
 	signal invalid, overflow, underflow, inexact : STD_LOGIC;
@@ -38,7 +38,6 @@ architecture behavioral of FP_Converter_int_to_float is
     signal mantissa : unsigned(63 downto 0);
     signal shifted_mantissa : unsigned(63 downto 0);
 	alias exp_result : STD_LOGIC_VECTOR (E-1 downto 0) is rounded_num(P - 2 downto P - E - 1);
-
 
 	component rounder is
 		generic (SIZE : NATURAL);
@@ -60,13 +59,13 @@ begin
     mantissa <= int_mantissa when mode_i(1) = '0' else long_mantissa; 
     
     lz_counter <= leading_zero_counter(mantissa, lz_counter'length);
-    exp <= int_exp_init when mode_i(1) = '0' else long_exp_init; 
-	int_exp <= exp - resize(lz_counter, E);
+    exp_init <= int_exp_init when mode_i(1) = '0' else long_exp_init; 
+	exp <= exp_init - resize(lz_counter, E);
 	
 	sign <= int_sign when mode_i(1) = '0' else long_sign;
     shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
     
-    num <= int_exp & shifted_mantissa(63 downto 63-M+2); 
+    num <= exp & shifted_mantissa(63 downto 63-M+2); 
     round_sticky <= shifted_mantissa(63-M+1) & ( or shifted_mantissa(63-M downto 0));
 
 	ROUNDING: rounder generic map (num'length) port map (num, sign, rm_i, round_sticky, rounded_num);

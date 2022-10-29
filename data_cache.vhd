@@ -6,9 +6,8 @@ use work.constants.all;
 
 entity data_cache is
 	generic (
-		ADDRESS_WIDTH : NATURAL := 14;
+		ADDRESS_WIDTH : NATURAL := 18;
 		BLOCK_SIZE : NATURAL := 256;
-		OFFSET_WIDTH : NATURAL;
 		INDEX_WIDTH : NATURAL := 2);
 	port (
 		clk_i : in STD_LOGIC;
@@ -16,15 +15,15 @@ entity data_cache is
 		enable_mem_i : in STD_LOGIC;
 
 		memory_busy_i : in STD_LOGIC;
-		cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
+		cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 4 downto 0));
 
 		mem_write_i : in STD_LOGIC;
 		mem_write_o : out STD_LOGIC;
 
 		cache_line_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
-		read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
+		read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
  
-		write_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
+		write_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 		data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 		data_o : out STD_LOGIC_VECTOR (63 downto 0);
 
@@ -33,8 +32,8 @@ end data_cache;
 
 architecture behavioral of data_cache is
 
-	constant TAG_BITS : NATURAL := ADDRESS_WIDTH - INDEX_WIDTH - OFFSET_WIDTH;
-	constant BLOCK_ADDRESS_WIDTH : NATURAL := ADDRESS_WIDTH - OFFSET_WIDTH;
+	constant TAG_BITS : NATURAL := ADDRESS_WIDTH - INDEX_WIDTH - num_bits(BLOCK_SIZE/8);
+	constant BLOCK_ADDRESS_WIDTH : NATURAL := ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8);
 
 	type cache_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 	signal cache : cache_t := (others => (others => '0'));
@@ -48,18 +47,18 @@ architecture behavioral of data_cache is
 	signal miss : STD_LOGIC := '0';
 	signal mem_write, cache_write, write_alloc : STD_LOGIC := '0';
 
-	alias tag : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0) is cache_req_i.MAR(ADDRESS_WIDTH - 1 downto INDEX_WIDTH + OFFSET_WIDTH);
-	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(ADDRESS_WIDTH - 1 downto OFFSET_WIDTH);
+	alias tag : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto INDEX_WIDTH + num_bits(BLOCK_SIZE/64));
+	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto num_bits(BLOCK_SIZE/64));
 
-	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH - 1 downto OFFSET_WIDTH);
-	signal cache_offset : INTEGER range 0 to 64 * (OFFSET_WIDTH-2);
+	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + num_bits(256/64) - 1 downto num_bits(BLOCK_SIZE/64));
+	signal cache_offset : INTEGER range 0 to 64 * (2**num_bits(BLOCK_SIZE/64)-1);
 
 	type state_type is (CHECK, WRITE_BACK, WRITE_ALLOCATE);
 	signal state, next_state : state_type := CHECK;
 
 begin
 
-    cache_offset <= to_integer(unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 3)) & "000000");
+    cache_offset <= to_integer(unsigned(cache_req_i.MAR(num_bits(BLOCK_SIZE/8) - 1 downto 3)) & "000000");
     
 	SYNC_PROC : process (clk_i)
 	begin
@@ -148,11 +147,11 @@ begin
 
 	miss_o <= miss and enable_mem_i;
 	read_address_o <= memory_address;
-	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH - 1 downto OFFSET_WIDTH);
+	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + num_bits(BLOCK_SIZE/8) - 1 downto num_bits(BLOCK_SIZE/8));
 	cache_line_o <= cache(to_integer(unsigned(block_address)));
 
-	DOUBLE_WORD_SELECT : for i in 0 to OFFSET_WIDTH - 4 generate
-		data_o <= cache(to_integer(unsigned(block_address)))(i * 64 + 63 downto i * 64) when unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 0)) = i else (others => 'Z');
+	DOUBLE_WORD_SELECT : for i in 0 to BLOCK_SIZE/64-1 generate
+		data_o <= cache(to_integer(unsigned(block_address)))(i * 64 + 63 downto i * 64) when unsigned(cache_req_i.MAR(num_bits(BLOCK_SIZE/64) - 1 downto 0)) = i else (others => 'Z');
 	end generate;
 	
 end behavioral;

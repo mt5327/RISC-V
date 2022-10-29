@@ -66,23 +66,16 @@ begin
 	end process;
 
 	nan <= fp_infos(0).nan or fp_infos(1).nan;
-	COMPARE : process (funct3_i, fp_infos)
+	COMPARE : process (funct3_i, lt, eq, nan)
 	begin
-		cmp <= '0';
 		case funct3_i is
 			when FLE =>
-				if nan = '0' then
-					cmp <= lt or eq;
-				end if;
+			    cmp <= (lt or eq) and (not nan);
 			when FLT =>
-				if nan = '0' then
-					cmp <= lt and (not eq);
-				end if;
+			    cmp <= lt and (not eq) and (not nan);
 			when FEQ =>
-				if nan = '0' then
-					cmp <= eq;
-				end if;
-			when others =>
+				cmp <= eq and (not nan);
+			when others => cmp <= '0';
 		end case;
 	end process;
 

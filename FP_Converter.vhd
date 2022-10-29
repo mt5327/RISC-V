@@ -67,16 +67,21 @@ architecture behavioral of FP_Converter is
 			fflags_o : out STD_LOGIC_VECTOR (4 downto 0);
 			result_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component FP_Converter_double_to_float;
-
+	
+	signal x : STD_LOGIC_VECTOR (31 downto 0);
+	signal x_cvt_if : STD_LOGIC_VECTOR (63 downto 0);
+	
 begin
 
-	FP_CVT_IF_SP : FP_Converter_int_to_float generic map(32, 8, 24) port map(x_int_i, mode_i, rm_i, fflags_if_sp, result_if_sp);
+	FP_CVT_IF_SP : FP_Converter_int_to_float generic map(32, 8, 24) port map(x_cvt_if, mode_i, rm_i, fflags_if_sp, result_if_sp);
 	FP_CVT_IF_DP : FP_Converter_int_to_float generic map(64, 11, 53) port map(x_int_i, mode_i, rm_i, fflags_if_dp, result_if_dp);
 	FP_CVT_FI_SP : FP_Converter_float_to_int generic map(32, 8, 24) port map(x_i(31 downto 0), mode_i, rm_i, fflags_fi_sp, result_fi_sp);
 	FP_CVT_FI_DP : FP_Converter_float_to_int generic map(64, 11, 53) port map(x_i, mode_i, rm_i, fflags_fi_dp, result_fi_dp);
 
+    x_cvt_if <= x_int_i when fp_precision_i = '0' else (others => '0'); 
+    x <= x_i(31 downto 0) when fp_precision_i = '0' else (others => '0');
+
 	FP_CVT_FF : FP_Converter_double_to_float port map(x_i, rm_i, fflags_ff_sp, result_ff_sp);
-	
 	exp_dp <= STD_LOGIC_VECTOR(("000" & unsigned(x_i(30 downto 23))) + BIAS_DIFF);
 	result_ff_dp <= x_i(31) & exp_dp & x_i(22 downto 0) & (28 downto 0 => '0');
 	signaling_nan <= (and x_i(30 downto 22)) and (nor x_i(21 downto 0));
@@ -94,7 +99,7 @@ begin
     result_if_o <= result_if when output_if else (others => '0');
     result_ff_o <= result_ff when output_ff else (others => '0');
     
-	--fflags_fi_o <= fflags_fi_sp when fp_precision_i = '0' else fflags_fi_dp;
+	fflags_fi_o <= fflags_fi_sp when fp_precision_i = '0' else fflags_fi_dp;
 	fflags_if_o <= fflags_if_sp when fp_precision_i = '0' else fflags_if_dp;
 	fflags_ff_o <= fflags_ff_sp when fp_precision_i = '0' else fflags_ff_dp; 
 

@@ -9,7 +9,6 @@ entity RISCV is
 		RAM_FILENAME : STRING := "C:\\DigitalDesign\\hex\\simple.hex";
 		ADDRESS_WIDTH : NATURAL := 18;
 		BLOCK_SIZE : NATURAL := 256;
-		OFFSET_WIDTH : NATURAL := 5;
 		INDEX_WIDTH : NATURAL := 2;
 		BHT_INDEX_WIDTH : NATURAL := 2);
 	port (
@@ -25,10 +24,10 @@ entity RISCV is
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
        
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
         
 	-- !!! SIMULATION ONLY !!! 
-	    --test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
+	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
 
 end RISCV;
 
@@ -36,7 +35,7 @@ architecture behavioral of RISCV is
 
 	component fetch is
 		generic (
-			ADDRESS_WIDTH : NATURAL := 14;
+			ADDRESS_WIDTH : NATURAL := 18;
 			BHT_INDEX_WIDTH : NATURAL := 2);
 		port (
 			clk_i : in STD_LOGIC;
@@ -46,8 +45,8 @@ architecture behavioral of RISCV is
 			pipeline_stall_i : in STD_LOGIC;
 
 			branch_info_i : in BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-			IR_i : in STD_LOGIC_VECTOR(63 downto 0);
-			instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 1 downto 0);
+			IR_i : in STD_LOGIC_VECTOR(31 downto 0);
+			instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 3 downto 0);
 			pc_o : out STD_LOGIC_VECTOR(63 downto 0);
 			IR_o : out STD_LOGIC_VECTOR(31 downto 0);
 			branch_predict_o : out BRANCH_PREDICTION);
@@ -66,7 +65,10 @@ architecture behavioral of RISCV is
             pc_i : in STD_LOGIC_VECTOR (63 downto 0);
     
             branch_predict_i : in BRANCH_PREDICTION;
-        
+    
+            csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
+            csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+            
             pc_o : out STD_LOGIC_VECTOR (63 downto 0);
     
             branch_predict_o : out BRANCH_PREDICTION;
@@ -82,7 +84,7 @@ architecture behavioral of RISCV is
             r4_type_o : out STD_LOGIC;
     
             imm_o : out STD_LOGIC_VECTOR (63 downto 0);
-            csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
+    
             alu_operator_o : out ALU_OP;
             mem_operator_o : out MEM_OP;
     
@@ -92,7 +94,7 @@ architecture behavioral of RISCV is
             reg_dst_i : in REG;
             reg_dst_fp_i : in REG;
             
-            reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
+            reg_wb_i : in STD_LOGIC_VECTOR (4 downto 0);
             x_o : out STD_LOGIC_VECTOR (63 downto 0);
             y_o : out STD_LOGIC_VECTOR (63 downto 0);
         
@@ -111,10 +113,7 @@ architecture behavioral of RISCV is
             reg_src3_o : out STD_LOGIC_VECTOR (4 downto 0);
     
             fp_regs_IDEX_o : out FP_IDEX;
-            csr_o : out CSR;
-            csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
-    
-            csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0));
+            csr_o : out CSR);
 	end component decode;
 
 	component execute is
@@ -132,8 +131,7 @@ architecture behavioral of RISCV is
         
             mem_write_i : in STD_LOGIC;
             mem_write_o : out STD_LOGIC;
-            result_fp_o : out STD_LOGIC_VECTOR (63 downto 0);
-
+    
             multicycle_op_o : out STD_LOGIC;
     
             pc_src_i : in STD_LOGIC;
@@ -154,14 +152,14 @@ architecture behavioral of RISCV is
     
             alu_operator_i : in ALU_OP;
             mem_operator_i : in MEM_OP;
+            result_fp_o : out STD_LOGIC_VECTOR (63 downto 0);
     
             x_i : in STD_LOGIC_VECTOR (63 downto 0);
             y_i : in STD_LOGIC_VECTOR (63 downto 0);
-     
-            result_fwd_mem_i : in STD_LOGIC_VECTOR (63 downto 0);
-            result_fwd_fp_mem_i : in STD_LOGIC_VECTOR (63 downto 0);
+    
             result_fwd_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
-     		result_fwd_fp_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
+            result_fwd_fp_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
+            
             x_mux_sel_i, y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
             x_fp_mux_sel_i, y_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
             
@@ -169,8 +167,9 @@ architecture behavioral of RISCV is
     
             fp_regs_idex_i : in FP_IDEX;
             reg_write_fp_o : out STD_LOGIC;
-       
-            csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
+    
+            csr_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
     
             csr_i : in CSR;
             csr_o : out CSR);
@@ -218,8 +217,8 @@ architecture behavioral of RISCV is
 			exception_i : in STD_LOGIC;
 		    unaligned_access_o : out STD_LOGIC;
 			mem_req_i : in MEMORY_REQUEST;
-			cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
     		MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
+			cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 3 - 1 downto 0));
 			data_i : in STD_LOGIC_VECTOR (63 downto 0);
 			data_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component load_store_unit;
@@ -237,27 +236,26 @@ architecture behavioral of RISCV is
 			mem_init_i : in STD_LOGIC;
 			mem_write_i : in STD_LOGIC;
 			UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
-			read_address_i : in STD_LOGIC_VECTOR(ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
-			write_address_i : in STD_LOGIC_VECTOR(ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
-
+			read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
+			write_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
+ 
 			cache_line_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 			DOUT_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
 	end component;
 
 	component instruction_cache is
 		generic (
-			ADDRESS_WIDTH : NATURAL := 14;
-			BLOCK_SIZE : NATURAL := 128;
-			OFFSET_WIDTH : NATURAL := 1;
+			ADDRESS_WIDTH : NATURAL := 18;
+			BLOCK_SIZE : NATURAL := 256;
 			INDEX_WIDTH : NATURAL := 2);
 		port (
 			clk_i : in STD_LOGIC;
 			rst_i : in STD_LOGIC;
 
-			instr_address_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
-			read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
+			instr_address_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 3 downto 0);
+			read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 			data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
-			IR_o : out STD_LOGIC_VECTOR (63 downto 0);
+			IR_o : out STD_LOGIC_VECTOR (31 downto 0);
 			miss_o : out STD_LOGIC);
 	end component instruction_cache;
 
@@ -265,20 +263,19 @@ architecture behavioral of RISCV is
 		generic (
 			ADDRESS_WIDTH : NATURAL := 14;
 			BLOCK_SIZE : NATURAL := 128;
-			OFFSET_WIDTH : NATURAL := 1 + 3;
 			INDEX_WIDTH : NATURAL := 2);
 		port (
 			clk_i : in STD_LOGIC;
 			rst_i : in STD_LOGIC;
 			enable_mem_i : in STD_LOGIC;
 			memory_busy_i : in STD_LOGIC;
-			cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
+			cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 3 - 1 downto 0));
  
 			mem_write_i : in STD_LOGIC;
 			mem_write_o : out STD_LOGIC;
 			cache_line_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
-			read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
-			write_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - OFFSET_WIDTH - 1 downto 0);
+			read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
+			write_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 			data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 			data_o : out STD_LOGIC_VECTOR (63 downto 0);
 			miss_o : out STD_LOGIC);
@@ -327,8 +324,7 @@ architecture behavioral of RISCV is
 	signal result_fp : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal pc_decode, pc_execute, mem_data : STD_LOGIC_VECTOR (63 downto 0);
-	signal IR : STD_LOGIC_VECTOR (63 downto 0);
-	signal IR_decode : STD_LOGIC_VECTOR(31 downto 0);
+	signal IR, IR_decode : STD_LOGIC_VECTOR(31 downto 0);
 
 	signal imm : STD_LOGIC_VECTOR (63 downto 0);
 
@@ -348,7 +344,7 @@ architecture behavioral of RISCV is
 	signal mpc, data : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal mem_req : MEMORY_REQUEST;
-	signal cache_req : CACHE_REQUEST (MAR(ADDRESS_WIDTH - 1 downto 0));
+	signal cache_req : CACHE_REQUEST (MAR(ADDRESS_WIDTH - 3 - 1 downto 0));
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0)) := ('0', '0', '0', (others => '0'), (others => '0'));
 
 	signal csr_read_data, csr_data : STD_LOGIC_VECTOR (63 downto 0);
@@ -356,11 +352,11 @@ architecture behavioral of RISCV is
 	signal counter : unsigned (19 downto 0) := (others => '0');
 
 	signal cache_line, DOUT : STD_LOGIC_VECTOR(BLOCK_SIZE - 1 downto 0);
-	signal instr_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
-	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR ((ADDRESS_WIDTH - OFFSET_WIDTH) - 1 downto 0);
+	signal instr_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 3 downto 0);
+	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
-	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
+	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, csr_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
 	signal CSR_read_addr : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
@@ -368,7 +364,7 @@ architecture behavioral of RISCV is
 	signal exception_num : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
 	signal anode : STD_LOGIC := '1';
 
-	signal x_fwd_mem, x_fwd_wb, y_fwd_mem, y_fwd_wb, x_fp_fwd_mem, x_fp_fwd_wb, y_fp_fwd_mem, y_fp_fwd_wb : STD_LOGIC;
+	signal x_fwd_mem, x_fwd_wb, y_fwd_mem, y_fwd_wb, x_fp_fwd_mem, x_fp_fwd_wb, y_fp_fwd_mem, y_fp_fwd_wb, csr_fwd_mem, csr_fwd_wb : STD_LOGIC;
 
     signal  reg_cmp1_mem, reg_cmp1_wb, reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
 
@@ -384,7 +380,6 @@ begin
 		rst_i => rst_i,
 
 		cpu_enable_i => cpu_enable,
-		--        flush_i => flush_if,
 		pipeline_stall_i => pipeline_stall_if,
 		branch_info_i => branch_inf,
 		branch_predict_o => branch_predict_id,
@@ -433,7 +428,7 @@ begin
 		fp_regs_idex_o => fp_regs_idex,
 
 		reg_write_o => reg_write,
-        reg_mem_i => reg_dst_memory.dest,
+        reg_wb_i => reg_dst.dest,
 		reg_src3_o => reg_src3,
 
         reg_cmp1_mem_o => reg_cmp1_mem,
@@ -443,7 +438,6 @@ begin
         reg_cmp2_wb_o => reg_cmp2_wb,             
 
 		reg_dst_o => reg_dst_execute,
-		csr_data_o => csr_data,
 		csr_o => csr_write_execute,
 		CSR_read_addr_o => CSR_read_addr,
 		registers_o => registers,
@@ -478,7 +472,6 @@ begin
   
 		reg_dst_i => reg_dst_execute,
 		reg_dst_o => reg_dst_memory,
-        csr_data_i => csr_data,
 		reg_write_i => reg_write,
 
 		reg_write_fp_o => reg_write_fp,
@@ -497,12 +490,12 @@ begin
 
 		csr_i => csr_write_execute,
 		csr_o => csr_write_memory,
-	   
+	    csr_data_wb_i => csr_write.data,
+	    
         x_i => x,
         y_i => y,
 
-	    result_fwd_mem_i => reg_dst_memory.data,
-	   	result_fwd_fp_mem_i => result_fp,
+        csr_mux_sel_i => csr_mux_sel,
 	    result_fwd_wb_i => reg_dst.data,
 	    result_fwd_fp_wb_i => reg_dst_fp.data,
 	    x_mux_sel_i => x_mux_sel,
@@ -560,7 +553,7 @@ begin
 	C_RAM : RAM
 	generic map(
 		BLOCK_SIZE => BLOCK_SIZE,
-		BLOCK_ADDRESS_WIDTH => ADDRESS_WIDTH - OFFSET_WIDTH,
+		BLOCK_ADDRESS_WIDTH => ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8),
 		RAM_FILENAME => RAM_FILENAME)
 	port map(
 		clk_i => clk_i,
@@ -581,7 +574,6 @@ begin
 	ICACHE : instruction_cache
 	generic map(
 		ADDRESS_WIDTH => ADDRESS_WIDTH,
-		OFFSET_WIDTH => OFFSET_WIDTH,
 		BLOCK_SIZE => BLOCK_SIZE,
 		INDEX_WIDTH => INDEX_WIDTH)
 	port map(
@@ -599,7 +591,6 @@ begin
 	generic map(
 		ADDRESS_WIDTH => ADDRESS_WIDTH,
 		BLOCK_SIZE => BLOCK_SIZE,
-		OFFSET_WIDTH => OFFSET_WIDTH,
 		INDEX_WIDTH => INDEX_WIDTH)
 	port map(
 		clk_i => clk_i,
@@ -686,7 +677,7 @@ begin
 	x_fwd_mem <= reg_cmp1_mem and reg_src1_valid and reg_dst_memory.write;
 	x_fwd_wb <= reg_cmp1_wb and reg_src1_valid and reg_dst.write;
 
-    y_fwd_mem <= reg_cmp2_mem  and reg_src2_valid and reg_dst_memory.write;
+    y_fwd_mem <= reg_cmp2_mem and reg_src2_valid and reg_dst_memory.write;
 	y_fwd_wb <= reg_cmp2_wb and reg_src2_valid and reg_dst.write;
 
     x_mux_sel <= "01" when x_fwd_mem = '1' else                                                                                                                                                                                                                                                                                                                                                                                                                                                         
@@ -710,8 +701,15 @@ begin
                  
     y_fp_mux_sel <= "01" when y_fp_fwd_mem = '1' else 
                       "10" when y_fp_fwd_wb = '1' else 
-                      "11";
-
+                      "11"; 
+                      
+    -- FORWARDING LOGIC CSR
+    csr_fwd_mem <= '1' when csr_write_memory.write = '1' and csr_write_execute.write_addr = csr_write_memory.write_addr else '0'; 
+    csr_fwd_wb <= '1' when csr_write.write = '1' and csr_write_execute.write_addr = csr_write.write_addr else '0';
+    
+    csr_mux_sel <= "01" when csr_fwd_mem = '1' else
+                   "10" when csr_fwd_wb = '1' else
+                   "11";
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable;
 	LED_o(3) <= exception;
@@ -720,6 +718,6 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
---	 test_number_o <= registers(10);
+	 test_number_o <= registers(10);
 
 end behavioral;

@@ -42,13 +42,12 @@ architecture behavioral of FMA is
 	signal invalid, inexact, underflow, overflow, special_case, special_case_reg : STD_LOGIC;
 
 	signal exponent_x, exponent_y, exponent_z : signed(E downto 0);
-	signal exponent_a, exponent_a_reg, exponent_p, exponent_p_reg, exponent_pa : signed(E downto 0);
+	signal exponent_a, exponent_p, exponent_p_reg, exponent_pa : signed(E downto 0);
 	signal exponent_diff, exponent_diff_reg : signed(E downto 0);
-	signal exponent_tent : signed(E - 1 downto 0);
-    signal exponent_tent_reg : unsigned(E - 1 downto 0);
+	signal exponent_tent, exponent_a_reg : signed(E - 1 downto 0);
 
     signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
-	signal exp, exp_reg, exp_fin : unsigned (E - 1 downto 0);
+	signal exp, exp_reg, exp_fin, exponent_tent_reg : unsigned (E - 1 downto 0);
 	signal t, k, f : unsigned(LOWER_SUM_WIDTH - 1 downto 0);
 	signal mantissa_x, mantissa_y : unsigned (M - 1 downto 0);
 	signal P_mantissa, P_mantissa_reg, A_mantissa, A_mantissa_reg, mantissa_sum, mantissa_sum_reg, s : unsigned (3 * M + 4 downto 0);
@@ -254,7 +253,7 @@ begin
                 exponent_diff_reg <= exponent_diff;
                 rm <= rm_i;
                 exponent_p_reg <= exponent_p;
-                exponent_a_reg <= exponent_a;
+                exponent_a_reg <= exponent_a(E-1 downto 0);
            end if;
        end if;
 	end process;
