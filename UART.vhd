@@ -59,7 +59,7 @@ begin
 					if uart_clk = '1' then
 						counter <= (others => '0');
 					else
-						counter <= counter + 1;
+			 			counter <= counter + 1;
 					end if;
 				else
 					counter <= (others => '0');
@@ -73,16 +73,14 @@ begin
 		if rising_edge(clk_i) then
 			rx_reg <= rx_i;
 			rx <= rx_reg;
-		end if;
+		end if;  
 	end process;
 	uart_clk <= '1' when counter = MAX_VALUE - 1 else '0';
 	uart_rx_start <= '1' when counter = HALF_MAX_VALUE - 1 and start_bit = '1' else '0';
 	rx_done <= uart_clk and stop_bit;
 	mem_write <= '1' when unsigned(rx_data) >= 48 else '0';
-	--cpu_enable <= '1' when rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0' else '0';
-	-- synthesis translate_off
-	cpu_enable <= '1';
-	-- synthesis translate_on
+	cpu_enable <= '1' when rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0' else '0';
+
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then

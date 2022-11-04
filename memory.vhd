@@ -27,13 +27,13 @@ end memory;
 architecture behavioral of memory is
 
 	signal data, data_fp : STD_LOGIC_VECTOR (63 downto 0);
-	signal csr : CSR := ('0', "00", X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
+	signal csr : CSR := ('0', X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
 	signal reg_dst, reg_dst_fp : REG;
 
 begin
 
-    data <= mem_data_i when mem_read_i else reg_dst_i.data;
-	data_fp <= mem_data_i when mem_read_i else result_fp_i;
+    data <= mem_data_i when mem_read_i = '1' else reg_dst_i.data;
+	data_fp <= mem_data_i when mem_read_i = '1' else result_fp_i;
 
 	REGS : process (clk_i)
 	begin

@@ -10,6 +10,7 @@ entity FP_Converter_int_to_float is
 		E : NATURAL;
 		M : NATURAL);
 	port (
+        clk_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -25,9 +26,8 @@ architecture behavioral of FP_Converter_int_to_float is
 
 	signal lz_counter : unsigned(5 downto 0);
 
-	signal int_mantissa : unsigned(63 downto 0);
-	signal long_mantissa : unsigned (63 downto 0);
-	signal exp, exp_init : unsigned(E - 1 downto 0);
+	signal int_mantissa, long_mantissa : unsigned(63 downto 0);
+	signal exp, exp_init, exp_ini, exp_l: unsigned(E - 1 downto 0);
 	signal sign : STD_LOGIC;
 	signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
 	signal invalid, overflow, underflow, inexact : STD_LOGIC;
@@ -60,10 +60,15 @@ begin
     
     lz_counter <= leading_zero_counter(mantissa, lz_counter'length);
     exp_init <= int_exp_init when mode_i(1) = '0' else long_exp_init; 
-	exp <= exp_init - resize(lz_counter, E);
-	
-	sign <= int_sign when mode_i(1) = '0' else long_sign;
-    shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
+    sign <= int_sign when mode_i(1) = '0' else long_sign;
+	    
+    process(clk_i) 
+    begin 
+        if rising_edge(clk_i) then
+    	   exp <= exp_init - resize(lz_counter, E);
+           shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
+        end if; 
+    end process;
     
     num <= exp & shifted_mantissa(63 downto 63-M+2); 
     round_sticky <= shifted_mantissa(63-M+1) & ( or shifted_mantissa(63-M downto 0));

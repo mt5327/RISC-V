@@ -24,10 +24,10 @@ entity RISCV is
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
        
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
         
 	-- !!! SIMULATION ONLY !!! 
-	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
+	   -- test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
 
 end RISCV;
 
@@ -58,13 +58,15 @@ architecture behavioral of RISCV is
             cpu_enable_i: in STD_LOGIC;
             flush_i : in STD_LOGIC;
             pipeline_stall_i : in STD_LOGIC;
+            load_hazard_o : out STD_LOGIC;
     
             IR_i : in STD_LOGIC_VECTOR (31 downto 0);
             frm_i : in STD_LOGIC_VECTOR (2 downto 0);
             pc_i : in STD_LOGIC_VECTOR (63 downto 0);
     
             branch_predict_i : in BRANCH_PREDICTION;
-    
+            branch_next_pc_o : out STD_LOGIC_VECTOR (63 downto 0);
+
             csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
             csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
             
@@ -79,9 +81,7 @@ architecture behavioral of RISCV is
             imm_src_o : out STD_LOGIC;
             ctrl_flow_o : out STD_LOGIC;
             fp_o : out STD_LOGIC;
-    
-            r4_type_o : out STD_LOGIC;
-    
+        
             imm_o : out STD_LOGIC_VECTOR (63 downto 0);
     
             alu_operator_o : out ALU_OP;
@@ -96,22 +96,24 @@ architecture behavioral of RISCV is
             reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
             x_o : out STD_LOGIC_VECTOR (63 downto 0);
             y_o : out STD_LOGIC_VECTOR (63 downto 0);
-        
-            rs1_valid_o : out STD_LOGIC;
-            rs2_valid_o : out STD_LOGIC;
             
             reg_cmp1_mem_o : out STD_LOGIC;
             reg_cmp1_wb_o : out STD_LOGIC;
     
             reg_cmp2_mem_o : out STD_LOGIC;
             reg_cmp2_wb_o : out STD_LOGIC;
+      
+            reg_cmp3_mem_o : out STD_LOGIC;
+            reg_cmp3_wb_o : out STD_LOGIC;
                     
             registers_o : out reg_t;
             registers_fp_o : out reg_t;
-            
-            reg_src3_o : out STD_LOGIC_VECTOR (4 downto 0);
-    
+                
             fp_regs_IDEX_o : out FP_IDEX;
+            csr_operator_o : out STD_LOGIC_VECTOR (1 downto 0);
+    		csr_mem_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+            csr_cmp_mem_o : out STD_LOGIC; 
+            csr_cmp_wb_o : out STD_LOGIC;
             csr_o : out CSR);
 	end component decode;
 
@@ -143,7 +145,8 @@ architecture behavioral of RISCV is
     
             branch_predict_i : in BRANCH_PREDICTION;
             branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-    
+            branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
+
             reg_write_i : in STD_LOGIC;
     
             reg_dst_i : in STD_LOGIC_VECTOR (4 downto 0);
@@ -160,7 +163,7 @@ architecture behavioral of RISCV is
             result_fwd_fp_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
             
             x_mux_sel_i, y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
-            x_fp_mux_sel_i, y_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            x_fp_mux_sel_i, y_fp_mux_sel_i, z_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
             
             mem_req_o : out MEMORY_REQUEST;
     
@@ -171,6 +174,7 @@ architecture behavioral of RISCV is
             csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
     
             csr_i : in CSR;
+            csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
             csr_o : out CSR);
 	end component execute;
 
@@ -201,7 +205,7 @@ architecture behavioral of RISCV is
 			rst_i : in STD_LOGIC;
 			cpu_enable_i : in STD_LOGIC;
 			csr_i : in CSR;
-			CSR_read_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+			csr_read_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
 			CSR_data_o : out STD_LOGIC_VECTOR (63 downto 0);
 			mpc_o : out STD_LOGIC_VECTOR (63 downto 0);
 			fcsr_o : out STD_LOGIC_VECTOR (7 downto 0);
@@ -307,14 +311,14 @@ architecture behavioral of RISCV is
 			rgb_o : out STD_LOGIC_VECTOR (11 downto 0));
 	end component VGA;
 
-	signal pipeline_stall, pipeline_stall_if, pipeline_stall_id : STD_LOGIC := '0';
+	signal pipeline_stall, pipeline_stall_if : STD_LOGIC := '0';
 	signal load_hazard, exception, cpu_enable : STD_LOGIC := '0';
-	signal multicycle_op, r4_type, miss_instr, miss_data, id_flush : STD_LOGIC;
+	signal multicycle_op, miss_instr, miss_data : STD_LOGIC;
 
 	signal mem_init, mem_write_execute, mem_write_lsu, mem_write, mem_read_execute, mem_read_memory : STD_LOGIC;
 
 	signal x_fwd, y_fwd, result_fwd, x, y, reg_src1_data, reg_src2_data : STD_LOGIC_VECTOR (63 downto 0);
-	signal x_fwd_fp, y_fwd_fp, z_fwd_fp: STD_LOGIC_VECTOR (63 downto 0);
+	signal x_fwd_fp, y_fwd_fp, z_fwd_fp : STD_LOGIC_VECTOR (63 downto 0);
 	signal UART_data : STD_LOGIC_VECTOR (3 downto 0);
 
 	signal alu_operator : ALU_OP;
@@ -325,6 +329,8 @@ architecture behavioral of RISCV is
 	signal pc_decode, pc_execute, mem_data : STD_LOGIC_VECTOR (63 downto 0);
 	signal IR, IR_decode : STD_LOGIC_VECTOR(31 downto 0);
 
+    signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
+
 	signal imm : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal pc_src, imm_src, ctrl_flow, float, unaligned_access : STD_LOGIC;
@@ -334,13 +340,13 @@ architecture behavioral of RISCV is
 	signal registers, registers_fp : reg_t;
 	signal fcsr : STD_LOGIC_VECTOR (7 downto 0);
 
-	signal reg_src3, reg_dst_execute : STD_LOGIC_VECTOR (4 downto 0);
-	signal reg_write, reg_write_fp, reg_src1_valid, reg_src2_valid : STD_LOGIC := '0';
+	signal reg_dst_execute : STD_LOGIC_VECTOR (4 downto 0);
+	signal reg_write, reg_write_fp : STD_LOGIC := '0';
 
 	signal fp_regs_idex : FP_IDEX;
 	signal reg_dst_memory, reg_dst, reg_dst_fp : REG;
 	signal csr_write_execute, csr_write_memory, csr_write : CSR;
-	signal mpc, data : STD_LOGIC_VECTOR (63 downto 0);
+	signal mpc, data, branch_next_pc : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal mem_req : MEMORY_REQUEST;
 	signal cache_req : CACHE_REQUEST (MAR(ADDRESS_WIDTH - 3 - 1 downto 0));
@@ -355,7 +361,7 @@ architecture behavioral of RISCV is
 	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
-	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, csr_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
+	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel, csr_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
 	signal CSR_read_addr : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
@@ -363,9 +369,9 @@ architecture behavioral of RISCV is
 	signal exception_num : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
 	signal anode : STD_LOGIC := '1';
 
-	signal x_fwd_mem, x_fwd_wb, y_fwd_mem, y_fwd_wb, x_fp_fwd_mem, x_fp_fwd_wb, y_fp_fwd_mem, y_fp_fwd_wb, csr_fwd_mem, csr_fwd_wb : STD_LOGIC;
+	signal x_fwd_mem, x_fwd_wb, y_fwd_mem, y_fwd_wb, x_fp_fwd_mem, x_fp_fwd_wb, y_fp_fwd_mem, y_fp_fwd_wb, z_fp_fwd_mem, z_fp_fwd_wb, csr_fwd_mem, csr_fwd_wb : STD_LOGIC;
 
-    signal  reg_cmp1_mem, reg_cmp1_wb, reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
+    signal  reg_cmp1_mem, reg_cmp1_wb, reg_cmp2_mem, reg_cmp2_wb, reg_cmp3_mem, reg_cmp3_wb, csr_cmp_mem, csr_cmp_wb : STD_LOGIC;
 
 begin
 
@@ -395,7 +401,8 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		cpu_enable_i => cpu_enable,
-		flush_i => id_flush,
+		flush_i => branch_inf.mispredict,
+		load_hazard_o => load_hazard,
 		pipeline_stall_i => pipeline_stall,
 		frm_i => fcsr(7 downto 5),
 
@@ -406,11 +413,9 @@ begin
 		imm_src_o => imm_src,
 		ctrl_flow_o => ctrl_flow,
 		fp_o => float,
-        csr_data_i => csr_read_data,
+        csr_data_i => csr_data,
 		mem_read_o => mem_read_execute,
 		mem_write_o => mem_write_execute,
-
- 		r4_type_o => r4_type,
 
 		IR_i => IR_decode,
 		reg_dst_i => reg_dst,
@@ -423,25 +428,28 @@ begin
 
 		branch_predict_i => branch_predict_id,
 		branch_predict_o => branch_predict,
-
+        branch_next_pc_o => branch_next_pc, 
 		fp_regs_idex_o => fp_regs_idex,
 
 		reg_write_o => reg_write,
         reg_mem_i => reg_dst_memory.dest,
-		reg_src3_o => reg_src3,
+		csr_mem_addr_i => csr_write_memory.write_addr,
 
         reg_cmp1_mem_o => reg_cmp1_mem,
         reg_cmp1_wb_o => reg_cmp1_wb,
-    
-        rs1_valid_o => reg_src1_valid,
-        rs2_valid_o => reg_src2_valid,
-    
+        
         reg_cmp2_mem_o => reg_cmp2_mem,
         reg_cmp2_wb_o => reg_cmp2_wb,             
 
+        reg_cmp3_mem_o => reg_cmp3_mem,
+        reg_cmp3_wb_o => reg_cmp3_wb,
+
 		reg_dst_o => reg_dst_execute,
 		csr_o => csr_write_execute,
-		CSR_read_addr_o => CSR_read_addr,
+		csr_operator_o => csr_operator,
+		csr_read_addr_o => csr_read_addr,
+		csr_cmp_mem_o => csr_cmp_mem,
+		csr_cmp_wb_o => csr_cmp_wb,
 		registers_o => registers,
 		registers_fp_o => registers_fp,
 		x_o => x,
@@ -487,23 +495,26 @@ begin
         
 		branch_predict_i => branch_predict,
 		branch_info_o => branch_inf,
-
+        branch_next_pc_i => branch_next_pc,
 		fp_regs_idex_i => fp_regs_idex,
 
 		csr_i => csr_write_execute,
 		csr_o => csr_write_memory,
 	    csr_data_wb_i => csr_write.data,
+	    csr_operator_i => csr_operator,
 	    
         x_i => x,
         y_i => y,
 
         csr_mux_sel_i => csr_mux_sel,
+	    
 	    result_fwd_wb_i => reg_dst.data,
 	    result_fwd_fp_wb_i => reg_dst_fp.data,
 	    x_mux_sel_i => x_mux_sel,
 	    y_mux_sel_i => y_mux_sel,
 	    x_fp_mux_sel_i => x_fp_mux_sel,
-	    y_fp_mux_sel_i => y_fp_mux_sel
+	    y_fp_mux_sel_i => y_fp_mux_sel,
+	    z_fp_mux_sel_i => z_fp_mux_sel
 	);
 
 	MEM_Stage : memory
@@ -531,8 +542,8 @@ begin
 		rst_i => rst_i,
 		cpu_enable_i => cpu_enable,
 		csr_i => csr_write,
-		csr_read_addr_i => CSR_read_addr,
-		CSR_data_o => CSR_read_data,
+		csr_read_addr_i => csr_read_addr,
+		csr_data_o => csr_read_data,
 		mpc_o => mpc,
 		fcsr_o => fcsr,
 		exception_num_o => exception_num
@@ -668,19 +679,16 @@ begin
                     read_address_data;
 	
 	-- HAZARD AND STALL CHECK  
-	--load_hazard <= '1' when mem_read = '1' and (x_fwd_ex = '1' or y_fwd_ex = '1') else '0';
 
 	pipeline_stall <= multicycle_op or miss_data or miss_instr or exception or unaligned_access;
-	pipeline_stall_if <= pipeline_stall; -- or load_hazard;
-	--  pipeline_stall_id <= 
+	
+	pipeline_stall_if <= pipeline_stall or load_hazard;
 
-	id_flush <= branch_inf.mispredict;
+	x_fwd_mem <= reg_cmp1_mem and reg_dst_memory.write;
+	x_fwd_wb <= reg_cmp1_wb and reg_dst.write;
 
-	x_fwd_mem <= reg_cmp1_mem and reg_src1_valid and reg_dst_memory.write;
-	x_fwd_wb <= reg_cmp1_wb and reg_src1_valid and reg_dst.write;
-
-    y_fwd_mem <= reg_cmp2_mem and reg_src2_valid and reg_dst_memory.write;
-	y_fwd_wb <= reg_cmp2_wb and reg_src2_valid and reg_dst.write;
+    y_fwd_mem <= reg_cmp2_mem and reg_dst_memory.write;
+	y_fwd_wb <= reg_cmp2_wb and reg_dst.write;
 
     x_mux_sel <= "01" when x_fwd_mem = '1' else                                                                                                                                                                                                                                                                                                                                                                                                                                                         
                  "10" when x_fwd_wb = '1' else 
@@ -691,27 +699,37 @@ begin
                  "11";
 
  	-- FORWARDING LOGIC FLOATING POINT
-	x_fp_fwd_mem <= fp_regs_idex.write and reg_cmp1_mem and reg_write_fp;
-	x_fp_fwd_wb <= fp_regs_idex.write and reg_cmp1_wb and reg_dst_fp.write;
+	x_fp_fwd_mem <= reg_cmp1_mem and reg_write_fp;
+	x_fp_fwd_wb <= reg_cmp1_wb and reg_dst_fp.write;
 
-    y_fp_fwd_mem <= fp_regs_idex.write and reg_cmp2_mem and reg_write_fp;
-	y_fp_fwd_wb <= fp_regs_idex.write and reg_cmp2_wb and reg_dst_fp.write;
+    y_fp_fwd_mem <= reg_cmp2_mem and reg_write_fp;
+	y_fp_fwd_wb <= reg_cmp2_wb and reg_dst_fp.write;
+    
+    z_fp_fwd_mem <= reg_cmp3_mem and reg_write_fp;
+	z_fp_fwd_wb <= reg_cmp3_wb and reg_dst_fp.write;
 
     x_fp_mux_sel <= "01" when x_fp_fwd_mem = '1' else 
-                      "10" when x_fp_fwd_wb = '1' else 
-                      "11";
+                    "10" when x_fp_fwd_wb = '1' else 
+                    "11";
                  
     y_fp_mux_sel <= "01" when y_fp_fwd_mem = '1' else 
-                      "10" when y_fp_fwd_wb = '1' else 
-                      "11"; 
-                      
+                    "10" when y_fp_fwd_wb = '1' else 
+                    "11"; 
+    
+    z_fp_mux_sel <= "01" when z_fp_fwd_mem = '1' else
+                    "10" when z_fp_fwd_wb = '1' else
+                    "11";
+                                          
     -- FORWARDING LOGIC CSR
-    csr_fwd_mem <= '1' when csr_write_memory.write = '1' and csr_write_execute.write_addr = csr_write_memory.write_addr else '0'; 
-    csr_fwd_wb <= '1' when csr_write.write = '1' and csr_write_execute.write_addr = csr_write.write_addr else '0';
+    csr_fwd_mem <= csr_write_memory.write and csr_cmp_mem;
+    csr_fwd_wb <= csr_write.write and csr_cmp_wb;
+    
+    csr_data <= csr_write.data when csr_write.write_addr = csr_read_addr else csr_read_data;
     
     csr_mux_sel <= "01" when csr_fwd_mem = '1' else
                    "10" when csr_fwd_wb = '1' else
                    "11";
+                   
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable;
 	LED_o(3) <= exception;
@@ -720,6 +738,6 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-	 test_number_o <= registers(10);
+--	 test_number_o <= registers(10);
 
 end behavioral;

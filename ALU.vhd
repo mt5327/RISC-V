@@ -79,7 +79,7 @@ begin
 			when ALU_NE => cmp_o <= not eq_r;
 			when ALU_LT | ALU_LTU => cmp_o <= lt_r;
 			when ALU_GE | ALU_GEU => cmp_o <= not lt_r;
-			when others => cmp_o <= '1';
+			when others => cmp_o <= '0';
 		end case;
 	end process;
 

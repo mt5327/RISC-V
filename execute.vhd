@@ -26,12 +26,13 @@ entity execute is
 		imm_src_i : in STD_LOGIC;
 		ctrl_flow_i : in STD_LOGIC;
 		fp_i : in STD_LOGIC;
-
+        
 		imm_i : in STD_LOGIC_VECTOR (63 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
 
 		branch_predict_i : in BRANCH_PREDICTION;
 		branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
+        branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
 
 		reg_write_i : in STD_LOGIC;
 
@@ -49,7 +50,7 @@ entity execute is
 		result_fwd_fp_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
 		
 		x_mux_sel_i, y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
-		x_fp_mux_sel_i, y_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+		x_fp_mux_sel_i, y_fp_mux_sel_i, z_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
 		
 		mem_req_o : out MEMORY_REQUEST;
 
@@ -60,6 +61,7 @@ entity execute is
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
 
 		csr_i : in CSR;
+		csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
 		csr_o : out CSR);
 end execute;
 
@@ -78,8 +80,9 @@ architecture behavioral of execute is
 		generic (BHT_INDEX_WIDTH : NATURAL := 2);
 		port (
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
-			pc_i : in STD_LOGIC_VECTOR (63 downto 0);
+			pc_i : in STD_LOGIC_VECTOR (BHT_INDEX_WIDTH-1 downto 0);
 			offset_i : in STD_LOGIC_VECTOR (63 downto 0);
+			branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
 			ctrl_flow_i : in STD_LOGIC;
 			alu_cmp_i : in STD_LOGIC;
 			branch_predict_i : in BRANCH_PREDICTION;
@@ -118,25 +121,27 @@ architecture behavioral of execute is
             rst_i : in STD_LOGIC;
             fp_op_i : in FPU_OP;
             fp_precision_i : in STD_LOGIC;
+            cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
             x_i : in STD_LOGIC_VECTOR (63 downto 0);
             y_i : in STD_LOGIC_VECTOR (63 downto 0);
             z_i : in STD_LOGIC_VECTOR (63 downto 0);
             x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
+            write_fflags_o : out STD_LOGIC;
             result_o : out FP_RESULT;
             result_int_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component FPU;
 
-    signal result_fp_reg, z, result_int, csr_data, csr_data_sel : STD_LOGIC_VECTOR (63 downto 0);
+    signal result_fp_reg, z, result_int, csr_data, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
     signal result_fp : FP_RESULT;
-	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
-	signal instr_misaligned, mem_write, reg_write_fp : STD_LOGIC := '0';
-	signal alu_cmp, multiply, divide, div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, csr_write, mem_read : STD_LOGIC := '0';
+	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
+	signal instr_misaligned, mem_write, reg_write_fp, write_fflags : STD_LOGIC := '0';
+	signal alu_cmp, div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, csr_write, mem_read, multiply, divide : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-	signal csr, csr_reg : CSR := ('0', "00", (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
+	signal csr, csr_reg : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
 
 begin
 
@@ -153,8 +158,9 @@ begin
 	generic map(BHT_INDEX_WIDTH => BHT_INDEX_WIDTH)
 	port map(
 		x_i => x_sel,
-		pc_i => pc_i,
+		pc_i => pc_i(BHT_INDEX_WIDTH + 2 - 1 downto 2),
 		offset_i => imm_i,
+		branch_next_pc_i => branch_next_pc_i,
 		ctrl_flow_i => ctrl_flow_i,
 		alu_cmp_i => alu_cmp,
 		branch_predict_i => branch_predict_i,
@@ -190,12 +196,14 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		fp_op_i => fp_regs_IDEX_i.fp_op,
-		fp_precision_i => fp_regs_IDEX_i.fp_precision,
+		fp_precision_i => fp_regs_idex_i.precision,
 		rm_i => fp_regs_IDEX_i.rm,
+		cvt_mode_i => imm_i(1 downto 0),
 		x_i => x_fp_sel,
 		y_i => y_fp_sel,
-		z_i => (others => '0'),
+		z_i => z_fp_sel,
 		x_int_i => x_sel,
+		write_fflags_o => write_fflags,
 		result_o => result_fp,
 		result_int_o => result_int
 	);
@@ -208,11 +216,12 @@ begin
 
 	result <= result_mul when multiply = '1' else
 		      result_div when divide = '1' else
-		      result_int when fp_i = '1' and reg_write_i = '1' else
+		      result_int when fp_i = '1' else
+		      csr_data when csr_i.write = '1' else 
 		      z;
     
     with x_mux_sel_i select 
-        x_sel <=  reg_dst.data when "01",
+        x_sel <= reg_dst.data when "01",
                  result_fwd_wb_i when "10",
                  x_i when others;
 
@@ -221,15 +230,21 @@ begin
                  result_fwd_wb_i when "10",
                  y_i when others;                 
 
-    with x_fp_mux_sel_i select 
-        x_fp_sel <=  result_fp_reg when "01",
+   with x_fp_mux_sel_i select 
+        x_fp_sel <= result_fp_reg when "01",
                  result_fwd_fp_wb_i when "10",
                  fp_regs_idex_i.x when others;    
                  
     with y_fp_mux_sel_i select 
         y_fp_sel <= result_fp_reg when "01",
                  result_fwd_fp_wb_i when "10",
-                 fp_regs_idex_i.y when others;                     
+                 fp_regs_idex_i.y when others;
+   
+    with z_fp_mux_sel_i select                     
+        z_fp_sel <= result_fp_reg when "01",
+                 result_fwd_fp_wb_i when "10",
+                 fp_regs_idex_i.z when others;
+
 
 	instr_misaligned <= (or branch_inf.target_address(1 downto 0)) and branch_inf.mispredict;
 
@@ -243,21 +258,22 @@ begin
 		      (others => '0') when others;
 
 	REGS : process (clk_i)
-	begin 
+	begin  
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				reg_dst.write <= '0';
 				reg_write_fp <= '0';
 				mem_req.enable_mem <= '0';
 				mem_write <= '0';
+				mem_read <= '0';
 			else
 				if pipeline_stall_i = '0' then
+                    reg_write_fp <= fp_regs_idex_i.write;
+					result_fp_reg <= result_fp.value;
 					reg_dst.data <= result;
 					reg_dst.write <= reg_write_i;
 					reg_dst.dest <= reg_dst_i;
                     mem_read <= mem_read_i;
-                    result_fp_reg <= result_fp.value;
-					reg_write_fp <= fp_regs_IDEX_i.write;
 					mem_req.enable_mem <= enable_mem;
 					mem_write <= mem_write_i;
 					mem_req.MEMOp <= mem_operator_i;
@@ -266,7 +282,7 @@ begin
 			end if;
 		end if;
 	end process;
-
+	
 	CS_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
@@ -280,14 +296,16 @@ begin
 			end if;
 		end if;
 	end process;
-
-	with alu_operator_i select
+	
+		with alu_operator_i select
 		multiply <= '1' when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
 		            '0' when others;
 
 	with alu_operator_i select
 		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
 		          '0' when others;
+
+
 
 	enable_mem <= mem_write_i or mem_read_i;
 	enable_mul <= multiply and (not mul_valid);
@@ -302,22 +320,23 @@ begin
 	result_fp_o <= result_fp_reg;
 	
 	with csr_mux_sel_i select 
-	   csr_data_sel <= csr_reg.data when "01",
+	   csr_data_mux <= csr_reg.data when "01",
 	               csr_data_wb_i when "10",
 	               csr_i.data when others; 
-	          
+
+    csr_data_sel <= imm_i when imm_src_i = '1' else csr_data_mux;          
 	csr.exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_i.exception_id;
 
-	with csr_i.op select
-		csr_data <= csr_i.data when CSR_RW,
-		            csr_i.data or x_sel when CSR_RS,
-		            csr_i.data and (not x_sel) when CSR_RC,
+	with csr_operator_i select
+		csr_data <= csr_data_sel when CSR_RW,
+		            csr_data_sel or x_sel when CSR_RS,
+		            csr_data_sel and (not x_sel) when CSR_RC,
 		            (others => '0') when others;
 	
-	csr.write <= csr_i.write or fp_i;
-	csr.write_addr <= FFLAGS when fp_i = '1' else csr_i.write_addr;
-	csr.data <= (63 downto 5 => '0') & result_fp.fflags when fp_i = '1' else csr_data_sel;
-	csr.epc <= csr_i.epc;
+	csr.write <= csr_i.write or write_fflags;
+	csr.write_addr <= csr_i.write_addr;
+	csr.data <= (63 downto 5 => '0') & result_fp.fflags when fp_i = '1' else x_sel;
+	csr.epc <= csr_i.epc; 
 
 	csr_o <= csr_reg;
 

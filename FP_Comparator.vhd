@@ -12,17 +12,16 @@ entity FP_Comparator is
 	port (
 		x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 		y_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
-		fp_op_i : in FPU_OP;
 		funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
-		fflags_o : out STD_LOGIC_VECTOR (4 downto 0);
-		result_o : out STD_LOGIC_VECTOR(P - 1 downto 0));
+		result_cmp_o : out STD_LOGIC;
+		result_min_max_o : out STD_LOGIC_VECTOR (63 downto 0);
+        fflags_cmp_o : out STD_LOGIC_VECTOR (4 downto 0);
+        fflags_min_max_o : out STD_LOGIC_VECTOR (4 downto 0));
 end FP_Comparator;
 
 architecture behavioral of FP_Comparator is
 
 	signal cmp, lt, eq, nan, signaling_nan : STD_LOGIC;
-
-	signal fflags : STD_LOGIC_VECTOR (4 downto 0);
 
 	signal fp_infos : fp_infos_t(0 to 1);
 
@@ -36,21 +35,21 @@ architecture behavioral of FP_Comparator is
 			fp_class_o : out FP_INFO);
 	end component FP_Classifier;
 
-	signal invalid : STD_LOGIC;
+	signal invalid_nan : STD_LOGIC;
 
 	signal min_max_result, fp_min, fp_max : STD_LOGIC_VECTOR (P - 1 downto 0);
 
 begin
 
-	FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i, fp_infos(0));
-	FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i, fp_infos(1));
+	FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i(P-2 downto 0), fp_infos(0));
+	FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i(P-2 downto 0), fp_infos(1));
 
 	lt <= '1' when unsigned(x_i) < unsigned(y_i) else '0';
 	eq <= '1' when (unsigned(x_i) = unsigned(y_i)) or (fp_infos(0).zero = '1' and fp_infos(0).zero = '1') else '0';
 	fp_min <= x_i when lt = '1' and fp_infos(0).nan = '0' else y_i;
 	fp_max <= x_i when lt = '0' and fp_infos(0).nan = '0' else y_i;
 
-	invalid <= fp_infos(0).signaling_nan or fp_infos(1).signaling_nan;
+	signaling_nan <= fp_infos(0).signaling_nan or fp_infos(1).signaling_nan;
 
 	MIN_MAX : process (fp_min, fp_max, funct3_i, fp_infos)
 	begin
@@ -60,7 +59,7 @@ begin
 			case funct3_i is
 				when "000" => min_max_result <= fp_min;
 				when "001" => min_max_result <= fp_max;
-				when others =>
+				when others => min_max_result <= (others => '0');
 			end case;
 		end if;
 	end process;
@@ -70,20 +69,26 @@ begin
 	begin
 		case funct3_i is
 			when FLE =>
+			    invalid_nan <= nan;
 			    cmp <= (lt or eq) and (not nan);
 			when FLT =>
+			    invalid_nan <= nan;
 			    cmp <= lt and (not eq) and (not nan);
 			when FEQ =>
+			    invalid_nan <= '0';
 				cmp <= eq and (not nan);
-			when others => cmp <= '0';
+			when others => cmp <= '0'; invalid_nan <= '0';
 		end case;
 	end process;
 
-	fflags_o <= fflags;
-
-	with fp_op_i select
-		result_o <= min_max_result when FPU_MINMAX,
-			        (0 => cmp, others => '0') when FPU_CMP,
-		            (others => '0') when others;
-
+    fflags_cmp_o <= (signaling_nan or invalid_nan ) & "0000";
+	fflags_min_max_o <= signaling_nan & "0000";
+    result_cmp_o <= cmp;
+    
+    MIN_MAX_OUTPUT: if P = 32 generate 
+        result_min_max_o <= (63 downto 32 => '1') & min_max_result;
+    else generate 
+        result_min_max_o <= min_max_result;
+    end generate;
+    
 end behavioral;

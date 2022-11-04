@@ -19,8 +19,8 @@ end csr_regfile;
 
 architecture behavioral of csr_regfile is
 
-    signal fflags_reg : STD_LOGIC_VECTOR (4 downto 0);
-    signal frm_reg : STD_LOGIC_VECTOR (2 downto 0);
+    signal fflags_reg : STD_LOGIC_VECTOR (4 downto 0) := (others => '0');
+    signal frm_reg : STD_LOGIC_VECTOR (2 downto 0) := (others => '0');
     signal mepc_reg, mtvec_reg, mtval_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
     signal cycles : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
     signal mcause_reg : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;

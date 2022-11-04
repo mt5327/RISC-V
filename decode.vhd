@@ -9,6 +9,8 @@ entity decode is
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;
         cpu_enable_i: in STD_LOGIC;
+        load_hazard_o : out STD_LOGIC;
+
 		flush_i : in STD_LOGIC;
 		pipeline_stall_i : in STD_LOGIC;
 
@@ -33,10 +35,9 @@ entity decode is
 		ctrl_flow_o : out STD_LOGIC;
 		fp_o : out STD_LOGIC;
 
-		r4_type_o : out STD_LOGIC;
-
 		imm_o : out STD_LOGIC_VECTOR (63 downto 0);
-
+        branch_next_pc_o : out STD_LOGIC_VECTOR (63 downto 0);
+        
 		alu_operator_o : out ALU_OP;
 		mem_operator_o : out MEM_OP;
 
@@ -47,34 +48,39 @@ entity decode is
 		reg_dst_fp_i : in REG;
 		
 		reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
+		csr_mem_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+		
 		x_o : out STD_LOGIC_VECTOR (63 downto 0);
 	    y_o : out STD_LOGIC_VECTOR (63 downto 0);
-    
-        rs1_valid_o : out STD_LOGIC;
-        rs2_valid_o : out STD_LOGIC;
         
         reg_cmp1_mem_o : out STD_LOGIC;
         reg_cmp1_wb_o : out STD_LOGIC;
 
         reg_cmp2_mem_o : out STD_LOGIC;
         reg_cmp2_wb_o : out STD_LOGIC;
+        
+        reg_cmp3_mem_o : out STD_LOGIC;
+        reg_cmp3_wb_o : out STD_LOGIC;
+        
+        csr_cmp_mem_o : out STD_LOGIC; 
+        csr_cmp_wb_o : out STD_LOGIC;
                 
         registers_o : out reg_t;
         registers_fp_o : out reg_t;
 		
-		reg_src3_o : out STD_LOGIC_VECTOR (4 downto 0);
-
 		fp_regs_IDEX_o : out FP_IDEX;
+        csr_operator_o : out STD_LOGIC_VECTOR (1 downto 0);
 		csr_o : out CSR);
 end decode;
 
 architecture behavioral of decode is
 
-	signal x, y, x_data, y_data, x_data_reg, y_data_reg, x_fp, y_fp, pc, imm, imm_reg, branch_target_address : STD_LOGIC_VECTOR (63 downto 0);
+	signal x, y, x_data, y_data, x_data_reg, y_data_reg, x_fp, y_fp, z_fp, pc, imm, imm_reg, branch_target_address : STD_LOGIC_VECTOR (63 downto 0);
+    signal branch_next_pc, branch_next_pc_reg : STD_LOGIC_VECTOR (63 downto 0);
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
-	signal mem_read, mem_read_reg, mem_write, mem_write_reg, reg_src1_valid, reg_src2_valid : STD_LOGIC := '0';
-	signal reg_write_fp, float, float_reg : STD_LOGIC := '0';
+	signal mem_read, mem_read_reg, mem_write, mem_write_reg, reg_src1_valid, reg_src2_valid, reg_fp_src1_valid, reg_fp_src2_valid : STD_LOGIC := '0';
+	signal reg_write_fp, float, float_reg, multiply, divide, wrong_target : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
 	signal fp_regs_IDEX : FP_IDEX;
 	signal alu_operator, alu_operator_reg : ALU_OP;
@@ -82,15 +88,17 @@ architecture behavioral of decode is
 	signal mem_operator, mem_operator_reg : MEM_OP;
 	signal branch_predict : BRANCH_PREDICTION;
 
-	signal load_hazard, invalid_instruction : STD_LOGIC;
+	signal load_hazard, flush, invalid_instruction : STD_LOGIC;
 
-    signal reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
+    signal reg_cmp1, reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
     signal reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
-
-    signal rs1_valid, rs2_valid, rs1_valid_reg, rs2_valid_reg : STD_LOGIC;
+    signal reg_cmp3_mem, reg_cmp3_wb : STD_LOGIC;
+    signal csr_cmp_mem, csr_cmp_wb : STD_LOGIC;
 
     signal reg_cmp1_mem_reg, reg_cmp1_wb_reg : STD_LOGIC;
     signal reg_cmp2_mem_reg, reg_cmp2_wb_reg : STD_LOGIC;
+    signal reg_cmp3_mem_reg, reg_cmp3_wb_reg : STD_LOGIC;
+    signal csr_cmp_mem_reg, csr_cmp_wb_reg : STD_LOGIC;
 
 	signal csr, csr_reg : CSR;
 
@@ -105,7 +113,9 @@ architecture behavioral of decode is
 	alias funct7 : STD_LOGIC_VECTOR(6 downto 0) is IR_i(31 downto 25);
 
     signal registers, registers_fp : reg_t;
-    signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
+    signal csr_operator, csr_operator_reg : STD_LOGIC_VECTOR (1 downto 0);
+
+    signal rm : STD_LOGIC_VECTOR (2 downto 0);
 
 	component regfile is
 		port (
@@ -352,7 +362,12 @@ begin
 	imm_b <= IR_i(31) & IR_i(7) & IR_i(30 downto 25) & IR_i(11 downto 8);
 	imm_s <= IR_i(31 downto 25) & IR_i(11 downto 7);
 
-	branch_target_address <= STD_LOGIC_VECTOR(unsigned(pc_i) + unsigned(resize(signed(imm_b) & "0", 64)));
+
+    branch_target_address <= STD_LOGIC_VECTOR(unsigned(pc_i) + unsigned(resize(signed(imm_b) & "0", 64)));
+    branch_next_pc <= STD_LOGIC_VECTOR(unsigned(pc_i) + FOUR);
+
+    load_hazard <= mem_read_reg and ( reg_cmp1_mem or reg_cmp2_mem or reg_cmp3_mem );
+    flush <= load_hazard or flush_i;
 
 	OFFSET_SELECT : process (IR_i, imm_s, branch_target_address)
 	begin
@@ -360,23 +375,32 @@ begin
 			when LUI | AUIPC => imm <= STD_LOGIC_VECTOR(resize(signed(IR_i(31 downto 12)) & X"000", 64));
 			when BRANCH => imm <= branch_target_address;
 			when STORE | STORE_FP => imm <= STD_LOGIC_VECTOR(resize(signed(imm_s), 64));
-			when JALR | LOAD | LOAD_FP | RI | RI32 => imm <= STD_LOGIC_VECTOR(resize(signed(IR_i(31 downto 20)), 64));
+			when JALR | LOAD | LOAD_FP | RI | RI32 | FP => imm <= STD_LOGIC_VECTOR(resize(signed(IR_i(31 downto 20)), 64));
+			when SYSTEM => imm <= (63 downto 5 => '0') & IR_i(19 downto 15);
 			when others => imm <= (others => '0');
 		end case;
     end process;
 
+    reg_cmp1 <= '1' when reg_src1 = reg_dst_i.dest else '0';
     reg_cmp1_mem <= '1' when reg_src1 = reg_dst else '0';
     reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i else '0';
     
     reg_cmp2_mem <= '1' when reg_src2 = reg_dst else '0';
     reg_cmp2_wb <= '1' when reg_src2 = reg_mem_i else '0';
 
+    reg_cmp3_mem <= '1' when reg_src3 = reg_dst else '0'; 
+    reg_cmp3_wb <= '1' when reg_src3 = reg_mem_i else '0';
+
+    csr_cmp_mem <= '1' when IR_i(31 downto 20) = csr_reg.write_addr else '0';
+    csr_cmp_wb <= '1' when IR_i(31 downto 20) = csr_mem_addr_i else '0';
+    
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
 	              '0' when others;
 	
 	with opcode select 
 	    imm_src <= '1' when LUI | AUIPC | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32, 
+	               IR_i(14) when SYSTEM,
 	               '0' when others;
 
 	with opcode select 
@@ -386,10 +410,6 @@ begin
 	with opcode select 
 	    float <= '1' when FP | FMADD | FMSUB | FNMADD | FNMSUB, 
 	             '0' when others;
-	
-	with opcode select 
-	    r4_type_o <= '1' when FMADD | FMSUB | FNMADD | FNMSUB, 
-	                 '0' when others;
 
 	with opcode select 
 	    mem_write <= '1' when STORE | STORE_FP, 
@@ -401,14 +421,14 @@ begin
 	                '0' when others;
 
 	csr.write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0);
-	csr.data <= (63 downto 5 => '0') & IR_i(19 downto 15) when IR_i(14) = '1' else registers(to_integer(unsigned(reg_src1)));
-    csr.op <= csr_operator;
-	csr.write_addr <= IR_i(31 downto 20);
+	csr.data <= csr_data_i;
+	csr.write_addr <= IR_i(31 downto 20) when float = '0' else FFLAGS;
     csr.epc <= pc_i;
+        
+    rm <= frm_i when funct3 = "111" else funct3;
     
     with opcode select 
-        x_data <= csr_data_i when SYSTEM, 
-              x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP,
+        x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP | SYSTEM,
               (others => '0') when others;
         
 
@@ -416,14 +436,7 @@ begin
 		y_data <= (2 => '1', others => '0') when JAL | JALR,
 		          y_data_reg when BRANCH | STORE | RR | RR32,
 		          (others => '0') when others;
-
-	with opcode select
-		reg_src1_valid <= '1' when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP | SYSTEM,
-		                  '0' when others;
-
-	with opcode select
-		reg_src2_valid <= '1' when BRANCH | STORE | RR | RR32,
-		                  '0' when others;
+		          
 
 	csr.exception_id <= ILLEGAL_INSTRUCTION when invalid_instruction = '1' else
 		               BREAKPOINT when IR_i = X"00100073" else
@@ -433,14 +446,14 @@ begin
     process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or flush_i = '1' then
+			if rst_i = '1' or flush = '1' then
 				ctrl_flow_reg <= '0';
 				reg_write_reg <= '0';
 				mem_read_reg <= '0';
 				mem_write_reg <= '0';
 				alu_operator_reg <= ALU_ADD;
 				mem_operator_reg <= LSU_NONE;
-				branch_predict.cf_type <= "00";
+		        branch_predict.cf_type <= "00";
 			else
 				if pipeline_stall_i = '0' then
 				    x <= x_data;
@@ -449,13 +462,14 @@ begin
 			        reg_cmp1_wb_reg <= reg_cmp1_wb;
 			        reg_cmp2_mem_reg <= reg_cmp2_mem;
 			        reg_cmp2_wb_reg <= reg_cmp2_wb;
-					rs1_valid_reg <= rs1_valid;
-					rs2_valid_reg <= rs2_valid;
+			        reg_cmp3_mem_reg <= reg_cmp3_mem;
+			        reg_cmp3_wb_reg <= reg_cmp3_wb;
 					pc_src_reg <= pc_src;
 					imm_src_reg <= imm_src;
 					reg_dst <= IR_i(11 downto 7);
 					alu_operator_reg <= alu_operator;
 					imm_reg <= imm;
+					branch_next_pc_reg <= branch_next_pc;
 					reg_write_reg <= reg_write;
 					pc <= pc_i;
 					branch_predict <= branch_predict_i;
@@ -469,15 +483,17 @@ begin
 		end if;
 	end process;
 
-    x_data_reg <= reg_dst_i.data when reg_src1 = reg_dst_i.dest else registers(to_integer(unsigned(reg_src1)));
-    y_data_reg <= reg_dst_i.data when reg_src2 = reg_dst_i.dest else registers(to_integer(unsigned(reg_src2)));
+    x_data_reg <= reg_dst_i.data when reg_cmp1 = '1' else registers(to_integer(unsigned(reg_src1)));
+    y_data_reg <= reg_dst_i.data when reg_cmp1 = '1' else registers(to_integer(unsigned(reg_src2)));
+
     x_fp <= reg_dst_fp_i.data when reg_src1 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src1)));
     y_fp <= reg_dst_fp_i.data when reg_src2 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src2)));
-
+    z_fp <= reg_dst_fp_i.data when reg_src3 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src3))); 
+    
 	process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or flush_i = '1' then
+			if rst_i = '1' or flush = '1' then
 				fp_regs_IDEX.write <= '0';
 				fp_regs_IDEX.fp_op <= FPU_NONE;
 			else
@@ -486,8 +502,9 @@ begin
 					fp_regs_IDEX.write <= reg_write_fp;
 					fp_regs_IDEX.x <= x_fp;
 					fp_regs_IDEX.y <= y_fp;
-					fp_regs_IDEX.fp_precision <= IR_i(25);
-					fp_regs_IDEX.rm <= funct3;
+					fp_regs_IDEX.z <= z_fp;
+					fp_regs_IDEX.rm <= rm;
+					fp_regs_idex.precision <= IR_i(25);
 				end if;
 			end if;
 		end if;
@@ -496,19 +513,32 @@ begin
 	CS_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or flush_i = '1' then
+			if rst_i = '1' or flush = '1' then
 				csr_reg.write <= '0';
 				csr_reg.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
 				    csr_reg <= csr;
+				    csr_operator_reg <= csr_operator;
+				    csr_cmp_mem_reg <= csr_cmp_mem;
+				    csr_cmp_wb_reg <= csr_cmp_wb;
 				end if;
 			end if;
 		end if;
 	end process;
+	
+	with alu_operator select
+		multiply <= '1' when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
+		            '0' when others;
 
+	with alu_operator select
+		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
+		          '0' when others;
+
+    load_hazard_o <= load_hazard;
 	pc_src_o <= pc_src_reg;
 	imm_src_o <= imm_src_reg;
+	branch_next_pc_o <= branch_next_pc_reg;
 
 	csr_o <= csr_reg;
 
@@ -522,32 +552,33 @@ begin
 
 	reg_write_o <= reg_write_reg;
 
-	reg_src3_o <= reg_src3;
-
 	reg_dst_o <= reg_dst;
 
 	pc_o <= pc;
+	pc_o <= pc;
 
 	fp_regs_IDEX_o <= fp_regs_IDEX;
-	CSR_read_addr_o <= IR_i(31 downto 20);
+	csr_read_addr_o <= IR_i(31 downto 20);
 
     x_o <= x;
-	rs1_valid <= (or reg_src1) and reg_src1_valid;
 	
     y_o <= y;
-	rs2_valid <= (or reg_src2) and reg_src2_valid;
 	branch_predict_o <= branch_predict;
 	ctrl_flow_o <= ctrl_flow_reg;
 	fp_o <= float_reg;
 	
 	reg_cmp1_mem_o <= reg_cmp1_mem_reg;
     reg_cmp2_mem_o <= reg_cmp2_mem_reg;
+	reg_cmp3_mem_o <= reg_cmp3_mem_reg;
+	
 	reg_cmp1_wb_o <= reg_cmp1_wb_reg;
 	reg_cmp2_wb_o <= reg_cmp2_wb_reg;
-
-    rs1_valid_o <= rs1_valid_reg;
-    rs2_valid_o <= rs2_valid_reg;
+	reg_cmp3_wb_o <= reg_cmp3_wb_reg;
 
 	registers_o <= registers;
     registers_fp_o <= registers_fp;
+    
+    csr_operator_o <= csr_operator_reg;
+    csr_cmp_mem_o <= csr_cmp_mem_reg;
+    csr_cmp_wb_o <= csr_cmp_wb_reg;
 end behavioral;

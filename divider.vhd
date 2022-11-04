@@ -111,7 +111,7 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			case state is
-				when IDLE =>
+				when IDLE => 
 					if enable_i = '1' then
 						remainder <= x;
 						quotient <= (others => '0');

@@ -10,6 +10,7 @@ entity FP_Converter_float_to_int is
 		E : NATURAL;
 		M : NATURAL);
 	port (
+	    clk_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -80,7 +81,7 @@ begin
 	exponent <= signed(exp) - BIAS;
 	normal_shamt <= unsigned(63 - resize(exponent, 7));
 
-	less_than_one <= '1' when exponent < - 1 else '0';
+	less_than_one <= '1' when exponent < -1 else '0';
 
     OVERFLOW_CHECK: for i in 0 to 3 generate 
         overflows(i) <= '1' when exponent >= INT_WIDTHS(i) else '0';
@@ -92,8 +93,8 @@ begin
 	                               overflows(2) when "10",
 	                               overflows(3) when "11",
 	                               '0' when others;
-        
-	SHIFT_AMOUNT : process (normal_shamt, overflow, less_than_one)
+
+	SHIFT_AMOUNT : process (all)
 	begin
 		shamt <= normal_shamt;
 		if overflow = '1' then
@@ -113,12 +114,15 @@ begin
 		                    overflow_value;
 	
 	mantissa <= '1' & unsigned(x_i(M - 2 downto 0)) & (64 downto 0 => '0');
-	mantissa_shifted <= shift_right(mantissa, to_integer(shamt));
+	process(clk_i) begin if rising_edge(clk_i) then
+    	mantissa_shifted <= shift_right(mantissa, to_integer(shamt));
+    end if; end process;
+	
 	round_sticky <= mantissa_shifted(M) & (or mantissa_shifted(M - 1 downto 0));
 
 	ROUNDING : rounder generic map(64) port map(mantissa_shifted(mantissa_shifted'left downto M + 1), sign, rm_i, round_sticky, int);
 	
 	result_o <= overflow_value when overflow = '1' else int;
-    fflags_o <= "10000" when overflow = '1' else "0000" & (or round_sticky);
+    fflags_o <= overflow & "000" & ( (or round_sticky ) and ( not overflow ));
         
 end behavioral;

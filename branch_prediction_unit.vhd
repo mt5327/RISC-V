@@ -11,15 +11,13 @@ entity branch_prediction_unit is
         rst_i : in STD_LOGIC;
         pc_i : in unsigned (63 downto 0);
         branch_info_i : in BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-        current_instruction_i : in STD_LOGIC_VECTOR (31 downto 0);
+        opcode_i : in STD_LOGIC_VECTOR (6 downto 0);
+        offset_i : in STD_LOGIC_VECTOR (19 downto 0);
         branch_predict_o : out BRANCH_PREDICTION);
 end branch_prediction_unit;
 
 architecture behavioral of branch_prediction_unit is
 
-    signal offset : STD_LOGIC_VECTOR(19 downto 0);
-
-    alias opcode : STD_LOGIC_VECTOR(6 downto 0) is current_instruction_i(6 downto 0);
     alias if_ix : unsigned(BHT_INDEX_WIDTH - 1 downto 0) is pc_i(BHT_INDEX_WIDTH - 1 + 2 downto 2);
 
     type bht_t is array(0 to 2 ** BHT_INDEX_WIDTH - 1) of unsigned(1 downto 0);
@@ -27,20 +25,18 @@ architecture behavioral of branch_prediction_unit is
 
     type btb_t is array(0 to 2 ** BHT_INDEX_WIDTH - 1) of unsigned(63 downto 0);
     signal btb : btb_t := (others => (others => '0'));
+    signal jal_address : unsigned (63 downto 0);
 
 begin
+    
+    jal_address <= pc_i + unsigned(resize(signed(offset_i) & "0", 64));
+    branch_predict_o.predicted_address <= jal_address when opcode_i = JAL else btb(to_integer(if_ix));
 
-    offset <= current_instruction_i(31) & current_instruction_i(19 downto 12) & current_instruction_i(20) & current_instruction_i(30 downto 21);
-
-    with opcode select 
-        branch_predict_o.predicted_address <= pc_i + unsigned(resize(signed(offset) & "0", 64)) when JAL,
-        btb(to_integer(if_ix)) when BRANCH,
-        (others => '0') when others;
-
-    with opcode select 
+    with opcode_i select 
         branch_predict_o.cf_type <= "01" when JALR,
                                     '1' & bht(to_integer(if_ix))(1) when BRANCH,
                                     "00" when others;
+
 
     BHT_UPDATE : process (clk_i)
     begin

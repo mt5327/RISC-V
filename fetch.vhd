@@ -30,7 +30,8 @@ architecture behavioral of fetch is
 			rst_i : in STD_LOGIC;
 			pc_i : in unsigned (63 downto 0);
 			branch_info_i : in BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-			current_instruction_i : in STD_LOGIC_VECTOR (31 downto 0);
+			opcode_i : in STD_LOGIC_VECTOR (6 downto 0);
+			offset_i : in STD_LOGIC_VECTOR (19 downto 0);
 			branch_predict_o : out BRANCH_PREDICTION);
 	end component branch_prediction_unit;
 
@@ -51,7 +52,8 @@ begin
 		rst_i => rst_i,
 		pc_i => pc,
 		branch_info_i => branch_info_i,
-		current_instruction_i => IR_i,
+		opcode_i => IR_i(6 downto 0),
+	    offset_i => IR_i(31) & IR_i(19 downto 12) & IR_i(20) & IR_i(30 downto 21),
 		branch_predict_o => branch_predict
 	);
 
@@ -85,7 +87,10 @@ begin
 				if pipeline_stall_i = '0' then
 					pc_reg <= pc;
 					IR <= IR_i;
-					branch_predict_reg <= branch_predict;
+                    branch_predict_reg.cf_type <= branch_predict.cf_type;
+					if branch_predict.cf_type /= "00" then
+					   branch_predict_reg.predicted_address <= branch_predict.predicted_address;
+					end if;
 				end if;
 			end if;
 		end if;
@@ -99,7 +104,7 @@ begin
 
 	instr_address_o <= STD_LOGIC_VECTOR(pc(ADDRESS_WIDTH-1 downto 2));
 	pc_o <= STD_LOGIC_VECTOR(pc_reg);
-	IR_o <= IR;
+	IR_o <= IR; 
 	branch_predict_o <= branch_predict_reg;
 
 end behavioral;

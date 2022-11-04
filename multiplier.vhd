@@ -99,11 +99,11 @@ begin
 		end case;
 	end process;
 
-	x <= signed((x_i(x_i'left) and x_is_signed) & x_i) when enable_i else
-	     (others => '0');
+	x <= signed((x_i(x_i'left) and x_is_signed) & x_i);-- when enable_i else
+	   --  (others => '0');
 	
-	y <= signed((y_i(y_i'left) and y_is_signed) & y_i) when enable_i else 
-	     (others => '0');
+	y <= signed((y_i(y_i'left) and y_is_signed) & y_i); -- when enable_i else 
+	     --(others => '0');
 
 	MUL_A0B0 : mul_dsp_signed generic map(17, 14, 29) port map(clk_i, start_mul, ('0' & A0), ('0' & B0), A0B0);
 	MUL_A0B1 : mul_dsp_signed port map(clk_i, start_mul, ('0' & A0 & X"00"), ('0' & B1), A0B1);

@@ -32,8 +32,6 @@ architecture behavioral of FMA is
 	constant PRODUCT_SIZE : NATURAL := 2 * M;
 	constant INFINITY : STD_LOGIC_VECTOR (P - 2 downto 0) := (P - 2 downto P - E - 1 => '1', others => '0');
 
-	alias sign_y : STD_LOGIC is y_i(P - 1);
-
 	signal product : unsigned(PRODUCT_SIZE - 1 downto 0);
 
 	signal valid, sign_x, sign_z, sign_p, sign_p_reg, effective_substraction, effective_substraction_reg, sign, sign_reg, sticky_bit, is_product_anchored, is_product_anchored_reg : STD_LOGIC := '0';
@@ -53,14 +51,14 @@ architecture behavioral of FMA is
 	signal P_mantissa, P_mantissa_reg, A_mantissa, A_mantissa_reg, mantissa_sum, mantissa_sum_reg, s : unsigned (3 * M + 4 downto 0);
 	signal mantissa_z, mantissa_z_reg, shifted_mantissa_z : unsigned(3 * M + 4 downto 0);
 
-	signal add_sticky_bit, add_sticky_bit_reg, sum_sticky_bit, final_normalization, final_normalization_reg : STD_LOGIC;
+	signal add_sticky_bit, add_sticky_bit_reg, sum_sticky_bit : STD_LOGIC;
 
 	signal rounded_num : STD_LOGIC_VECTOR(P - 2 downto 0) := (others => '0');
 	signal num : unsigned (P - 2 downto 0);
 	signal add_shamt, add_shamt_reg, norm_shamt, norm_shamt_pa, norm_shamt_subnormal, norm_shamt_subnormal_reg : unsigned(SHIFT_SIZE - 1 downto 0);
 	signal lz_counter, lz_counter_reg : unsigned(num_bits(LOWER_SUM_WIDTH) - 1 downto 0);
 
-	signal y: STD_LOGIC_VECTOR (P - 1 downto 0);
+	signal y, z: STD_LOGIC_VECTOR (P - 1 downto 0);
     signal fp_valid : STD_LOGIC;
 
 	signal mantissa, mantissa_reg : unsigned(3 * M + 4 downto 0);
@@ -81,6 +79,8 @@ architecture behavioral of FMA is
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
 
 	signal enable, enable_output_regs, result_is_subnormal : STD_LOGIC;
+
+	alias sign_y : STD_LOGIC is y(P - 1);
 
 	component mul_dsp_unsigned is
 		generic (
@@ -136,15 +136,21 @@ architecture behavioral of FMA is
 	end component normalizer;
 
 begin
+
 	-- y is 1.0 if addition/subtraction
 	with fp_op_i select y <=
 		FP_ONE when FPU_ADD | FPU_SUB,
 		y_i when others;
 
+    with fp_op_i select z <=
+        y_i when FPU_ADD | FPU_SUB,
+        (others => '0') when FPU_MUL,
+        z_i when others;
+
 	-- Classify inputs
 	inputs(0) <= x_i(P - 2 downto 0);
-	inputs(1) <= y_i(P - 2 downto 0);
-	inputs(2) <= z_i(P - 2 downto 0);
+	inputs(1) <= y(P - 2 downto 0);
+	inputs(2) <= z(P - 2 downto 0);
 	CLASSIFY : for i in 0 to 2 generate
 		FP_CLASS : FP_Classifier generic map(P, E, M) port map(inputs(i), fp_infos(i));
 	end generate;
@@ -154,20 +160,20 @@ begin
 	special_case <= (inf or nan);
 	product_inf <= fp_infos(0).inf or fp_infos(1).inf;
 
-	SPECIAL_CASES : process (fp_infos, effective_substraction_reg, sign_z, sign_p_reg, product_inf, nan)
+	SPECIAL_CASES : process (fp_infos, effective_substraction, sign_z, sign_p, product_inf, nan)
 	begin
 		invalid <= '0';
 		-- Canonical NaN
-		special_value <= (P - 2 downto P - E => '1', others => '0');
+		special_value <= (P - 2 downto P - E - 2 => '1', others => '0');
 		if (fp_infos(0).inf and fp_infos(1).zero) or
 			(fp_infos(1).inf and fp_infos(0).zero) then
 			invalid <= '1';
 		elsif nan = '1' then
 			invalid <= fp_infos(0).signaling_nan or fp_infos(1).signaling_nan or fp_infos(2).signaling_nan;
-		elsif product_inf and fp_infos(2).inf and effective_substraction_reg then
+		elsif product_inf and fp_infos(2).inf and effective_substraction then
 			invalid <= '1';
 		elsif product_inf = '1' then
-			special_value <= (63 downto P-1 => sign_p_reg) & INFINITY;
+			special_value <= (63 downto P-1 => sign_p) & INFINITY;
 		elsif fp_infos(2).inf = '1' then
 			special_value <= (63 downto P-1 => sign_z) & INFINITY;
 		end if;
@@ -210,18 +216,18 @@ begin
 		not x_i(P - 1) when FPU_FNMADD | FPU_FNMSUB,
 		x_i(P - 1) when others;
 
-	with fp_op_i select sign_z <= not z_i(P - 1) when FPU_SUB | FPU_FMSUB | FPU_FNMSUB,
-		z_i(P - 1) when others;
+	with fp_op_i select sign_z <= not z(P - 1) when FPU_SUB | FPU_FMSUB | FPU_FNMSUB,
+		z(P - 1) when others;
 
 	effective_substraction <= sign_x xor sign_y xor sign_z;
 
 	exponent_x <= signed('0' & x_i(P - 2 downto P - E - 1));
 	exponent_y <= signed('0' & y(P - 2 downto P - E - 1));
-	exponent_z <= signed('0' & z_i(P - 2 downto P - E - 1));
+	exponent_z <= signed('0' & z(P - 2 downto P - E - 1));
 
 	mantissa_x <= unsigned(fp_infos(0).normal & x_i(M - 2 downto 0));
 	mantissa_y <= unsigned(fp_infos(1).normal & y(M - 2 downto 0));
-	mantissa_z <= unsigned(fp_infos(2).normal & z_i(M - 2 downto 0)) & (2 * M + 4 downto 0 => '0');
+	mantissa_z <= unsigned(fp_infos(2).normal & z(M - 2 downto 0)) & (2 * M + 4 downto 0 => '0');
 
 	-- Calculate sign of the product
 	sign_p <= sign_x xor sign_y;
@@ -235,7 +241,6 @@ begin
 	exponent_diff <= exponent_z - exponent_p;
 	exponent_tent <= exponent_p_reg(E - 1 downto 0) when exponent_diff_reg <= 2 else exponent_a_reg(E - 1 downto 0);
         
-	final_normalization <= '1' when exponent_diff_reg > 2 and fp_infos(2).subnormal = '0' else '0';
 
     enable <= '1' when enable_i = '1' and state = IDLE else '0';
     enable_output_regs <= '1' when state = ROUND else '0';
@@ -391,12 +396,11 @@ begin
             add_shamt_reg <= add_shamt;
             is_product_anchored_reg <= is_product_anchored;
             norm_shamt_subnormal_reg <= norm_shamt_subnormal;
-            final_normalization_reg <= final_normalization;
             exponent_tent_reg <= unsigned(exponent_tent);
         end if;
     end process;
 
-	exponent_pa <= exponent_p_reg - signed(resize(lz_counter_reg, exponent_p'length));
+	exponent_pa <= exponent_p_reg - signed(resize(lz_counter_reg, exponent_p'length)) + 1;
 
 	s <= unsigned(-signed( mantissa_sum_reg)) when ((not effective_substraction_reg) and sum_carry) = '1' else
 		 mantissa_sum_reg;
@@ -423,22 +427,20 @@ begin
 	exponent_plus_1 <= exp_reg + 1;
 	exponent_minus_1 <= exp_reg - 1;
 
-	ONE_BIT_NORMALIZATION : process (exp_reg, mantissa_reg, final_normalization_reg, exponent_plus_1, exponent_minus_1)
+	ONE_BIT_NORMALIZATION : process (exp_reg, mantissa_reg, exponent_plus_1, exponent_minus_1)
 	begin
 		exp_fin <= exp_reg;
 		mantissa_final <= mantissa_reg(mantissa'left - 2 downto mantissa'left - M - 1);
 		sticky_bit <= or mantissa_reg(mantissa'left-M-2 downto 0);
-		if final_normalization_reg = '1' then
 			if mantissa_reg(mantissa'left) = '1' then
 				exp_fin <= exponent_plus_1;
-				mantissa_final <= mantissa_reg(mantissa'left - 3 downto mantissa'left - M - 2);
-			    sticky_bit <= or mantissa_reg(mantissa'left-M-3 downto 0);
+				mantissa_final <= mantissa_reg(mantissa'left - 1 downto mantissa'left - M);
+			    sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
 			elsif mantissa_reg(mantissa'left - 1) = '0' then
 				exp_fin <= exponent_minus_1;
-				mantissa_final <= mantissa_reg(mantissa'left-1 downto mantissa'left - M);
-                sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
+				mantissa_final <= mantissa_reg(mantissa'left-3 downto mantissa'left - M - 2);
+                sticky_bit <= or mantissa_reg(mantissa'left-M-3 downto 0);
 			end if;
-		end if;
 	end process;
 
     round_sticky <= mantissa_final(0) & (sticky_bit or add_sticky_bit_reg );

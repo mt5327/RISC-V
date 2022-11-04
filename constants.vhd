@@ -139,8 +139,9 @@ type reg_t is array(0 to 31) of word_t;
 type FP_IDEX is record
     x : STD_LOGIC_VECTOR (63 downto 0);
     y : STD_LOGIC_VECTOR (63 downto 0);
+    z : STD_LOGIC_VECTOR (63 downto 0);
     write : STD_LOGIC;
-    fp_precision : STD_LOGIC;
+    precision : STD_LOGIC;
     rm : STD_LOGIC_VECTOR (2 downto 0);
     fp_op : FPU_OP;
 end record;
@@ -153,7 +154,6 @@ end record;
 
 type CSR is record
     write : STD_LOGIC;
-    op : STD_LOGIC_VECTOR (1 downto 0); 
     write_addr : STD_LOGIC_VECTOR (11 downto 0);
     exception_id : STD_LOGIC_VECTOR (3 downto 0);
     epc : STD_LOGIC_VECTOR (63 downto 0);
