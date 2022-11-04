@@ -79,8 +79,8 @@ architecture behavioral of decode is
     signal branch_next_pc, branch_next_pc_reg : STD_LOGIC_VECTOR (63 downto 0);
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
-	signal mem_read, mem_read_reg, mem_write, mem_write_reg, reg_src1_valid, reg_src2_valid, reg_fp_src1_valid, reg_fp_src2_valid : STD_LOGIC := '0';
-	signal reg_write_fp, float, float_reg, multiply, divide, wrong_target : STD_LOGIC := '0';
+	signal mem_read, mem_read_reg, mem_write, mem_write_reg : STD_LOGIC := '0';
+	signal reg_write_fp, float, float_reg, multiply, divide : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
 	signal fp_regs_IDEX : FP_IDEX;
 	signal alu_operator, alu_operator_reg : ALU_OP;
