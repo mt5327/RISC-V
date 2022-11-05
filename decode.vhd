@@ -486,9 +486,9 @@ begin
     x_data_reg <= reg_dst_i.data when reg_cmp1 = '1' and reg_dst_i.write = '1' else registers(to_integer(unsigned(reg_src1)));
     y_data_reg <= reg_dst_i.data when reg_cmp1 = '1' and reg_dst_i.write = '1' else registers(to_integer(unsigned(reg_src2)));
 
-    x_fp <= reg_dst_fp_i.data when reg_src1 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src1)));
-    y_fp <= reg_dst_fp_i.data when reg_src2 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src2)));
-    z_fp <= reg_dst_fp_i.data when reg_src3 = reg_dst_fp_i.dest else registers_fp(to_integer(unsigned(reg_src3))); 
+    x_fp <= reg_dst_fp_i.data when reg_src1 = reg_dst_fp_i.dest and reg_dst_fp_i.write = '1' else registers_fp(to_integer(unsigned(reg_src1)));
+    y_fp <= reg_dst_fp_i.data when reg_src2 = reg_dst_fp_i.dest and reg_dst_fp_i.write = '1' else registers_fp(to_integer(unsigned(reg_src2)));
+    z_fp <= reg_dst_fp_i.data when reg_src3 = reg_dst_fp_i.dest and reg_dst_fp_i.write = '1' else registers_fp(to_integer(unsigned(reg_src3))); 
     
 	process (clk_i)
 	begin

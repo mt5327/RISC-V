@@ -29,9 +29,9 @@ architecture behavioral of FP_Converter_float_to_int is
 
 	alias sign : STD_LOGIC is x_i(P - 1);
 
-	signal int, rounded_int : STD_LOGIC_VECTOR (63 downto 0);
+	signal int, signed_int : STD_LOGIC_VECTOR (63 downto 0);
 	signal exponent : signed (E - 1 downto 0);
-	signal sticky_bit : STD_LOGIC;
+	signal is_zero : STD_LOGIC;
 
 	component FP_Classifier is
 		generic (
@@ -62,7 +62,7 @@ architecture behavioral of FP_Converter_float_to_int is
 			z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
 	end component rounder;
 
-	signal less_than_one, overflow, underflow : STD_LOGIC;
+	signal less_than_one, overflow, underflow, special_case : STD_LOGIC;
 	signal overflow_value, overflow_value_final : STD_LOGIC_VECTOR(63 downto 0);
 	signal fp_class : FP_INFO;
 	
@@ -74,7 +74,7 @@ architecture behavioral of FP_Converter_float_to_int is
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
 	constant MAX_SHIFT : unsigned(6 downto 0) := to_unsigned(65, shamt'length);
 
-begin
+begin 
 
 	FP_CLASSIFY : FP_Classifier generic map(P, E, M) port map(x_i(P - 2 downto 0), fp_class);
 
@@ -87,6 +87,8 @@ begin
         overflows(i) <= '1' when exponent >= INT_WIDTHS(i) else '0';
     end generate; 
 
+
+    special_case <= overflow or ( sign and mode_i(0) and ( not is_zero ));
 
 	with mode_i select overflow <= overflows(0) when "00",
 	                               overflows(1) when "01",
@@ -122,7 +124,11 @@ begin
 
 	ROUNDING : rounder generic map(64) port map(mantissa_shifted(mantissa_shifted'left downto M + 1), sign, rm_i, round_sticky, int);
 	
-	result_o <= overflow_value when overflow = '1' else int;
-    fflags_o <= overflow & "000" & ( (or round_sticky ) and ( not overflow ));
+	signed_int <= STD_LOGIC_VECTOR(-signed(int)) when sign = '1' else int;
+	
+	is_zero <= nor signed_int;
+	
+	result_o <= overflow_value_final when special_case = '1' else signed_int;
+    fflags_o <= special_case & "000" & ( (or round_sticky ) and ( not special_case ));
         
 end behavioral;
