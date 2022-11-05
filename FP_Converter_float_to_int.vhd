@@ -71,7 +71,6 @@ architecture behavioral of FP_Converter_float_to_int is
 	signal mantissa : unsigned(64 + M downto 0);
 	signal mantissa_shifted : unsigned(64 + M downto 0);
 	signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
-	signal rm : STD_LOGIC_VECTOR (2 downto 0);
 	constant MAX_SHIFT : unsigned(6 downto 0) := to_unsigned(65, shamt'length);
 
 begin 
@@ -88,7 +87,7 @@ begin
     end generate; 
 
 
-    special_case <= overflow or ( sign and mode_i(0) and ( not is_zero ));
+    special_case <= overflow or fp_class.nan or fp_class.inf  or ( sign and mode_i(0) and ( not is_zero ));
 
 	with mode_i select overflow <= overflows(0) when "00",
 	                               overflows(1) when "01",
@@ -108,7 +107,6 @@ begin
 
 	with mode_i select 
 		overflow_value <= (30 downto 0 => '1', others => '0') when "00",
-	                      (31 downto 0 => '1', others => '0') when "01",
 	                      (63 => '0', others => '1') when "10",
 	                      (others => '1') when others;
 
