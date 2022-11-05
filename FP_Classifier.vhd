@@ -25,7 +25,7 @@ begin
 	fp_class_o.zero <= nor x_i(P - 2 downto 0);
 	fp_class_o.inf <= (and exp) and (nor man);
 	fp_class_o.nan <= (and exp) and (or man);
-	fp_class_o.signaling_nan <= (and exp) and ( (not  x_i(M - 2) or (or x_i(M-3 downto 0)) ));
-	fp_class_o.quiet_nan <= (and exp) and ( x_i(M - 2) and ( nor x_i(M-3 downto 0)));
+	fp_class_o.signaling_nan <= (and exp) and ( not  x_i(M - 2) ) and ( or x_i(M-3 downto 0));
+	fp_class_o.quiet_nan <= (and exp) and ( x_i(M - 2) or ( nor x_i(M-3 downto 0)));
 
 end behavioral; 
