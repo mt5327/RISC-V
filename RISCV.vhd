@@ -24,10 +24,10 @@ entity RISCV is
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
        
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
         
 	-- !!! SIMULATION ONLY !!! 
-	   -- test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
+	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
 
 end RISCV;
 
@@ -738,6 +738,6 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
---	 test_number_o <= registers(10);
+	 test_number_o <= registers(10);
 
 end behavioral;

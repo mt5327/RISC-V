@@ -109,15 +109,6 @@ constant STRONGLY_TAKEN : STD_LOGIC_VECTOR (1 downto 0) := "11";
 constant REFRESH_RATE : unsigned(19 downto 0) := to_unsigned(999999, 20);
 constant NOP : STD_LOGIC_VECTOR (31 downto 0) := X"00000013";
 
---constant BLOCK_SIZE : natural := 128;
-
---constant TAG_BITS : natural := 11;
---constant INDEX_BITS : natural := 3;
---constant OFFSET_BITS : natural := 1;
-
---constant ADDRESS_WIDTH : natural := TAG_BITS + INDEX_BITS + OFFSET_BITS;
---constant BLOCK_ADDRESS_WIDTH : natural := TAG_BITS + INDEX_BITS;
-
 --constant MAX_PC : unsigned (ADDRESS_WIDTH - 1 downto 0) := (ADDRESS_WIDTH-1 => '1', others => '0');
 
 constant NEG_INFINITY : STD_LOGIC_VECTOR (9 downto 0) := (0 => '1', others => '0');
