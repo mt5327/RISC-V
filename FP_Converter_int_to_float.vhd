@@ -70,8 +70,8 @@ begin
         end if; 
     end process;
     
-    num <= exp & shifted_mantissa(63 downto 63-M+2); 
-    round_sticky <= shifted_mantissa(63-M+1) & ( or shifted_mantissa(63-M downto 0));
+    num <= exp & shifted_mantissa(62 downto 63-M+1); 
+    round_sticky <= shifted_mantissa(63-M) & ( or shifted_mantissa(63-M-1 downto 0));
 
 	ROUNDING: rounder generic map (num'length) port map (num, sign, rm_i, round_sticky, rounded_num);
 
