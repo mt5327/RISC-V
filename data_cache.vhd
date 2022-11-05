@@ -50,7 +50,7 @@ architecture behavioral of data_cache is
 	alias tag : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto INDEX_WIDTH + num_bits(BLOCK_SIZE/64));
 	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto num_bits(BLOCK_SIZE/64));
 
-	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + num_bits(256/64) - 1 downto num_bits(BLOCK_SIZE/64));
+	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + num_bits(BLOCK_SIZE/64) - 1 downto num_bits(BLOCK_SIZE/64));
 	signal cache_offset : INTEGER range 0 to 64 * (2**num_bits(BLOCK_SIZE/64)-1);
 
 	type state_type is (CHECK, WRITE_BACK, WRITE_ALLOCATE);
@@ -58,7 +58,7 @@ architecture behavioral of data_cache is
 
 begin
 
-    cache_offset <= to_integer(unsigned(cache_req_i.MAR(num_bits(BLOCK_SIZE/8) - 1 downto 3)) & "000000");
+    cache_offset <= to_integer(unsigned(cache_req_i.MAR(num_bits(BLOCK_SIZE/64) - 1 downto 0)) & "000000");
     
 	SYNC_PROC : process (clk_i)
 	begin

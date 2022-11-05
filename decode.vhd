@@ -90,7 +90,7 @@ architecture behavioral of decode is
 
 	signal load_hazard, flush, invalid_instruction : STD_LOGIC;
 
-    signal reg_cmp1, reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
+    signal reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
     signal reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
     signal reg_cmp3_mem, reg_cmp3_wb : STD_LOGIC;
     signal csr_cmp_mem, csr_cmp_wb : STD_LOGIC;
@@ -381,7 +381,6 @@ begin
 		end case;
     end process;
 
-    reg_cmp1 <= '1' when reg_src1 = reg_dst_i.dest else '0';
     reg_cmp1_mem <= '1' when reg_src1 = reg_dst else '0';
     reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i else '0';
     
@@ -428,7 +427,7 @@ begin
     rm <= frm_i when funct3 = "111" else funct3;
     
     with opcode select 
-        x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | RI | RI32 | RR | RR32 | FP | SYSTEM,
+        x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 | FP | SYSTEM,
               (others => '0') when others;
         
 
@@ -483,8 +482,8 @@ begin
 		end if;
 	end process;
 
-    x_data_reg <= reg_dst_i.data when reg_cmp1 = '1' and reg_dst_i.write = '1' else registers(to_integer(unsigned(reg_src1)));
-    y_data_reg <= reg_dst_i.data when reg_cmp1 = '1' and reg_dst_i.write = '1' else registers(to_integer(unsigned(reg_src2)));
+    x_data_reg <= reg_dst_i.data when reg_src1 = reg_dst_i.dest and reg_dst_i.write = '1' else registers(to_integer(unsigned(reg_src1)));
+    y_data_reg <= reg_dst_i.data when reg_src2 = reg_dst_i.dest and reg_dst_i.write = '1' else registers(to_integer(unsigned(reg_src2)));
 
     x_fp <= reg_dst_fp_i.data when reg_src1 = reg_dst_fp_i.dest and reg_dst_fp_i.write = '1' else registers_fp(to_integer(unsigned(reg_src1)));
     y_fp <= reg_dst_fp_i.data when reg_src2 = reg_dst_fp_i.dest and reg_dst_fp_i.write = '1' else registers_fp(to_integer(unsigned(reg_src2)));

@@ -58,7 +58,7 @@ begin
                 else
                     we <= X"01";
                 end if;
-            when LSU_SW =>
+            when LSU_SW | LSU_FSW =>
                 if unaligned_access = '0' then
                     we(int_column + 3 downto int_column) <= "1111";
                 else
@@ -68,7 +68,7 @@ begin
                         when others => we <= X"07";
                     end case;
                 end if;
-            when LSU_SD =>
+            when LSU_SD | LSU_FSD =>
                 if unaligned_access = '0' then
                     we <= (others => '1');
                 else
