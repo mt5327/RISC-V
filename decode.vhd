@@ -421,7 +421,7 @@ begin
 
 	csr.write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0);
 	csr.data <= csr_data_i;
-	csr.write_addr <= IR_i(31 downto 20) when float = '0' else FFLAGS;
+	csr.write_addr <= IR_i(31 downto 20);
     csr.epc <= pc_i;
         
     rm <= frm_i when funct3 = "111" else funct3;

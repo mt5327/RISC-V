@@ -24,10 +24,10 @@ entity RISCV is
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
        
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
         
 	-- !!! SIMULATION ONLY !!! 
-	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
+	   -- test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
 
 end RISCV;
 
@@ -724,7 +724,7 @@ begin
     csr_fwd_mem <= csr_write_memory.write and csr_cmp_mem;
     csr_fwd_wb <= csr_write.write and csr_cmp_wb;
     
-    csr_data <= csr_write.data when csr_write.write_addr = csr_read_addr else csr_read_data;
+    csr_data <= csr_write.data when csr_write.write_addr = csr_read_addr and csr_write.write = '1' else csr_read_data;
     
     csr_mux_sel <= "01" when csr_fwd_mem = '1' else
                    "10" when csr_fwd_wb = '1' else
@@ -738,6 +738,6 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-	 test_number_o <= registers(10);
+	--test_number_o <= registers(10);
 
 end behavioral;

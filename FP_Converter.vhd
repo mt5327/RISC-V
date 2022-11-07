@@ -30,6 +30,9 @@ architecture behavioral of FP_Converter is
 
 	signal exp_dp : STD_LOGIC_VECTOR(10 downto 0);
 
+    signal x_sp : STD_LOGIC_VECTOR (31 downto 0); 
+    signal x_dp : STD_LOGIC_VECTOR (63 downto 0);
+
 	signal result_fi, result_if, result_ff : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal fflags_fi_sp, fflags_fi_dp, fflags_if_sp, fflags_if_dp, fflags_fi, fflags_if : STD_LOGIC_VECTOR (4 downto 0);
@@ -84,18 +87,10 @@ begin
 	result_ff_dp <= x_i(31) & exp_dp & x_i(22 downto 0) & (28 downto 0 => '0');
 	signaling_nan <= (and x_i(30 downto 22)) and (nor x_i(21 downto 0));
 	fflags_ff_dp <= signaling_nan & "0000";
-
-	result_fi <= result_fi_sp when fp_precision_i = '0' else result_fi_dp;    
-    result_if <= result_if_sp when fp_precision_i = '0' else result_if_dp;
-    result_ff <= result_ff_sp when fp_precision_i = '0' else result_ff_dp;
-  
-    output_fi <= '1' when fp_op_i = FPU_CVT_FI else '0';
-    output_if <= '1' when fp_op_i = FPU_CVT_IF else '0';
-    output_ff <= '1' when fp_op_i = FPU_CVT_FF else '0';
-
-    result_fi_o <= result_fi when output_fi else (others => '0');
-    result_if_o <= result_if when output_if else (others => '0');
-    result_ff_o <= result_ff when output_ff else (others => '0');
+	
+	result_fi_o <= result_fi_sp when fp_precision_i = '0' else result_fi_dp;    
+    result_if_o <= result_if_sp when fp_precision_i = '0' else result_if_dp;
+    result_ff_o <= result_ff_sp when fp_precision_i = '0' else result_ff_dp;
     
 	fflags_fi_o <= fflags_fi_sp when fp_precision_i = '0' else fflags_fi_dp;
 	fflags_if_o <= fflags_if_sp when fp_precision_i = '0' else fflags_if_dp;

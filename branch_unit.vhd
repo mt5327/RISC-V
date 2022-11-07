@@ -20,7 +20,7 @@ end branch_unit;
 architecture behavioral of branch_unit is
 
 	signal wrong_target, mispredict, jalr : STD_LOGIC;
-	signal jalr_address, target_address : unsigned (63 downto 0);
+	signal jalr_address, branch_target_address, target_address : unsigned (63 downto 0);
    
 begin
 
@@ -30,8 +30,8 @@ begin
 
     jalr_address <= unsigned(x_i) + unsigned(offset_i);
 
-	target_address <= unsigned(offset_i) when alu_cmp_i = '1' else unsigned(branch_next_pc_i);
-	
+	branch_target_address <= unsigned(offset_i) when alu_cmp_i = '1' else unsigned(branch_next_pc_i);
+    target_address <= jalr_address when jalr = '1' else branch_target_address;
  	
 	BRANCH_INFO : process (ctrl_flow_i, alu_cmp_i, pc_i, target_address, mispredict, jalr)
 	begin

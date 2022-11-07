@@ -217,7 +217,7 @@ begin
 	result <= result_mul when multiply = '1' else
 		      result_div when divide = '1' else
 		      result_int when fp_i = '1' else
-		      csr_data when csr_i.write = '1' else 
+		      csr_data_mux when or csr_operator_i else 
 		      z;
     
     with x_mux_sel_i select 
@@ -324,18 +324,22 @@ begin
 	               csr_data_wb_i when "10",
 	               csr_i.data when others; 
 
-    csr_data_sel <= imm_i when imm_src_i = '1' else csr_data_mux;          
+    csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
 	csr.exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_i.exception_id;
 
 	with csr_operator_i select
 		csr_data <= csr_data_sel when CSR_RW,
-		            csr_data_sel or x_sel when CSR_RS,
-		            csr_data_sel and (not x_sel) when CSR_RC,
+		            csr_data_mux or csr_data_sel when CSR_RS,
+		            csr_data_mux and (not csr_data_sel) when CSR_RC,
 		            (others => '0') when others;
 	
 	csr.write <= csr_i.write or write_fflags;
-	csr.write_addr <= csr_i.write_addr;
-	csr.data <= (63 downto 5 => '0') & result_fp.fflags when fp_i = '1' else x_sel;
+	csr.write_addr <= FFLAGS when write_fflags = '1' else 
+	                  csr_i.write_addr when csr_i.write = '1' else (others => '0');
+	
+	csr.data <= (63 downto 5 => '0') & result_fp.fflags when write_fflags = '1' else 
+	            csr_data when csr_i.write = '1' else (others => '0');
+	
 	csr.epc <= csr_i.epc; 
 
 	csr_o <= csr_reg;

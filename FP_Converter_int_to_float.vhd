@@ -27,17 +27,19 @@ architecture behavioral of FP_Converter_int_to_float is
 	signal lz_counter : unsigned(5 downto 0);
 
 	signal int_mantissa, long_mantissa : unsigned(63 downto 0);
-	signal exp, exp_init, exp_ini, exp_l: unsigned(E - 1 downto 0);
-	signal sign : STD_LOGIC;
+	signal exp, exp_init, exp_final : unsigned(E - 1 downto 0);
+	signal sign, sign_reg : STD_LOGIC;
 	signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
 	signal invalid, overflow, underflow, inexact : STD_LOGIC;
-	signal num : unsigned(P - 2 downto 0);
+	signal num, is_zero : unsigned(P - 2 downto 0);
 	signal rounded_num : STD_LOGIC_VECTOR(P - 2 downto 0);
     constant int_exp_init : unsigned(E-1 downto 0) := to_unsigned(31, E) + BIAS;
     constant long_exp_init : unsigned(E-1 downto 0) := to_unsigned(63, E) + BIAS;
     signal mantissa : unsigned(63 downto 0);
     signal shifted_mantissa : unsigned(63 downto 0);
 	alias exp_result : STD_LOGIC_VECTOR (E-1 downto 0) is rounded_num(P - 2 downto P - E - 1);
+
+    signal rm : STD_LOGIC_VECTOR (2 downto 0);
 
 	component rounder is
 		generic (SIZE : NATURAL);
@@ -67,13 +69,16 @@ begin
         if rising_edge(clk_i) then
     	   exp <= exp_init - resize(lz_counter, E);
            shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
+           sign_reg <= sign;
+           rm <= rm_i;
         end if; 
     end process;
     
-    num <= exp & shifted_mantissa(62 downto 63-M+1); 
+    exp_final <= exp when shifted_mantissa(63) = '1' else (others => '0');
+    num <= exp_final & shifted_mantissa(62 downto 63-M+1);
     round_sticky <= shifted_mantissa(63-M) & ( or shifted_mantissa(63-M-1 downto 0));
 
-	ROUNDING: rounder generic map (num'length) port map (num, sign, rm_i, round_sticky, rounded_num);
+	ROUNDING: rounder generic map (num'length) port map (num, sign_reg, rm, round_sticky, rounded_num);
 
 	result_o <= (63 downto P - 1 => sign) & rounded_num;
 

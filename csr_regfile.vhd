@@ -10,8 +10,8 @@ entity csr_regfile is
         rst_i : in STD_LOGIC;
         cpu_enable_i : in STD_LOGIC;
         csr_i : in CSR;
-        CSR_read_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
-        CSR_data_o : out STD_LOGIC_VECTOR (63 downto 0);
+        csr_read_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+        csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
         mpc_o : out STD_LOGIC_VECTOR (63 downto 0);
         fcsr_o : out STD_LOGIC_VECTOR (7 downto 0);
         exception_num_o : out STD_LOGIC_VECTOR (3 downto 0));
@@ -75,10 +75,10 @@ begin
         end if;
     end process;
 
-    with CSR_read_addr_i select 
-        CSR_data_o <= STD_LOGIC_VECTOR(resize(unsigned(fflags_reg), 64)) when FFLAGS,
+    with csr_read_addr_i select 
+        csr_data_o <= STD_LOGIC_VECTOR(resize(unsigned(fflags_reg), 64)) when FFLAGS,
                       STD_LOGIC_VECTOR(resize(unsigned(frm_reg), 64)) when FRM,
-                      STD_LOGIC_VECTOR(resize(unsigned(frm_reg) & unsigned(fflags_reg), 64)) when FCSR,
+                      (63 downto 8 => '0') & frm_reg & fflags_reg when FCSR,
                       X"8000000000001128" when MISA,
                       mepc_reg when MEPC,
                       mtval_reg when MTVAL,
@@ -86,7 +86,7 @@ begin
                       cycles when CYCLE,
                       (others => '0') when others;
 
-    exception_num_o <= mcause_reg;
+    exception_num_o <= NO_EXCEPTION when mcause_reg = X"0" else mcause_reg;
     fcsr_o <= frm_reg & fflags_reg;
     mpc_o <= mepc_reg;
 

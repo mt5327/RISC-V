@@ -88,9 +88,7 @@ begin
 					pc_reg <= pc;
 					IR <= IR_i;
                     branch_predict_reg.cf_type <= branch_predict.cf_type;
-					if branch_predict.cf_type /= "00" then
-					   branch_predict_reg.predicted_address <= branch_predict.predicted_address;
-					end if;
+					branch_predict_reg.predicted_address <= branch_predict.predicted_address;
 				end if;
 			end if;
 		end if;

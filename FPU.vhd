@@ -104,7 +104,7 @@ architecture behavioral of FPU is
 	signal fp_info_sp, fp_info_dp : FP_INFO;
 	signal fp_class_sp, fp_class_dp, result_class : STD_LOGIC_VECTOR (9 downto 0);
     signal fflags_cvt_fi, fflags_cvt_if, fflags_cvt_ff, fflags_cmp, fflags_min_max : STD_LOGIC_VECTOR (4 downto 0);
-	signal fp_sgnj_sp : STD_LOGIC_VECTOR (63 downto 0);
+	signal fp_sgnj_sp : STD_LOGIC_VECTOR (31 downto 0);
 	signal fp_sgnj_dp, fp_sgnj, result_sgnj : STD_LOGIC_VECTOR (63 downto 0);
     signal fused_multiply_add, sgnj_out, div_sqrt, fp_valid, enable_cvt, cvt, result_cvt_valid : STD_LOGIC := '0';
 
@@ -191,9 +191,9 @@ begin
 	
 	result_class <= fp_class_sp when fp_precision_i = '0' else fp_class_dp;
 
-	fp_sgnj_sp <= x_i(63 downto 32) & fp_sign_injection(x_i(31 downto 0), y_i(31), rm_i);
+	fp_sgnj_sp <= fp_sign_injection(x_i(31 downto 0), y_i(31), rm_i);
 	fp_sgnj_dp <= fp_sign_injection(x_i, y_i(63), rm_i);
-	fp_sgnj <= fp_sgnj_sp when fp_precision_i = '0' else fp_sgnj_dp;
+	fp_sgnj <= (63 downto 32 => fp_sgnj_sp(31)) & fp_sgnj_sp when fp_precision_i = '0' else fp_sgnj_dp;
 	sgnj_out <= '1' when fp_op_i = FPU_SGNJ else '0';
 	result_sgnj <= fp_sgnj when sgnj_out = '1' else (others => '0');
 
@@ -236,10 +236,11 @@ begin
 	begin
 		case fp_op_i is 
 	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o.value <= result_fma.value;
+			--when FPU_DIV | FPU_SQRT => result_o.value <= results_div(0).value;
 		    when FPU_CVT_IF => result_o.value <= result_cvt_if;
 			when FPU_CVT_FF => result_o.value <= result_cvt_ff;
 			when FPU_MINMAX => result_o.value <= result_min_max;
-			--when FPU_DIV | FPU_SQRT => result_o.value <= results_div(0).value;
+			when FPU_SGNJ => result_o.value <= result_sgnj;
 			when FPU_MV_XF => result_o.value <= x_int_i;
 			when others => result_o.value <= (others => '0');
 		end case; 
