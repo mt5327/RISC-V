@@ -26,6 +26,7 @@ entity execute is
 		imm_src_i : in STD_LOGIC;
 		ctrl_flow_i : in STD_LOGIC;
 		fp_i : in STD_LOGIC;
+        funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
         
 		imm_i : in STD_LOGIC_VECTOR (63 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -72,7 +73,6 @@ architecture behavioral of execute is
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
 			y_i : in STD_LOGIC_VECTOR (63 downto 0);
 			z_o : out STD_LOGIC_VECTOR (63 downto 0);
-			cmp_o : out STD_LOGIC;
 			op_i : in ALU_OP);
 	end component ALU;
 
@@ -80,11 +80,12 @@ architecture behavioral of execute is
 		generic (BHT_INDEX_WIDTH : NATURAL := 2);
 		port (
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
+			y_i : in STD_LOGIC_VECTOR (63 downto 0);
+			op_i : in STD_LOGIC_VECTOR (2 downto 0);
 			pc_i : in STD_LOGIC_VECTOR (BHT_INDEX_WIDTH-1 downto 0);
 			offset_i : in STD_LOGIC_VECTOR (63 downto 0);
 			branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
 			ctrl_flow_i : in STD_LOGIC;
-			alu_cmp_i : in STD_LOGIC;
 			branch_predict_i : in BRANCH_PREDICTION;
 			branch_info_o : out BRANCH_INFO); 
 	end component branch_unit;
@@ -135,8 +136,8 @@ architecture behavioral of execute is
     signal result_fp_reg, z, result_int, csr_data, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
     signal result_fp : FP_RESULT;
 	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
-	signal instr_misaligned, mem_write, reg_write_fp, write_fflags : STD_LOGIC := '0';
-	signal alu_cmp, div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, csr_write, mem_read, multiply, divide : STD_LOGIC := '0';
+	signal instr_misaligned, mem_write, reg_write_fp, write_fflags, csr_op : STD_LOGIC := '0';
+	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, csr_write, mem_read, multiply, divide : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
@@ -150,19 +151,19 @@ begin
 		x_i => x,
 		y_i => y,
 		z_o => z,
-		cmp_o => alu_cmp,
 		op_i => alu_operator_i
 	);
 
 	BU : branch_unit
-	generic map(BHT_INDEX_WIDTH => BHT_INDEX_WIDTH)
+	generic map(BHT_INDEX_WIDTH)
 	port map(
 		x_i => x_sel,
+		y_i => y_sel,
+		op_i => funct3_i,
 		pc_i => pc_i(BHT_INDEX_WIDTH + 2 - 1 downto 2),
 		offset_i => imm_i,
 		branch_next_pc_i => branch_next_pc_i,
 		ctrl_flow_i => ctrl_flow_i,
-		alu_cmp_i => alu_cmp,
 		branch_predict_i => branch_predict_i,
 		branch_info_o => branch_inf
 	);
@@ -197,7 +198,7 @@ begin
 		rst_i => rst_i,
 		fp_op_i => fp_regs_IDEX_i.fp_op,
 		fp_precision_i => fp_regs_idex_i.precision,
-		rm_i => fp_regs_IDEX_i.rm,
+		rm_i => funct3_i,
 		cvt_mode_i => imm_i(1 downto 0),
 		x_i => x_fp_sel,
 		y_i => y_fp_sel,
@@ -213,11 +214,13 @@ begin
 
     y <= imm_i when imm_src_i = '1' else
 	  	 y_sel;
-
-	result <= result_mul when multiply = '1' else
-		      result_div when divide = '1' else
-		      result_int when fp_i = '1' else
-		      csr_data_mux when or csr_operator_i else 
+	  	 
+	  	 
+    csr_op <= or csr_operator_i; 
+	result <= result_mul when multiply = '1' and ctrl_flow_i = '0' else
+		      result_div when divide = '1' and ctrl_flow_i = '0' else
+		      result_int when fp_i = '1' and ctrl_flow_i = '0' else
+		      csr_data_mux when csr_op = '1' and ctrl_flow_i = '0' else 
 		      z;
     
     with x_mux_sel_i select 
@@ -246,7 +249,7 @@ begin
                  fp_regs_idex_i.z when others;
 
 
-	instr_misaligned <= (or branch_inf.target_address(1 downto 0)) and branch_inf.mispredict;
+	instr_misaligned <= (or branch_inf.target_address(1 downto 0)) and branch_inf.taken and ctrl_flow_i;
 
 	--    Y_fp <= X"FFFFFFFF" & fp_regs_IDEX_i.y(31 downto 0) when (or fp_regs_IDEX_i.y(63 downto 31)) = '0' else 
 	--                                       fp_regs_IDEX_i.y; 
@@ -305,8 +308,6 @@ begin
 		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
 		          '0' when others;
 
-
-
 	enable_mem <= mem_write_i or mem_read_i;
 	enable_mul <= multiply and (not mul_valid);
 	enable_div <= divide and (not div_valid );
@@ -333,12 +334,10 @@ begin
 		            csr_data_mux and (not csr_data_sel) when CSR_RC,
 		            (others => '0') when others;
 	
-	csr.write <= csr_i.write or write_fflags;
-	csr.write_addr <= FFLAGS when write_fflags = '1' else 
-	                  csr_i.write_addr when csr_i.write = '1' else (others => '0');
-	
-	csr.data <= (63 downto 5 => '0') & result_fp.fflags when write_fflags = '1' else 
-	            csr_data when csr_i.write = '1' else (others => '0');
+	csr.write <= csr_i.write;
+	csr.write_addr <= csr_i.write_addr;
+	csr.data <= (63 downto 5 => '0') & result_fp.fflags when fp_i = '1' else 
+	            csr_data;
 	
 	csr.epc <= csr_i.epc; 
 

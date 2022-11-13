@@ -16,6 +16,7 @@ entity decode is
 
 		IR_i : in STD_LOGIC_VECTOR (31 downto 0);
 		frm_i : in STD_LOGIC_VECTOR (2 downto 0);
+		funct3_o : out STD_LOGIC_VECTOR (2 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
 
 		branch_predict_i : in BRANCH_PREDICTION;
@@ -87,8 +88,8 @@ architecture behavioral of decode is
 	signal fpu_operator : FPU_OP := FPU_NONE;
 	signal mem_operator, mem_operator_reg : MEM_OP;
 	signal branch_predict : BRANCH_PREDICTION;
-
-	signal load_hazard, flush, invalid_instruction : STD_LOGIC;
+    signal write_fflags : STD_LOGIC;
+	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction : STD_LOGIC;
 
     signal reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
     signal reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
@@ -115,7 +116,9 @@ architecture behavioral of decode is
     signal registers, registers_fp : reg_t;
     signal csr_operator, csr_operator_reg : STD_LOGIC_VECTOR (1 downto 0);
 
-    signal rm : STD_LOGIC_VECTOR (2 downto 0);
+    signal fun3, funct3_reg : STD_LOGIC_VECTOR (2 downto 0);
+
+    signal reg_src1_valid, reg_src2_valid, reg_fp_src1_valid, reg_fp_src2_valid, reg_fp_src3_valid : STD_LOGIC;
 
 	component regfile is
 		port (
@@ -151,25 +154,22 @@ begin
 	OP_DECODE : process (IR_i, frm_i)
 		variable funct : STD_LOGIC_VECTOR (9 downto 0);
 	begin
-		alu_operator <= ALU_ADD;
+		alu_operator <= ALU_NONE;
 		fpu_operator <= FPU_NONE;
 		mem_operator <= LSU_NONE;
 		csr_operator <= CSR_NONE;
 		invalid_instruction <= '0';
 		funct := funct7 & funct3;
 		case opcode is
+		    when LUI | AUIPC | JAL | JALR => alu_operator <= ALU_ADD;
 			when BRANCH =>
 				case funct3 is
-					when "000" => alu_operator <= ALU_EQ;
-					when "001" => alu_operator <= ALU_NE;
-					when "100" => alu_operator <= ALU_LT;
-					when "101" => alu_operator <= ALU_GE;
-					when "110" => alu_operator <= ALU_LTU;
-					when "111" => alu_operator <= ALU_GEU;
+					when "000" | "001" | "100" | "101" | "110" | "111" => invalid_instruction <= '0';
 					when others => invalid_instruction <= '1';
 				end case;
 	        -- LOAD / STORE
 			when LOAD =>
+			    alu_operator <= ALU_ADD;
 				case funct3 is
 					when "000" => mem_operator <= LSU_LB;
 					when "001" => mem_operator <= LSU_LH;
@@ -181,6 +181,7 @@ begin
 					when others => invalid_instruction <= '1';
 				end case;
 			when STORE =>
+		        alu_operator <= ALU_ADD;
 				case funct3 is
 					when "000" => mem_operator <= LSU_SB;
 					when "001" => mem_operator <= LSU_SH;
@@ -189,12 +190,14 @@ begin
 					when others => invalid_instruction <= '1';
 				end case;
 			when LOAD_FP =>
+                alu_operator <= ALU_ADD;
 				case funct3 is
 					when "010" => mem_operator <= LSU_FLW;
 					when "011" => mem_operator <= LSU_FLD;
 					when others => invalid_instruction <= '1';
 				end case;
 			when STORE_FP =>
+			    alu_operator <= ALU_ADD;
 				case funct3 is
 					when "010" => mem_operator <= LSU_FSW;
 					when "011" => mem_operator <= LSU_FSD;
@@ -331,9 +334,22 @@ begin
 						invalid_instruction <= '1';
 				end case;
 			when others => 
-		       alu_operator <= ALU_ADD;
+		       alu_operator <= ALU_NONE;
 		end case;
 	end process;
+
+    process (IR_i)
+    begin
+        case opcode is 
+            when FMADD | FMSUB | FNMADD | FNMSUB => write_fflags <= '1';
+            when FP => 
+                case funct5 is 
+                    when "00000" | "00001" | "00010" | "00011" | "00100" | "00101" | "01000" | "01011" | "10100" | "11000" | "11010" => write_fflags <= '1'; 
+                    when others => write_fflags <= '0';
+                end case;
+            when others => write_fflags <= '0';
+        end case;
+    end process;
 
 	REGISTER_WRITE : process (IR_i)
 	begin
@@ -366,8 +382,14 @@ begin
     branch_target_address <= STD_LOGIC_VECTOR(unsigned(pc_i) + unsigned(resize(signed(imm_b) & "0", 64)));
     branch_next_pc <= STD_LOGIC_VECTOR(unsigned(pc_i) + FOUR);
 
-    load_hazard <= mem_read_reg and ( reg_cmp1_mem or reg_cmp2_mem or reg_cmp3_mem );
-    flush <= load_hazard or flush_i;
+    load_hazard_int <= mem_read_reg and reg_write_reg and ( ( reg_cmp1_mem and reg_src1_valid ) or 
+                                                            ( reg_cmp2_mem and reg_src2_valid ) );
+
+    load_hazard_fp <= mem_read_reg and fp_regs_IDEX.write and ( ( reg_cmp1_mem and reg_fp_src1_valid ) or 
+                                                                ( reg_cmp2_mem and reg_fp_src2_valid ) or
+                                                                ( reg_cmp3_mem and reg_fp_src3_valid ) );
+    
+    flush <= ( load_hazard_int or load_hazard_fp or flush_i ) and not pipeline_stall_i;
 
 	OFFSET_SELECT : process (IR_i, imm_s, branch_target_address)
 	begin
@@ -416,19 +438,20 @@ begin
 
 
 	with opcode select 
-	    mem_read <= '1' when LOAD | LOAD_FP, 
+	    mem_read <= or IR_i(11 downto 7) when LOAD, 
+	                '1' when LOAD_FP, 
 	                '0' when others;
 
-	csr.write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0);
+	csr.write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0) or write_fflags;
 	csr.data <= csr_data_i;
-	csr.write_addr <= IR_i(31 downto 20);
+	csr.write_addr <= IR_i(31 downto 20) when write_fflags = '0' else FFLAGS;
     csr.epc <= pc_i;
         
-    rm <= frm_i when funct3 = "111" else funct3;
+    fun3 <= frm_i when funct3 = "111" and float = '1' else funct3;
     
     with opcode select 
         x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 | FP | SYSTEM,
-              (others => '0') when others;
+                  (others => '0') when others;
         
 
 	with opcode select
@@ -443,20 +466,21 @@ begin
 		               NO_EXCEPTION;
 
     process (clk_i)
-	begin
+ 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' or flush = '1' then
 				ctrl_flow_reg <= '0';
 				reg_write_reg <= '0';
 				mem_read_reg <= '0';
 				mem_write_reg <= '0';
-				alu_operator_reg <= ALU_ADD;
+				alu_operator_reg <= ALU_NONE;
 				mem_operator_reg <= LSU_NONE;
 		        branch_predict.cf_type <= "00";
 			else
 				if pipeline_stall_i = '0' then
 				    x <= x_data;
 				    y <= y_data;
+				    funct3_reg <= fun3;
 			        reg_cmp1_mem_reg <= reg_cmp1_mem;
 			        reg_cmp1_wb_reg <= reg_cmp1_wb;
 			        reg_cmp2_mem_reg <= reg_cmp2_mem;
@@ -502,7 +526,6 @@ begin
 					fp_regs_IDEX.x <= x_fp;
 					fp_regs_IDEX.y <= y_fp;
 					fp_regs_IDEX.z <= z_fp;
-					fp_regs_IDEX.rm <= rm;
 					fp_regs_idex.precision <= IR_i(25);
 				end if;
 			end if;
@@ -534,7 +557,48 @@ begin
 		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
 		          '0' when others;
 
-    load_hazard_o <= load_hazard;
+
+    process (IR_i)
+    begin
+        case opcode is
+            when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 => reg_src1_valid <= '1';
+            when FP =>
+                case funct5 is 
+                    when "11010" | "11110" => reg_src1_valid <= '1';
+                    when others => reg_src1_valid <= '0';
+                end case;
+            when SYSTEM =>
+                case funct3 is
+                    when "001" | "010" | "011" => reg_src1_valid <= '1';
+                    when others => reg_src1_valid <= '0';
+                end case;
+            when others => reg_src1_valid <= '0';
+        end case;
+    end process;             
+	
+    with opcode select
+		reg_src2_valid <= '1' when BRANCH | STORE | RR | RR32,
+		                  '0' when others;
+
+    process (IR_i)
+    begin
+        case opcode is
+            when FMADD | FMSUB | FNMADD | FNMSUB => 
+                reg_fp_src1_valid <= '1';
+                reg_fp_src2_valid <= '1';
+                reg_fp_src3_valid <= '1';
+            when FP =>
+                reg_fp_src1_valid <= '1';
+                reg_fp_src2_valid <= '1';
+                reg_fp_src3_valid <= '0';
+            when others => 
+                reg_fp_src1_valid <= '0';
+                reg_fp_src2_valid <= '0';
+                reg_fp_src3_valid <= '0';
+        end case;
+    end process;    
+
+    load_hazard_o <= load_hazard_int or load_hazard_fp;
 	pc_src_o <= pc_src_reg;
 	imm_src_o <= imm_src_reg;
 	branch_next_pc_o <= branch_next_pc_reg;
@@ -565,6 +629,7 @@ begin
 	branch_predict_o <= branch_predict;
 	ctrl_flow_o <= ctrl_flow_reg;
 	fp_o <= float_reg;
+	funct3_o <= funct3_reg;
 	
 	reg_cmp1_mem_o <= reg_cmp1_mem_reg;
     reg_cmp2_mem_o <= reg_cmp2_mem_reg;
@@ -580,4 +645,5 @@ begin
     csr_operator_o <= csr_operator_reg;
     csr_cmp_mem_o <= csr_cmp_mem_reg;
     csr_cmp_wb_o <= csr_cmp_wb_reg;
+
 end behavioral;

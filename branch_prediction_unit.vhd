@@ -73,7 +73,7 @@ begin
             if rst_i = '1' then
                 btb <= (others => (others => '0'));
             else
-                if branch_info_i.mispredict = '1' then
+                if branch_info_i.mispredict = '1' and branch_info_i.taken = '1' then
                     btb(to_integer(unsigned(branch_info_i.pc))) <= branch_info_i.target_address;
                 end if;
             end if;

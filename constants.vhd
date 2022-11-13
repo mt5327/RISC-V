@@ -6,11 +6,10 @@ package constants is
 
 type ALU_OP is 
     ( ALU_ADD, ALU_ADDW, ALU_SUB, ALU_SUBW, ALU_SLT, ALU_SLTU,
-      ALU_EQ, ALU_NE, ALU_LT, ALU_LTU, ALU_GE, ALU_GEU, -- Comparisons
       ALU_XOR, ALU_OR, ALU_AND, -- Logical operators
       ALU_SLL, ALU_SLLW, ALU_SRL, ALU_SRLW, ALU_SRA, ALU_SRAW, -- Shifts
       ALU_MUL, ALU_MULW, ALU_MULH, ALU_MULHSU, ALU_MULHU, -- Multiplication
-      ALU_DIV, ALU_DIVW, ALU_DIVU, ALU_DIVUW, ALU_REM, ALU_REMW, ALU_REMU, ALU_REMUW); -- Division
+      ALU_DIV, ALU_DIVW, ALU_DIVU, ALU_DIVUW, ALU_REM, ALU_REMW, ALU_REMU, ALU_REMUW, ALU_NONE); -- Division
 
 type FPU_OP is 
     ( FPU_ADD, FPU_SUB, FPU_MUL, FPU_DIV, FPU_SQRT,
@@ -25,11 +24,13 @@ type MEM_OP is
       LSU_FLW, LSU_FLD, LSU_FSW, LSU_FSD, 
       LSU_NONE );
 
-constant DATA_EX : STD_LOGIC_VECTOR (1 downto 0) := "00";
-constant DATA_MEM : STD_LOGIC_VECTOR (1 downto 0) := "01";
-constant DATA_WB : STD_LOGIC_VECTOR (1 downto 0) := "10";
-constant DATA_REG : STD_LOGIC_VECTOR (1 downto 0) := "11";
-                 
+constant EQ : STD_LOGIC_VECTOR (2 downto 0) := "000";
+constant NE : STD_LOGIC_VECTOR (2 downto 0) := "001";
+constant LT : STD_LOGIC_VECTOR (2 downto 0) := "100";
+constant GE : STD_LOGIC_VECTOR (2 downto 0) := "101";
+constant LTU : STD_LOGIC_VECTOR (2 downto 0) := "110";
+constant GEU : STD_LOGIC_VECTOR (2 downto 0) := "111";
+
 constant FLE : STD_LOGIC_VECTOR (2 downto 0) := "000"; 
 constant FLT : STD_LOGIC_VECTOR (2 downto 0) := "001";
 constant FEQ : STD_LOGIC_VECTOR (2 downto 0) := "010";
@@ -133,7 +134,6 @@ type FP_IDEX is record
     z : STD_LOGIC_VECTOR (63 downto 0);
     write : STD_LOGIC;
     precision : STD_LOGIC;
-    rm : STD_LOGIC_VECTOR (2 downto 0);
     fp_op : FPU_OP;
 end record;
 

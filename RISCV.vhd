@@ -24,10 +24,10 @@ entity RISCV is
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
        
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
         
 	-- !!! SIMULATION ONLY !!! 
-	   -- test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
+	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0)); 
 
 end RISCV;
 
@@ -69,9 +69,9 @@ architecture behavioral of RISCV is
 
             csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
             csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
-            
+                        
             pc_o : out STD_LOGIC_VECTOR (63 downto 0);
-    
+            funct3_o : out STD_LOGIC_VECTOR (2 downto 0);
             branch_predict_o : out BRANCH_PREDICTION;
     
             mem_read_o : out STD_LOGIC;
@@ -139,10 +139,11 @@ architecture behavioral of RISCV is
             imm_src_i : in STD_LOGIC;
             ctrl_flow_i : in STD_LOGIC;
             fp_i : in STD_LOGIC;
-    
+            funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
+            
             imm_i : in STD_LOGIC_VECTOR (63 downto 0);
             pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-    
+            
             branch_predict_i : in BRANCH_PREDICTION;
             branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
             branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -356,6 +357,8 @@ architecture behavioral of RISCV is
 
 	signal counter : unsigned (19 downto 0) := (others => '0');
 
+    signal funct3 : STD_LOGIC_VECTOR (2 downto 0);
+
 	signal cache_line, DOUT : STD_LOGIC_VECTOR(BLOCK_SIZE - 1 downto 0);
 	signal instr_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 3 downto 0);
 	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
@@ -420,7 +423,8 @@ begin
 		IR_i => IR_decode,
 		reg_dst_i => reg_dst,
 		reg_dst_fp_i => reg_dst_fp,
-
+        funct3_o => funct3,
+        
 		alu_operator_o => alu_operator,
 		mem_operator_o => mem_operator,
 
@@ -473,7 +477,7 @@ begin
 		fp_i => float,
 
 		multicycle_op_o => multicycle_op,
-
+        funct3_i => funct3,
 		imm_i => imm,
 		alu_operator_i => alu_operator,
 		mem_operator_i => mem_operator,
@@ -738,6 +742,6 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-	--test_number_o <= registers(10);
+	test_number_o <= registers(10);
 
 end behavioral;

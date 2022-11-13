@@ -8,7 +8,6 @@ entity FP_Converter is
 	port (
 	    clk_i : in STD_LOGIC;
 		fp_precision_i : in STD_LOGIC;
-		fp_op_i : in FPU_OP;
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);

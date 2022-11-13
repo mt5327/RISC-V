@@ -48,6 +48,8 @@ architecture behavioral of data_cache is
 	signal mem_write, cache_write, write_alloc : STD_LOGIC := '0';
 
 	alias tag : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto INDEX_WIDTH + num_bits(BLOCK_SIZE/64));
+    signal t : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0);
+
 	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto num_bits(BLOCK_SIZE/64));
 
 	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + num_bits(BLOCK_SIZE/64) - 1 downto num_bits(BLOCK_SIZE/64));
@@ -59,7 +61,7 @@ architecture behavioral of data_cache is
 begin
 
     cache_offset <= to_integer(unsigned(cache_req_i.MAR(num_bits(BLOCK_SIZE/64) - 1 downto 0)) & "000000");
-    
+    t <= tag;
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then

@@ -9,7 +9,6 @@ entity ALU is
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
 		z_o : out STD_LOGIC_VECTOR (63 downto 0);
-		cmp_o : out STD_LOGIC;
 		op_i : in ALU_OP);
 end ALU;
 
@@ -25,7 +24,7 @@ architecture behavioral of ALU is
 	end component barrel_shifter;
 
 	signal add_sub_r : STD_LOGIC_VECTOR (64 downto 0);
-	signal eq_r, lt_r : STD_LOGIC;
+	signal lt_r : STD_LOGIC;
 	signal xor_r, or_r, and_r : STD_LOGIC_VECTOR (63 downto 0);
 	signal shift32_r : STD_LOGIC_VECTOR (31 downto 0);
 	signal shift64_r : STD_LOGIC_VECTOR (63 downto 0);
@@ -56,32 +55,18 @@ begin
 		is_sub <= '1' when ALU_SUB | ALU_SUBW,
 		          '0' when others;
 
-	with op_i select
-		is_signed <= '1' when ALU_SLT | ALU_LT | ALU_GE,
-		             '0' when others;
+    is_signed <= '1' when op_i = ALU_SLT else '0';
  
 	x <= x_i & '1';
 	y <= (y_i & '0') xor (64 downto 0 => is_sub);
+	
 	add_sub_r <= STD_LOGIC_VECTOR(unsigned(x) + unsigned(y));
 
 	xor_r <= x_i xor y_i;
 	or_r <= x_i or y_i;
 	and_r <= x_i and y_i;
 
-	eq_r <= '1' when x_i = y_i else '0';
-
 	lt_r <= '1' when signed((x_i(63) and is_signed) & x_i) < signed((y_i(63) and is_signed) & y_i) else '0';
-
-	CMP_OUTPUT : process (op_i, eq_r, lt_r)
-	begin
-		case op_i is
-			when ALU_EQ => cmp_o <= eq_r;
-			when ALU_NE => cmp_o <= not eq_r;
-			when ALU_LT | ALU_LTU => cmp_o <= lt_r;
-			when ALU_GE | ALU_GEU => cmp_o <= not lt_r;
-			when others => cmp_o <= '0';
-		end case;
-	end process;
 
 	MUX_OUTPUT : process (add_sub_r, lt_r, xor_r, or_r, and_r, shift64_r, shift32_r, op_i)
 	begin

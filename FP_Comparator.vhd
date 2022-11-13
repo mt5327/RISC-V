@@ -51,9 +51,9 @@ begin
 
 	signaling_nan <= fp_infos(0).signaling_nan or fp_infos(1).signaling_nan;
 
-	MIN_MAX : process (fp_min, fp_max, funct3_i, fp_infos)
+	MIN_MAX : process (fp_min, fp_max, funct3_i, nan)
 	begin
-		if fp_infos(0).nan = '1' and fp_infos(1).nan = '1' then
+		if nan then
 			min_max_result <= (P - 2 downto P - E => '1', others => '0');
 		else
 			case funct3_i is

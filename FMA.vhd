@@ -416,6 +416,7 @@ begin
 		          add_shamt_reg;
  
 	mantissa <= shift_left(s, to_integer(norm_shamt));
+	
 	process (clk_i) begin 
 	   if rising_edge(clk_i) then 
 	       mantissa_reg <= mantissa; 
@@ -432,15 +433,15 @@ begin
 		exp_fin <= exp_reg;
 		mantissa_final <= mantissa_reg(mantissa'left - 2 downto mantissa'left - M - 1);
 		sticky_bit <= or mantissa_reg(mantissa'left-M-2 downto 0);
-			if mantissa_reg(mantissa'left) = '1' then
-				exp_fin <= exponent_plus_1;
-				mantissa_final <= mantissa_reg(mantissa'left - 1 downto mantissa'left - M);
-			    sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
-			elsif mantissa_reg(mantissa'left - 1) = '0' then
-				exp_fin <= exponent_minus_1;
-				mantissa_final <= mantissa_reg(mantissa'left-3 downto mantissa'left - M - 2);
-                sticky_bit <= or mantissa_reg(mantissa'left-M-3 downto 0);
-			end if;
+        if mantissa_reg(mantissa'left) = '1' then
+            exp_fin <= exponent_plus_1;
+            mantissa_final <= mantissa_reg(mantissa'left - 1 downto mantissa'left - M);
+            sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
+        elsif mantissa_reg(mantissa'left - 1) = '0' then
+            exp_fin <= exponent_minus_1;
+            mantissa_final <= mantissa_reg(mantissa'left-3 downto mantissa'left - M - 2);
+            sticky_bit <= or mantissa_reg(mantissa'left-M-3 downto 0);
+        end if;
 	end process;
 
     round_sticky <= mantissa_final(0) & (sticky_bit or add_sticky_bit_reg );
@@ -449,12 +450,13 @@ begin
 	result <= (63 downto P-1 => sign_reg) & rounded_num when special_case_reg = '0' else 
 		      special_value_reg;
   
-  process (clk_i) begin 
-    if rising_edge(clk_i) then    
-        if enable_output_regs = '1' then
-            result_reg <= result;
-            fflags_reg <= fflags_fma;
-        end if; 
+    process (clk_i) 
+    begin 
+        if rising_edge(clk_i) then    
+            if enable_output_regs = '1' then
+                result_reg <= result;
+                fflags_reg <= fflags_fma;
+            end if; 
         end if;
     end process;  
      
