@@ -16,7 +16,6 @@ entity FPU is
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
 		z_i : in STD_LOGIC_VECTOR (63 downto 0);
 		x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
-		write_fflags_o : out STD_LOGIC;
 		result_o : out FP_RESULT;
 		result_int_o : out STD_LOGIC_VECTOR (63 downto 0));
 end FPU;
@@ -262,28 +261,14 @@ begin
 	process (all)
 	begin
         case fp_op_i is
-            when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => 
-                result_o.fflags <= result_fma.fflags;
-                write_fflags_o <= '1';                                                                                      
+            when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o.fflags <= result_fma.fflags;
 			when FPU_DIV | FPU_SQRT => result_o.fflags <= result_div.fflags;
-			when FPU_CVT_FI => 
-			    result_o.fflags <= fflags_cvt_fi;
-			    write_fflags_o <= '1';
-			when FPU_CVT_IF => 
-			    result_o.fflags <= fflags_cvt_if;
-			    write_fflags_o <= '1';
-			when FPU_CVT_FF => 
-			    result_o.fflags <= fflags_cvt_ff;
-			    write_fflags_o <= '1';
-			when FPU_CMP => 
-			    result_o.fflags <= fflags_cmp;
-			    write_fflags_o <= '1';
-			when FPU_MINMAX => 
-			    result_o.fflags <= fflags_min_max;
-			    write_fflags_o <= '1';
-			when others => 
-			    result_o.fflags <= (others => '0'); 
-			    write_fflags_o <= '0';
+			when FPU_CVT_FI => result_o.fflags <= fflags_cvt_fi;
+			when FPU_CVT_IF => result_o.fflags <= fflags_cvt_if;
+			when FPU_CVT_FF => result_o.fflags <= fflags_cvt_ff;
+			when FPU_CMP => result_o.fflags <= fflags_cmp;
+			when FPU_MINMAX => result_o.fflags <= fflags_min_max;
+			when others => result_o.fflags <= (others => '0'); 
         end case;
 	end process;
 	  

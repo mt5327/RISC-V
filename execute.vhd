@@ -128,7 +128,6 @@ architecture behavioral of execute is
             y_i : in STD_LOGIC_VECTOR (63 downto 0);
             z_i : in STD_LOGIC_VECTOR (63 downto 0);
             x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
-            write_fflags_o : out STD_LOGIC;
             result_o : out FP_RESULT;
             result_int_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component FPU;
@@ -136,7 +135,7 @@ architecture behavioral of execute is
     signal result_fp_reg, z, result_int, csr_data, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
     signal result_fp : FP_RESULT;
 	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
-	signal instr_misaligned, mem_write, reg_write_fp, write_fflags, csr_op : STD_LOGIC := '0';
+	signal instr_misaligned, mem_write, reg_write_fp, csr_op : STD_LOGIC := '0';
 	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, csr_write, mem_read, multiply, divide : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
@@ -204,7 +203,6 @@ begin
 		y_i => y_fp_sel,
 		z_i => z_fp_sel,
 		x_int_i => x_sel,
-		write_fflags_o => write_fflags,
 		result_o => result_fp,
 		result_int_o => result_int
 	);

@@ -214,6 +214,7 @@ function check_rm(rm, frm : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC;
 function fp_classify(fp_class : FP_INFO; sign : STD_LOGIC) return STD_LOGIC_VECTOR;
 function fp_sign_injection(x : STD_LOGIC_VECTOR; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR;
 function leading_one_index(X : unsigned) return unsigned;
+function next_even(x : natural) return natural;
        
 end package;
 
@@ -320,6 +321,14 @@ begin
     end loop;
     
     return index;
+end function;
+
+function next_even(x : natural) return natural is
+begin
+    if x mod 2 = 1 then
+        return x+1;
+    end if;
+    return x;
 end function;
 
 end package body;
