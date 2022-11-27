@@ -52,7 +52,7 @@ architecture behavioral of FP_Divider is
 
 	signal square_estimate, estimate : STD_LOGIC_VECTOR (2 downto 0);
 
-	signal a, b, c, round_sticky : STD_LOGIC_VECTOR (1 downto 0);
+	signal a, b, round_sticky : STD_LOGIC_VECTOR (1 downto 0);
 	
 	signal cmp : STD_LOGIC_VECTOR (3 downto 0);
         
@@ -60,7 +60,7 @@ architecture behavioral of FP_Divider is
     signal PR, PR_mul, PR_new, PR_init, PR_div, PR_div_mul : STD_LOGIC_VECTOR (M+5 downto 0);
     signal carry : unsigned (M+5 downto 0);
 
-	signal overflow, underflow, lda, ldb, ldc, special_case, sign_reg, subtract : STD_LOGIC;
+	signal overflow, underflow, lda, ldb, special_case, sign_reg, subtract : STD_LOGIC;
 	signal position : NATURAL range q'left downto 0;
 	signal mantissa : unsigned (M - 2 downto 0);
 	signal mantissa_final : STD_LOGIC_VECTOR (P - 2 downto 0);    
@@ -231,16 +231,10 @@ begin
                     if ldb = '1' then
                         qm <= q;
                     end if;
-                        
---                    if ldc <= '1' then
---                        qp <= q;
---                    else 
---                        qp <= qm;
---                    end if;
+                       
     
                     q(position downto position - 1) <= a;
                     qm(position downto position - 1) <= b;
---                    qp(position downto position - 1) <= c;
                 when others =>
             end case;
         end if;
@@ -248,7 +242,6 @@ begin
        
     lda <= PR(PR'left);
     ldb <= (not PR(PR'left)) and (or cmp(1 downto 0));
-   -- ldc <= not cmp(3);
          
     with cmp select 
         a <= "00" when "0000",
@@ -264,13 +257,6 @@ begin
              "01" when "10",
              "10" when "11",
              "--" when others;
-
---    with a select
---        c <= "01" when "00",
---             "10" when "01",
---             "11" when "10",
---             "01" when "11",
---             "--" when others;
     
     x_reg <= (not q) and k when sqrt = '1' else not y; 
     y_reg <= qm when sqrt = '1' else y;
