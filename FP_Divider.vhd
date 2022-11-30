@@ -27,7 +27,7 @@ architecture behavioral of FP_Divider is
 	constant INFINITY : STD_LOGIC_VECTOR (P - 2 downto 0) := (P - 2 downto P - E - 1 => '1', others => '0');
 
 	signal sign, div, sqrt, inexact, start_div, div_by_zero, sign_d : STD_LOGIC;
-	signal invalid, invalid_div, invalid_sqrt, remainder_is_zero, remainder_is_zero_reg : STD_LOGIC;
+	signal invalid, invalid_div, invalid_sqrt : STD_LOGIC;
 	signal mantissa_x, mantissa_y : STD_LOGIC_VECTOR (M - 1 downto 0);
 	
     signal exponent_div, exponent_sqrt, exponent_x, exponent_y : signed(E downto 0);
@@ -38,34 +38,31 @@ architecture behavioral of FP_Divider is
 	alias sign_x : STD_LOGIC is x_i(P - 1);
 	alias sign_y : STD_LOGIC is y_i(P - 1);
 
-    signal PR_select : STD_LOGIC_VECTOR(6 downto 0);
+    signal rounded_digit, rounded_digit_l : STD_LOGIC_VECTOR (2 downto 0);
 
-    signal norm : STD_LOGIC;
+    signal sign_rem, norm : unsigned(2 downto 0);
 
-    signal rounded_digit : STD_LOGIC_VECTOR (2 downto 0);
-
-	signal q, qm, qp, k : STD_LOGIC_VECTOR(next_even(M+1) downto 0);	
+	signal q, qm, k, mantissa : STD_LOGIC_VECTOR(next_even(M+2) downto 0);	
 	signal x_reg, y_reg : STD_LOGIC_VECTOR (q'left downto 0);
 	signal y : STD_LOGIC_VECTOR (q'left downto 0);
-	signal counter : unsigned (num_bits(M/2) downto 0);
+	signal counter : unsigned (num_bits(M/2-1) downto 0);
 	signal special_value : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal square_estimate, estimate : STD_LOGIC_VECTOR (2 downto 0);
 
-	signal a, b, round_sticky : STD_LOGIC_VECTOR (1 downto 0);
+	signal a, b : STD_LOGIC_VECTOR (1 downto 0);
 	
 	signal cmp : STD_LOGIC_VECTOR (3 downto 0);
         
-  	signal minus_one, minus_two, one, two, append_one, append_two, F : STD_LOGIC_VECTOR(M+5 downto 0);	
-    signal PR, PR_mul, PR_new, PR_init, PR_div, PR_div_mul : STD_LOGIC_VECTOR (M+5 downto 0);
-    signal carry : unsigned (M+5 downto 0);
+  	signal minus_one, minus_two, one, two, append_one, append_two, F : STD_LOGIC_VECTOR(q'left+2 downto 0);	
+    signal PR, PR_mul, PR_new, PR_init, PR_div, PR_div_mul : STD_LOGIC_VECTOR (q'left+2 downto 0);
+    signal carry : unsigned (q'left+1 downto 0);
 
-	signal overflow, underflow, lda, ldb, special_case, sign_reg, subtract : STD_LOGIC;
+	signal overflow, underflow, lda, ldb, special_case, sign_reg : STD_LOGIC;
 	signal position : NATURAL range q'left downto 0;
-	signal mantissa : unsigned (M - 2 downto 0);
 	signal mantissa_final : STD_LOGIC_VECTOR (P - 2 downto 0);    
     
-	type state_type is (IDLE, DIVIDE, FINALIZE);
+	type state_type is (IDLE, DIVIDE, ROUNDING, FINALIZE);
 	signal state, next_state : state_type;
   
     type selection_constants_t is array(0 to 7, 0 to 3) of signed(6 downto 0);
@@ -91,16 +88,6 @@ architecture behavioral of FP_Divider is
     end component FP_Classifier;
     
     signal fp_info_x, fp_info_y : FP_INFO;
-    
-    component rounder is
-        generic (SIZE : NATURAL);
-        port (
-            x_i : in unsigned (SIZE - 1 downto 0);
-            sign_i : in STD_LOGIC;
-            rm_i : in STD_LOGIC_VECTOR (2 downto 0);
-            round_sticky_i : in STD_LOGIC_VECTOR (1 downto 0);
-            z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
-    end component rounder;
      
 begin
 
@@ -128,11 +115,12 @@ begin
                 end if;
             when DIVIDE => 
                 if counter = 0 then
-                    next_state <= FINALIZE;
+                    next_state <= ROUNDING;
                 end if;
+            when ROUNDING => next_state <= FINALIZE;
             when FINALIZE => next_state <= IDLE;
             when others => next_state <= IDLE;
-    end case;
+        end case;
     end process;
     
     mantissa_x <= fp_info_x.normal & x_i(M - 2 downto 0);
@@ -173,9 +161,9 @@ begin
     begin
         if sqrt = '1' then
             if exp_odd = '1' then
-                PR_init <= "110" & mantissa_x & "000";
+                PR_init <= "110" & mantissa_x & (q'left-M-1 downto 0 => '0');
             else
-                PR_init <= "11" & mantissa_x & "0000";
+                PR_init <= "11" & mantissa_x & (q'left-M downto 0 => '0');
             end if;
         else 
             PR_init <= PR_div_mul;                                               
@@ -186,14 +174,15 @@ begin
     
     sign <= sign_x when sqrt = '1' else sign_d;
 
-    PR_div <= STD_LOGIC_VECTOR(("0" & unsigned(mantissa_x) & "00000") +
-              ("1" & unsigned(not mantissa_y) & "11111") +
-              to_unsigned(1, PR_DIV'length));
+    PR_div <= STD_LOGIC_VECTOR(
+        ("0" & unsigned(mantissa_x) & "00000") +
+        ("1" & unsigned(not mantissa_y) & "11111") +
+        to_unsigned(1, PR_DIV'length)
+    );
     
-    PR_div_mul <= PR_div(PR_div'left downto 2) & "00";
+    PR_div_mul <= PR_div;
     
-         
-     DIVISION : process (clk_i)
+    DIVISION : process (clk_i)
     begin
         if rising_edge(clk_i) then
             case state is
@@ -201,7 +190,6 @@ begin
                     if enable_i = '1' then
                         qm <= (others => '0');
                         q <= (q'left => '1', others => '0');
-                        qp <= (others => '0');
                         exponent_sqrt_reg <= unsigned(exponent_sqrt(E-1 downto 0));
                         PR <= PR_init;
                         y <= "0" & mantissa_y & (q'length-M-2 downto 0 => '0'); 
@@ -215,7 +203,7 @@ begin
                             append_one <= (others => '0');
                             append_two <= (others => '0');
                         end if;         
-                        counter <= to_unsigned(M/2, counter'length);
+                        counter <= to_unsigned(M/2-1, counter'length);
                     end if;
                 when DIVIDE =>
                     k <= "11" & k(k'left downto 2);
@@ -232,9 +220,14 @@ begin
                         qm <= q;
                     end if;
                        
-    
                     q(position downto position - 1) <= a;
                     qm(position downto position - 1) <= b;
+                when ROUNDING =>
+                    if rounded_digit_l(2) = '0' then
+                        mantissa <= q(q'left downto 2) & rounded_digit_l(1 downto 0); 
+                    else 
+                        mantissa <= qm(qm'left downto 2) & rounded_digit_l(1 downto 0);
+                    end if;
                 when others =>
             end case;
         end if;
@@ -242,7 +235,11 @@ begin
        
     lda <= PR(PR'left);
     ldb <= (not PR(PR'left)) and (or cmp(1 downto 0));
-         
+    
+    rounded_digit <= STD_LOGIC_VECTOR(signed((or cmp(3 downto 2)) & a));
+    rounded_digit_l <= STD_LOGIC_VECTOR (signed(rounded_digit) + signed(norm) + signed(sign_rem));
+    
+    
     with cmp select 
         a <= "00" when "0000",
              "10" when "0001",
@@ -261,25 +258,24 @@ begin
     x_reg <= (not q) and k when sqrt = '1' else not y; 
     y_reg <= qm when sqrt = '1' else y;
 
-    one <= ("11" & x_reg & (M+3-q'length downto 0 => '0')) or append_one;
-    two <= ("1" & x_reg & (M+4-q'length downto 0 => '0')) or append_two;
-    minus_one <= ("00" & y_reg & (M+3-q'length downto 0 => '0')) or append_one;
-    minus_two <= ("0" & y_reg & (M+4-q'length downto 0 => '0')) or append_two;
+    one <= ("11" & x_reg ) or append_one;
+    two <= ("1" & x_reg & "1") or append_two;
+    minus_one <= ("00" & y_reg ) or append_one;
+    minus_two <= ("0" & y_reg & "0") or append_two;
    
-    square_estimate <= "100" when counter = (M/2) else
+    square_estimate <= "100" when counter = (M/2-1) else
                        "111" when q(q'left) = '1' else
                        q(q'left - 2 downto q'left - 4);
   
     estimate <= square_estimate when sqrt = '1' else mantissa_y(mantissa_y'left - 1 downto mantissa_y'left - 3);
     
-    PR_select <= PR(PR'left downto PR'left-6);        
    	cmp(3) <= '1' when signed(PR(PR'left downto PR'left-6)) < SEL_CONSTANTS(to_integer(unsigned(estimate)), 3) else '0'; -- -2       
     cmp(2) <= '1' when signed(PR(PR'left downto PR'left-6)) < SEL_CONSTANTS(to_integer(unsigned(estimate)), 2) and cmp(3) = '0' else '0'; -- -1       
     
     cmp(1) <= '1' when signed(PR(PR'left downto PR'left-6)) >= SEL_CONSTANTS(to_integer(unsigned(estimate)), 1) and cmp(0) = '0' else '0'; -- 1       
     cmp(0) <= '1' when signed(PR(PR'left downto PR'left-6)) >= SEL_CONSTANTS(to_integer(unsigned(estimate)), 0) else '0';  -- 2       
    	
-   	carry <= (0 => '1', others => '0') when PR(PR'left) = '0' and sqrt = '0' else (others => '0');
+   	carry <= (0 => '1', others => '0') when PR(PR'left) = '0' and (or cmp) = '1' and sqrt = '0' else (others => '0');
 
 	with cmp select 
         F <= one when "0010",
@@ -287,33 +283,35 @@ begin
              minus_one when "0100",
              minus_two when "1000",
              (others => '0') when others;            
-     
-           
-    PR_new <= STD_LOGIC_VECTOR((unsigned(PR)) + (unsigned(F)) + carry);
+    
+            
+    PR_new <= STD_LOGIC_VECTOR(unsigned(PR) + unsigned(F) + carry);
     PR_mul <= PR_new(PR_new'left-2 downto 0) & "00";                
      
     ONE_BIT_NORMALIZATION : process (all)
 	begin
 		exponent_div_final <= unsigned(exponent_div(E-1 downto 0));
-		mantissa <= unsigned(q(q'left-1 downto q'left - M+1));
         if q(q'left) = '0' or ( sqrt = '1' and exp_odd = '0') then
 		    exponent_div_final <= exponent_div_minus_one;
-            mantissa <= unsigned(q(q'left-2 downto q'left - M));
         end if;
 	end process;
-
-    inexact <= or round_sticky;
-
-    round_sticky <= not PR(PR'left) & (or PR(PR'left-1 downto 0));
+	
+	sign_rem <= "00" & (not PR_mul(PR_mul'left)); 
+	
+	norm <= "00" & qm(qm'left) when rounded_digit(2) = '1' or (rounded_digit = "000" and PR_mul(PR_mul'left) = '1' ) else   
+	        "00" & q(q'left);
+	
+	mantissa_final <= STD_LOGIC_VECTOR(exp) & mantissa(mantissa'left-1 downto q'left - M+1) when mantissa(mantissa'left) = '1' else 
+                      STD_LOGIC_VECTOR(exp) & mantissa(mantissa'left-2 downto q'left - M); 	
+    
+    inexact <= or PR;
         
     result_o.fflags <= "0000" & inexact when special_case = '0' else
                         invalid & div_by_zero & "000";
     
     exp <= exponent_div_final when div = '1' else exponent_sqrt_reg;
-   
-    ROUNDING : rounder generic map(P - 1) port map(exp & mantissa, sign_reg, rm_i, round_sticky, mantissa_final);
-    
+       
     result_o.value <= special_value when special_case = '1' else (63 downto P - 1 => sign_reg) & mantissa_final;
     result_o.valid <= '1' when state = FINALIZE or invalid = '1' else '0';
 
-end behavioral;
+end behavioral; 

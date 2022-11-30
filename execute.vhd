@@ -215,6 +215,7 @@ begin
 	  	 
 	  	 
     csr_op <= or csr_operator_i; 
+
 	result <= result_mul when multiply = '1' and ctrl_flow_i = '0' else
 		      result_div when divide = '1' and ctrl_flow_i = '0' else
 		      result_int when fp_i = '1' and ctrl_flow_i = '0' else
