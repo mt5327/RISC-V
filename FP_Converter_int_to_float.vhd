@@ -11,6 +11,7 @@ entity FP_Converter_int_to_float is
 		M : NATURAL);
 	port (
         clk_i : in STD_LOGIC;
+        enable_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -67,11 +68,13 @@ begin
     process(clk_i) 
     begin 
         if rising_edge(clk_i) then
-    	   exp <= exp_init - resize(lz_counter, E);
-           shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
-           sign_reg <= sign;
-           rm <= rm_i;
-        end if; 
+            if enable_i = '1' then
+               exp <= exp_init - resize(lz_counter, E);
+               shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
+               sign_reg <= sign;
+               rm <= rm_i;
+            end if;
+         end if;
     end process;
     
     exp_final <= exp when shifted_mantissa(63) = '1' else (others => '0');

@@ -133,8 +133,9 @@ type FP_IDEX is record
     y : STD_LOGIC_VECTOR (63 downto 0);
     z : STD_LOGIC_VECTOR (63 downto 0);
     write : STD_LOGIC;
-    precision : STD_LOGIC;
+    precision : STD_LOGIC_VECTOR (1 downto 0);
     fp_op : FPU_OP;
+    enable_fpu_subunit : STD_LOGIC_VECTOR (2 downto 0);
 end record;
 
 type REG is record

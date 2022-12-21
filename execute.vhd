@@ -60,9 +60,13 @@ entity execute is
 
 		csr_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
-
-		csr_i : in CSR;
+        
+        csr_write_i : in STD_LOGIC;
+        csr_write_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+        csr_exception_id_i : in STD_LOGIC_VECTOR (3 downto 0);
+        csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
 		csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
+		
 		csr_o : out CSR);
 end execute;
 
@@ -121,22 +125,23 @@ architecture behavioral of execute is
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
             fp_op_i : in FPU_OP;
-            fp_precision_i : in STD_LOGIC;
+    	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (2 downto 0);
+            fp_i : in STD_LOGIC;
+            fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
             cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
             x_i : in STD_LOGIC_VECTOR (63 downto 0);
             y_i : in STD_LOGIC_VECTOR (63 downto 0);
             z_i : in STD_LOGIC_VECTOR (63 downto 0);
             x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
-            result_o : out FP_RESULT;
-            result_int_o : out STD_LOGIC_VECTOR (63 downto 0));
+            result_o : out FP_RESULT);
 	end component FPU;
 
-    signal result_fp_reg, z, result_int, csr_data, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
+    signal result_fp_reg, z, csr_data, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
     signal result_fp : FP_RESULT;
 	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
 	signal instr_misaligned, mem_write, reg_write_fp, csr_op : STD_LOGIC := '0';
-	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, csr_write, mem_read, multiply, divide : STD_LOGIC := '0';
+	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, mem_read, multiply, divide : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
@@ -195,16 +200,17 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		fp_op_i => fp_regs_IDEX_i.fp_op,
+		fp_op_i => fp_regs_idex_i.fp_op,
+		enable_fpu_subunit_i => fp_regs_idex_i.enable_fpu_subunit,
 		fp_precision_i => fp_regs_idex_i.precision,
+		fp_i => fp_i,
 		rm_i => funct3_i,
 		cvt_mode_i => imm_i(1 downto 0),
 		x_i => x_fp_sel,
 		y_i => y_fp_sel,
 		z_i => z_fp_sel,
 		x_int_i => x_sel,
-		result_o => result_fp,
-		result_int_o => result_int
+		result_o => result_fp
 	);
 
 	x <= pc_i when pc_src_i = '1' else
@@ -218,8 +224,8 @@ begin
 
 	result <= result_mul when multiply = '1' and ctrl_flow_i = '0' else
 		      result_div when divide = '1' and ctrl_flow_i = '0' else
-		      result_int when fp_i = '1' and ctrl_flow_i = '0' else
-		      csr_data_mux when csr_op = '1' and ctrl_flow_i = '0' else 
+		      result_fp.value when fp_i = '1' and ctrl_flow_i = '0' else
+		      csr_data_mux when csr_op = '1' else -- and ctrl_flow_i = '0' else 
 		      z;
     
     with x_mux_sel_i select 
@@ -312,8 +318,7 @@ begin
 	enable_div <= divide and (not div_valid );
 	enable_fp <= fp_i and (not result_fp.valid);
 
-	multicycle_op_o <= enable_mul or enable_div or enable_fp;
-
+	multicycle_op_o <= enable_mul or enable_div or enable_fp; -- when multiply or divide or fp_i else '0';
 	reg_dst_o <= reg_dst;
 
 	reg_write_fp_o <= reg_write_fp;
@@ -322,10 +327,10 @@ begin
 	with csr_mux_sel_i select 
 	   csr_data_mux <= csr_reg.data when "01",
 	               csr_data_wb_i when "10",
-	               csr_i.data when others; 
+	               csr_data_i when others; 
 
     csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
-	csr.exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_i.exception_id;
+	csr.exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_exception_id_i;
 
 	with csr_operator_i select
 		csr_data <= csr_data_sel when CSR_RW,
@@ -333,16 +338,16 @@ begin
 		            csr_data_mux and (not csr_data_sel) when CSR_RC,
 		            (others => '0') when others;
 	
-	csr.write <= csr_i.write;
-	csr.write_addr <= csr_i.write_addr;
+	csr.write <= csr_write_i;
+	csr.write_addr <= csr_write_addr_i;
 	csr.data <= (63 downto 5 => '0') & result_fp.fflags when fp_i = '1' else 
 	            csr_data;
 	
-	csr.epc <= csr_i.epc; 
+	csr.epc <= pc_i; 
 
 	csr_o <= csr_reg;
 
-	mem_req_o <= mem_req;
+    mem_req_o <= mem_req;
 	mem_write_o <= mem_write;
 	mem_read_o <= mem_read;
 	branch_info_o <= branch_inf;

@@ -99,11 +99,11 @@ begin
 		end case;
 	end process;
 
-	x <= signed((x_i(x_i'left) and x_is_signed) & x_i);-- when enable_i else
-	   --  (others => '0');
+	x <= signed((x_i(x_i'left) and x_is_signed) & x_i) when start_mul else
+	     (others => '0');
 	
-	y <= signed((y_i(y_i'left) and y_is_signed) & y_i); -- when enable_i else 
-	     --(others => '0');
+	y <= signed((y_i(y_i'left) and y_is_signed) & y_i) when start_mul else 
+	     (others => '0');
 
 	MUL_A0B0 : mul_dsp_signed generic map(17, 14, 29) port map(clk_i, start_mul, ('0' & A0), ('0' & B0), A0B0);
 	MUL_A0B1 : mul_dsp_signed port map(clk_i, start_mul, ('0' & A0 & X"00"), ('0' & B1), A0B1);
@@ -134,7 +134,7 @@ begin
 		if mul_valid = '1' then
 			case op_i is
 				when ALU_MULH | ALU_MULHU | ALU_MULHSU => result_o <= MULR(127 downto 64);
-				when ALU_MULW => result_o <= (63 downto 32 => MULR(31)) & MULR(31 downto 0);
+			--	when ALU_MULW => result_o <= (63 downto 32 => MULR(31)) & MULR(31 downto 0);
 				when ALU_MUL => result_o <= MULR(63 downto 0);
 				when others => result_o <= (others => '0');
 			end case;

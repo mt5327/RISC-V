@@ -37,7 +37,7 @@ architecture behavioral of FMA is
 	signal valid, sign_x, sign_z, sign_p, sign_p_reg, effective_substraction, effective_substraction_reg, sign, sign_reg, sticky_bit, is_product_anchored, is_product_anchored_reg : STD_LOGIC := '0';
 
 	-- Exceptions
-	signal invalid, inexact, underflow, overflow, special_case, special_case_reg : STD_LOGIC;
+	signal invalid, invalid_reg, inexact, underflow, underflow_after_round, overflow, overflow_after_round, special_case, special_case_reg : STD_LOGIC;
 
 	signal exponent_x, exponent_y, exponent_z : signed(E downto 0);
 	signal exponent_a, exponent_p, exponent_p_reg, exponent_pa : signed(E downto 0);
@@ -66,6 +66,8 @@ architecture behavioral of FMA is
 	signal special_value, special_value_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
 
     signal result, result_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
+
+    signal sticky : unsigned(mantissa'left-M-1 downto 0);
 
     signal fflags_fma, fflags_reg : STD_LOGIC_VECTOR (4 downto 0) := (others => '0');
 
@@ -255,6 +257,7 @@ begin
                 sign_p_reg <= sign_p; 
                 effective_substraction_reg <= effective_substraction;
                 special_case_reg <= special_case;
+                invalid_reg <= invalid;
                 exponent_diff_reg <= exponent_diff;
                 rm <= rm_i;
                 exponent_p_reg <= exponent_p;
@@ -402,19 +405,26 @@ begin
 
 	exponent_pa <= exponent_p_reg - signed(resize(lz_counter_reg, exponent_p'length)) + 1;
 
-	s <= unsigned(-signed( mantissa_sum_reg)) when ((not effective_substraction_reg) and sum_carry) = '1' else
+	s <= unsigned(-signed(mantissa_sum_reg)) when ((not effective_substraction_reg) and sum_carry) = '1' else
 		 mantissa_sum_reg;
 
 	norm_shamt_pa <= to_unsigned(M + 2, norm_shamt_pa'length) + resize(lz_counter_reg, norm_shamt_pa'length);
 
-	exp <= (others => '0') when is_product_anchored_reg = '1' and exponent_pa(exponent_pa'left) = '1' else
-		   unsigned(exponent_pa(E - 1 downto 0)) when is_product_anchored_reg = '1' else
-		   exponent_tent_reg(E - 1 downto 0);
+	NORM_SHIFT_AMOUNT : process (all)
+	begin
+	   exp <= exponent_tent_reg(E - 1 downto 0);
+	   norm_shamt <= add_shamt_reg;
+	   if is_product_anchored_reg = '1' then
+	       if exponent_pa(exponent_pa'left) = '1' then
+	           exp <= (others => '0');
+	           norm_shamt <= norm_shamt_subnormal_reg;
+	       else
+	           exp <= unsigned(exponent_pa(E - 1 downto 0));
+	           norm_shamt <= norm_shamt_pa;
+	       end if;
+	   end if;
+    end process;
 
-	norm_shamt <= norm_shamt_pa when (is_product_anchored_reg and (not exponent_pa(exponent_pa'left))) = '1' else
-		          norm_shamt_subnormal_reg when is_product_anchored_reg = '1' else
-		          add_shamt_reg;
- 
 	mantissa <= shift_left(s, to_integer(norm_shamt));
 	
 	process (clk_i) begin 
@@ -424,20 +434,20 @@ begin
 	       exp_reg <= exp;
 	   end if; 
     end process;
-	
-	exponent_plus_1 <= exp_reg + 1;
+    
+    exponent_plus_1 <= exp_reg + 1;
 	exponent_minus_1 <= exp_reg - 1;
 
 	ONE_BIT_NORMALIZATION : process (exp_reg, mantissa_reg, exponent_plus_1, exponent_minus_1)
 	begin
 		exp_fin <= exp_reg;
 		mantissa_final <= mantissa_reg(mantissa'left - 2 downto mantissa'left - M - 1);
-		sticky_bit <= or mantissa_reg(mantissa'left-M-2 downto 0);
-        if mantissa_reg(mantissa'left) = '1' then
+        sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
+        if mantissa_reg(mantissa_reg'left) = '1' then
             exp_fin <= exponent_plus_1;
             mantissa_final <= mantissa_reg(mantissa'left - 1 downto mantissa'left - M);
             sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
-        elsif mantissa_reg(mantissa'left - 1) = '0' then
+        elsif mantissa_reg(mantissa_reg'left - 1) = '0' then
             exp_fin <= exponent_minus_1;
             mantissa_final <= mantissa_reg(mantissa'left-3 downto mantissa'left - M - 2);
             sticky_bit <= or mantissa_reg(mantissa'left-M-3 downto 0);
@@ -445,6 +455,7 @@ begin
 	end process;
 
     round_sticky <= mantissa_final(0) & (sticky_bit or add_sticky_bit_reg );
+	
 	ROUNDING : rounder generic map(P - 1) port map(exp_fin & mantissa_final(M - 1 downto 1), sign_reg, rm, round_sticky, rounded_num);
  
 	result <= (63 downto P-1 => sign_reg) & rounded_num when special_case_reg = '0' else 
@@ -462,12 +473,15 @@ begin
      
 	result_o <= ( result_reg, fflags_reg, fp_valid );
 
-	underflow <= (nor rounded_num(rounded_num'left downto M - 1)) and inexact;
-	overflow <= and rounded_num(rounded_num'left downto M - 1);
+    underflow_after_round <= nor rounded_num(rounded_num'left downto M - 1);
+    overflow_after_round <= and rounded_num(rounded_num'left downto M - 1);
+
+	underflow <= underflow_after_round and inexact;
+	overflow <= overflow_after_round;
 	inexact <= ( or round_sticky ) or overflow;
     	
 	fflags_fma <= "00" & overflow & underflow & inexact when special_case_reg = '0' else
-		          invalid & "0000";
+		          invalid_reg & "0000";
 
 	fp_valid <= '1' when state = FINALIZE else '0';
 

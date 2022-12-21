@@ -56,7 +56,7 @@ begin
 
 	ROUND : rounder generic map(num'length) port map(num, x_i(63), rm_i, x_i(28) & sticky_bit, rounded_num);
 
-	result_o <= (63 downto 31 => x_i(63)) & STD_LOGIC_VECTOR(rounded_num) when fp_class.nan = '0' else
+	result_o <= (63 downto 31 => x_i(63)) & rounded_num when fp_class.nan = '0' else
 		        (30 downto 22 => '1', others => '0');
 
 	overflow <= (not fp_class.inf) and (and rounded_num(30 downto 23));

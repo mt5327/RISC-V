@@ -11,6 +11,7 @@ entity FP_Converter_float_to_int is
 		M : NATURAL);
 	port (
 	    clk_i : in STD_LOGIC;
+	    enable_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -21,7 +22,7 @@ end FP_Converter_float_to_int;
 architecture behavioral of FP_Converter_float_to_int is
 
 	constant BIAS : signed(E - 1 downto 0) := to_signed(2 ** (E - 1) - 1, E);
-
+    
 	alias exp : STD_LOGIC_VECTOR(E - 1 downto 0) is x_i(P - 2 downto P - E - 1);
 
 	type int_width is array(0 to 3) of signed(E - 1 downto 0);
@@ -29,9 +30,9 @@ architecture behavioral of FP_Converter_float_to_int is
 
 	alias sign : STD_LOGIC is x_i(P - 1);
 	
-	signal int, signed_int, int_neg : STD_LOGIC_VECTOR (63 downto 0);
+	signal int, int_fin, signed_int, int_neg : STD_LOGIC_VECTOR (63 downto 0);
 	signal exponent : signed (E - 1 downto 0);
-	signal sign_reg, inexact, inexact_reg : STD_LOGIC;
+	signal sign_reg, inexact, not_inexact : STD_LOGIC;
 
 	component FP_Classifier is
 		generic (
@@ -43,15 +44,6 @@ architecture behavioral of FP_Converter_float_to_int is
 			fp_class_o : out FP_INFO);
 	end component FP_Classifier;
 
-	component right_shifter is
-		generic (SIZE : NATURAL);
-		port (
-			x_i : in unsigned (SIZE - 1 downto 0);
-			shamt_i : in unsigned (num_bits(SIZE) - 1 downto 0);
-			z_o : out unsigned (SIZE - 1 downto 0);
-			sticky_bit_o : out STD_LOGIC);
-	end component right_shifter;
-
 	component rounder is
 		generic (SIZE : NATURAL);
 		port (
@@ -62,15 +54,14 @@ architecture behavioral of FP_Converter_float_to_int is
 			z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
 	end component rounder;
 
-	signal less_than_one, overflow, overflow_reg, special_case, not_zero, not_zero_neg, not_zero_pos : STD_LOGIC;
-	signal overflow_value, overflow_value_final, overflow_value_reg : STD_LOGIC_VECTOR(63 downto 0);
+	signal less_than_one, overflow, overflow_reg, special_case, not_zero : STD_LOGIC;
+	signal overflow_value, overflow_value_final, overflow_value_reg, int_reg : STD_LOGIC_VECTOR(63 downto 0);
 	signal fp_class : FP_INFO;
 	
 	signal mantissa_shifted_reg : unsigned(63 downto 0);
 	signal overflows : STD_LOGIC_VECTOR (3 downto 0);
 	signal shamt : unsigned(6 downto 0);
-	signal mantissa : unsigned(64 + M downto 0);
-	signal mantissa_shifted : unsigned(64 + M downto 0);
+	signal mantissa, mantissa_shifted : unsigned(64 + M downto 0);
 	signal round_sticky, round_sticky_reg, mode : STD_LOGIC_VECTOR (1 downto 0);
 
     signal rm : STD_LOGIC_VECTOR (2 downto 0);
@@ -104,39 +95,39 @@ begin
     mantissa_shifted <= shift_right(mantissa, to_integer(shamt)) when less_than_one = '0' else 
                         (64 downto 0 => '0') & fp_class.normal & unsigned(x_i(M - 2 downto 0));
 
-    inexact <= or round_sticky;
 	round_sticky <= mantissa_shifted(M) & (or mantissa_shifted(M - 1 downto 0));
 
 	process(clk_i) begin 
 	    if rising_edge(clk_i) then
-            sign_reg <= sign;
-            mantissa_shifted_reg <= mantissa_shifted(mantissa_shifted'left downto M + 1);
-            round_sticky_reg <= round_sticky;
-            overflow_value_reg <= overflow_value_final;
-            rm <= rm_i;
-            overflow_reg <= overflow or fp_class.nan or fp_class.inf;
-            mode <= mode_i;
-            inexact_reg <= inexact;
-
+	       if enable_i = '1' then
+                sign_reg <= sign;
+                int_reg <= int;
+                mantissa_shifted_reg <= mantissa_shifted(mantissa_shifted'left downto M + 1);
+                round_sticky_reg <= round_sticky;
+                overflow_value_reg <= overflow_value_final;
+                overflow_reg <= overflow or fp_class.nan or fp_class.inf;
+                mode <= mode_i; 
+                rm <= rm_i;
+            end if;
         end if; 
     end process;
-
-	ROUNDING : rounder generic map(64) port map(mantissa_shifted_reg, sign_reg, rm, round_sticky_reg, int);	
+    
+    inexact <= or round_sticky_reg;
+    not_inexact <= nor round_sticky_reg; 
+ 
+	ROUNDING : rounder generic map(64) port map(mantissa_shifted_reg, sign_reg, rm_i, round_sticky_reg, int);	
 
     special_case <= overflow_reg or ( sign_reg and mode(0) and not_zero );
 
-	int_neg <= STD_LOGIC_VECTOR(-signed(int));
+	int_neg <= STD_LOGIC_VECTOR(-signed(int_reg));
 	
-    signed_int <= int_neg when sign_reg = '1' else int;
-	not_zero_neg <= or (-signed(int));
-	not_zero_pos <= or int;
-	not_zero <= not_zero_neg when sign_reg = '1' else not_zero_pos;
-	
-	result_o <= overflow_value_reg when special_case = '1' else 
-	            (63 downto 32 => signed_int(31)) & signed_int(31 downto 0) when mode(1) = '0' else
-	            signed_int;
+    signed_int <= int_neg when sign_reg = '1' else int_reg;
+	not_zero <= or int;
+	int_fin <= (63 downto 32 => signed_int(31)) & signed_int(31 downto 0) when mode(1) = '0' else
+	           signed_int;
     
-    
-    fflags_o <= "10000" when special_case = '1' else "0000" & inexact_reg;
+	result_o <= overflow_value_reg when special_case = '1' else int_fin; 
+	         
+    fflags_o <= ( special_case and not_inexact ) & "000" & inexact;
         
-end behavioral;
+end behavioral; 

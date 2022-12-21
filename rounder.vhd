@@ -20,7 +20,7 @@ architecture behavioral of rounder is
 
 begin
 
-	ROUNDING : process (rm_i, x_i, round_sticky_i, sign_i)
+	ROUNDING : process (rm_i, x_i(0), round_sticky_i, sign_i)
 	begin
 		case rm_i is
 			when RNE =>

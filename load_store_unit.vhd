@@ -47,6 +47,7 @@ begin
 	end process;
 
     int_column <= to_integer(unsigned(MAR_i(2 downto 0)));
+	
 	BYTE_SELECT : process (all)
 	begin
 	    we <= (others => '0');
@@ -89,7 +90,7 @@ begin
 
 	MDR_SELECT : process (column, mem_req_i.MDR)
 	begin
-		case column is
+		case column is 
 			when "000" => MDR <= mem_req_i.MDR;
 			when "001" => MDR <= mem_req_i.MDR(55 downto 0) & mem_req_i.MDR(63 downto 56);
 			when "010" => MDR <= mem_req_i.MDR(47 downto 0) & mem_req_i.MDR(63 downto 48);
@@ -119,12 +120,12 @@ begin
 			else
 			     if unaligned_access = '1' then
 			        unaligned_access <= '0';
-			     elsif unaligned = '1' then
-                    unaligned_access <= '1';
+			     else
+                    unaligned_access <= unaligned;
                     unaligned_address_reg <= unaligned_address;
                  end if;
 			end if;
-		end if;
+		end if; 
 	end process;
  	
     with column select

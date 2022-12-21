@@ -54,6 +54,11 @@ entity decode is
 		x_o : out STD_LOGIC_VECTOR (63 downto 0);
 	    y_o : out STD_LOGIC_VECTOR (63 downto 0);
         
+        csr_write_o : out STD_LOGIC;
+        csr_write_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+        csr_exception_id_o : out STD_LOGIC_VECTOR (3 downto 0);
+        csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
+        
         reg_cmp1_mem_o : out STD_LOGIC;
         reg_cmp1_wb_o : out STD_LOGIC;
 
@@ -70,8 +75,7 @@ entity decode is
         registers_fp_o : out reg_t;
 		
 		fp_regs_IDEX_o : out FP_IDEX;
-        csr_operator_o : out STD_LOGIC_VECTOR (1 downto 0);
-		csr_o : out CSR);
+        csr_operator_o : out STD_LOGIC_VECTOR (1 downto 0));
 end decode;
 
 architecture behavioral of decode is
@@ -89,7 +93,11 @@ architecture behavioral of decode is
 	signal mem_operator, mem_operator_reg : MEM_OP;
 	signal branch_predict : BRANCH_PREDICTION;
     signal write_fflags : STD_LOGIC;
-	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction : STD_LOGIC;
+    signal enable_fpu_subunit : STD_LOGIC_VECTOR (2 downto 0);
+    signal csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
+	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write : STD_LOGIC;
+
+    signal csr_data : STD_LOGIC_VECTOR (63 downto 0);
 
     signal reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
     signal reg_cmp2_mem, reg_cmp2_wb : STD_LOGIC;
@@ -100,8 +108,6 @@ architecture behavioral of decode is
     signal reg_cmp2_mem_reg, reg_cmp2_wb_reg : STD_LOGIC;
     signal reg_cmp3_mem_reg, reg_cmp3_wb_reg : STD_LOGIC;
     signal csr_cmp_mem_reg, csr_cmp_wb_reg : STD_LOGIC;
-
-	signal csr, csr_reg : CSR;
 
 	alias opcode : STD_LOGIC_VECTOR(6 downto 0) is IR_i(6 downto 0);
 
@@ -115,6 +121,8 @@ architecture behavioral of decode is
 
     signal registers, registers_fp : reg_t;
     signal csr_operator, csr_operator_reg : STD_LOGIC_VECTOR (1 downto 0);
+
+    signal csr_exception_id, csr_exception_id_reg : STD_LOGIC_VECTOR (3 downto 0);
 
     signal fun3, funct3_reg : STD_LOGIC_VECTOR (2 downto 0);
 
@@ -338,7 +346,7 @@ begin
 		end case;
 	end process;
 
-    process (IR_i)
+    process (opcode, funct5)
     begin
         case opcode is 
             when FMADD | FMSUB | FNMADD | FNMSUB => write_fflags <= '1';
@@ -351,7 +359,7 @@ begin
         end case;
     end process;
 
-	REGISTER_WRITE : process (IR_i)
+	REGISTER_WRITE : process (all)
 	begin
 		case opcode is
 			when LUI | AUIPC | JAL | JALR | LOAD | RI | RI32 | RR | RR32 | SYSTEM =>
@@ -377,8 +385,7 @@ begin
 
 	imm_b <= IR_i(31) & IR_i(7) & IR_i(30 downto 25) & IR_i(11 downto 8);
 	imm_s <= IR_i(31 downto 25) & IR_i(11 downto 7);
-
-
+	
     branch_target_address <= STD_LOGIC_VECTOR(unsigned(pc_i) + unsigned(resize(signed(imm_b) & "0", 64)));
     branch_next_pc <= STD_LOGIC_VECTOR(unsigned(pc_i) + FOUR);
 
@@ -412,7 +419,7 @@ begin
     reg_cmp3_mem <= '1' when reg_src3 = reg_dst else '0'; 
     reg_cmp3_wb <= '1' when reg_src3 = reg_mem_i else '0';
 
-    csr_cmp_mem <= '1' when IR_i(31 downto 20) = csr_reg.write_addr else '0';
+    csr_cmp_mem <= '1' when IR_i(31 downto 20) = csr_write_addr else '0';
     csr_cmp_wb <= '1' when IR_i(31 downto 20) = csr_mem_addr_i else '0';
     
 	with opcode select 
@@ -441,18 +448,12 @@ begin
 	    mem_read <= or IR_i(11 downto 7) when LOAD, 
 	                '1' when LOAD_FP, 
 	                '0' when others;
-
-	csr.write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0) or write_fflags;
-	csr.data <= csr_data_i;
-	csr.write_addr <= IR_i(31 downto 20) when write_fflags = '0' else FFLAGS;
-    csr.epc <= pc_i;
         
     fun3 <= frm_i when funct3 = "111" and float = '1' else funct3;
     
     with opcode select 
         x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 | FP | SYSTEM,
                   (others => '0') when others;
-        
 
 	with opcode select
 		y_data <= (2 => '1', others => '0') when JAL | JALR,
@@ -460,7 +461,7 @@ begin
 		          (others => '0') when others;
 		          
 
-	csr.exception_id <= ILLEGAL_INSTRUCTION when invalid_instruction = '1' else
+	csr_exception_id <= ILLEGAL_INSTRUCTION when invalid_instruction = '1' else
 		               BREAKPOINT when IR_i = X"00100073" else
 		               ENVIROMENT_CALL_USER_MODE when IR_i = X"00000073" else
 		               NO_EXCEPTION;
@@ -526,7 +527,8 @@ begin
 					fp_regs_IDEX.x <= x_fp;
 					fp_regs_IDEX.y <= y_fp;
 					fp_regs_IDEX.z <= z_fp;
-					fp_regs_idex.precision <= IR_i(25);
+					fp_regs_idex.precision <= IR_i(25) & ( not IR_i(25) );
+					fp_regs_idex.enable_fpu_subunit <= enable_fpu_subunit;
 				end if;
 			end if;
 		end if;
@@ -536,26 +538,35 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' or flush = '1' then
-				csr_reg.write <= '0';
-				csr_reg.exception_id <= NO_EXCEPTION;
+				csr_write <= '0';
+				csr_exception_id_reg <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-				    csr_reg <= csr;
+				    if write_fflags = '0' then
+				        csr_write_addr <= IR_i(31 downto 20); 
+				    else 
+				        csr_write_addr <= FFLAGS;
+				    end if;	   
+                	csr_write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0) or write_fflags;
 				    csr_operator_reg <= csr_operator;
+				    csr_exception_id_reg <= csr_exception_id;
 				    csr_cmp_mem_reg <= csr_cmp_mem;
 				    csr_cmp_wb_reg <= csr_cmp_wb;
+				    csr_data <= csr_data_i;
 				end if;
 			end if;
 		end if;
 	end process;
 	
-	with alu_operator select
-		multiply <= '1' when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
-		            '0' when others;
+	csr_data_o <= csr_data;
+	
+--	with alu_operator select
+--		multiply <= '1' when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
+--		            '0' when others;
 
-	with alu_operator select
-		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
-		          '0' when others;
+--	with alu_operator select
+--		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
+--		          '0' when others;
 
 
     process (IR_i)
@@ -579,10 +590,21 @@ begin
     with opcode select
 		reg_src2_valid <= '1' when BRANCH | STORE | RR | RR32,
 		                  '0' when others;
+		                  
+		                  
+    with fpu_operator select 
+	  enable_fpu_subunit <= "001" when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
+		                    "010" when FPU_DIV | FPU_SQRT,
+		                    "100" when FPU_CVT_FI,
+		                    "000" when others;	                  
 
     process (IR_i)
     begin
         case opcode is
+            when STORE_FP =>
+                reg_fp_src1_valid <= '0';
+                reg_fp_src2_valid <= '1';
+                reg_fp_src3_valid <= '0';
             when FMADD | FMSUB | FNMADD | FNMSUB => 
                 reg_fp_src1_valid <= '1';
                 reg_fp_src2_valid <= '1';
@@ -603,8 +625,6 @@ begin
 	imm_src_o <= imm_src_reg;
 	branch_next_pc_o <= branch_next_pc_reg;
 
-	csr_o <= csr_reg;
-
 	mem_read_o <= mem_read_reg;
 	mem_write_o <= mem_write_reg;
 
@@ -617,7 +637,6 @@ begin
 
 	reg_dst_o <= reg_dst;
 
-	pc_o <= pc;
 	pc_o <= pc;
 
 	fp_regs_IDEX_o <= fp_regs_IDEX;
@@ -645,5 +664,8 @@ begin
     csr_operator_o <= csr_operator_reg;
     csr_cmp_mem_o <= csr_cmp_mem_reg;
     csr_cmp_wb_o <= csr_cmp_wb_reg;
+    csr_write_addr_o <= csr_write_addr;
 
+    csr_write_o <= csr_write;
+    csr_exception_id_o <= csr_exception_id_reg;
 end behavioral;

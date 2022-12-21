@@ -9,15 +9,16 @@ entity FPU is
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;
 		fp_op_i : in FPU_OP;
-		fp_precision_i : in STD_LOGIC;
+	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (2 downto 0);
+		fp_i : in STD_LOGIC;
+		fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
 		z_i : in STD_LOGIC_VECTOR (63 downto 0);
 		x_int_i : in STD_LOGIC_VECTOR (63 downto 0);
-		result_o : out FP_RESULT;
-		result_int_o : out STD_LOGIC_VECTOR (63 downto 0));
+		result_o : out FP_RESULT);
 end FPU;
 
 architecture behavioral of FPU is
@@ -58,7 +59,8 @@ architecture behavioral of FPU is
     component FP_Converter is
         port (
             clk_i : in STD_LOGIC;
-            fp_precision_i : in STD_LOGIC;
+            enable_i : in STD_LOGIC;
+            fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
             mode_i : in STD_LOGIC_VECTOR (1 downto 0);
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
             x_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -104,7 +106,7 @@ architecture behavioral of FPU is
     signal fflags_cvt_fi, fflags_cvt_if, fflags_cvt_ff, fflags_cmp, fflags_min_max : STD_LOGIC_VECTOR (4 downto 0);
 	signal fp_sgnj_sp : STD_LOGIC_VECTOR (31 downto 0);
 	signal fp_sgnj_dp, fp_sgnj, result_sgnj : STD_LOGIC_VECTOR (63 downto 0);
-    signal fused_multiply_add, sgnj_out, div_sqrt, fp_valid, enable_cvt, cvt, result_cvt_valid : STD_LOGIC := '0';
+    signal fused_multiply_add, sgnj_out, div_sqrt, fp_valid, enable_cvt, result_cvt_valid : STD_LOGIC := '0';
 
     signal fflags_cmp_sp_dp, fflags_min_max_sp_dp : STD_LOGIC_VECTOR (9 downto 0);
     signal results_min_max : STD_LOGIC_VECTOR (127 downto 0);
@@ -153,6 +155,7 @@ begin
 	FP_CVT : FP_Converter
 	port map(
 	    clk_i => clk_i,
+        enable_i => enable_cvt,
 		fp_precision_i => fp_precision_i,
 		mode_i => cvt_mode_i,
 		rm_i => rm_i,
@@ -186,23 +189,21 @@ begin
 	fp_class_sp <= fp_classify(fp_info_sp, x_i(31));
 	fp_class_dp <= fp_classify(fp_info_dp, x_i(63));
 	
-	result_class <= fp_class_sp when fp_precision_i = '0' else fp_class_dp;
+	result_class <= fp_class_sp when fp_precision_i(0) = '1' else fp_class_dp;
 
 	fp_sgnj_sp <= fp_sign_injection(x_i(31 downto 0), y_i(31), rm_i);
 	fp_sgnj_dp <= fp_sign_injection(x_i, y_i(63), rm_i);
-	fp_sgnj <= (63 downto 32 => fp_sgnj_sp(31)) & fp_sgnj_sp when fp_precision_i = '0' else fp_sgnj_dp;
+	fp_sgnj <= (63 downto 32 => fp_sgnj_sp(31)) & fp_sgnj_sp when fp_precision_i(0) = '1' else fp_sgnj_dp;
 	sgnj_out <= '1' when fp_op_i = FPU_SGNJ else '0';
 	result_sgnj <= fp_sgnj  when sgnj_out = '1' else (others => '0');
-
-	with fp_op_i select 
-	  fused_multiply_add <= '1' when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
-		                    '0' when others;
-		                    
-    enable_fma(0)<= '1' when fused_multiply_add = '1' and fp_precision_i = '0' and results_fma(0).valid = '0' else '0';
-    enable_fma(1) <= '1' when fused_multiply_add = '1' and fp_precision_i = '1' and results_fma(1).valid = '0' else '0';
+	
+	ENABLE_GEN: for i in 0 to 1 generate	                    
+        enable_fma(i) <= enable_fpu_subunit_i(0) and fp_precision_i(i) and not results_fma(i).valid;
+        enable_div_sqrt(i) <= enable_fpu_subunit_i(1) and fp_precision_i(i) and not results_div(i).valid;                   
+    end generate;
     
-    result_fma <= results_fma(0) when fp_precision_i = '0' else results_fma(1);
-    result_div <= results_div(0) when fp_precision_i = '0' else results_div(1);
+    result_fma <= results_fma(0) when fp_precision_i(0) = '1' else results_fma(1);
+    result_div <= results_div(0) when fp_precision_i(0) = '1' else results_div(1);
 
     process (clk_i) 
     begin 
@@ -215,62 +216,61 @@ begin
         end if; 
     end process;
 
-	with fp_op_i select 
-	   div_sqrt <= '1' when FPU_DIV | FPU_SQRT, 
-                   '0' when others;
+    enable_cvt <= enable_fpu_subunit_i(2) and (not result_cvt_valid );
 
-    enable_div_sqrt(0) <= '1' when div_sqrt = '1' and fp_precision_i = '0' and results_div(0).valid = '0' else '0';                   
-    enable_div_sqrt(1) <= '1' when div_sqrt = '1' and fp_precision_i = '1' and results_div(0).valid = '0' else '0';                   
-
-    with fp_op_i select cvt <= '1' when FPU_CVT_FI | FPU_CVT_IF, '0' when others;
-    enable_cvt <= cvt and (not result_cvt_valid );
-
-    result_min_max <= results_min_max(63 downto 0) when fp_precision_i = '0' else results_min_max(127 downto 64); 
-    fflags_min_max <= fflags_min_max_sp_dp(4 downto 0) when fp_precision_i = '0' else fflags_min_max_sp_dp(9 downto 5);
-    fflags_cmp <= fflags_cmp_sp_dp(4 downto 0) when fp_precision_i = '0' else fflags_cmp_sp_dp(9 downto 5);
+    result_min_max <= results_min_max(63 downto 0) when fp_precision_i(0) = '1' else results_min_max(127 downto 64); 
+    fflags_min_max <= fflags_min_max_sp_dp(4 downto 0) when fp_precision_i(0) = '1' else fflags_min_max_sp_dp(9 downto 5);
+    fflags_cmp <= fflags_cmp_sp_dp(4 downto 0) when fp_precision_i(0) = '1' else fflags_cmp_sp_dp(9 downto 5);
 
 	MUX_RESULT_FP_OUTPUT : process (all)
 	begin
 		case fp_op_i is 
-	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o.value <= result_fma.value;
-			when FPU_DIV | FPU_SQRT => result_o.value <= result_div.value;
-		    when FPU_CVT_IF => result_o.value <= result_cvt_if;
-			when FPU_CVT_FF => result_o.value <= result_cvt_ff;
-			when FPU_MINMAX => result_o.value <= result_min_max;
-			when FPU_SGNJ => result_o.value <= result_sgnj;
-			when FPU_MV_XF => result_o.value <= x_int_i;
-			when others => result_o.value <= (others => '0');
+	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o <= result_fma;
+			when FPU_DIV | FPU_SQRT => result_o <= result_div;
+		    when FPU_CVT_FI => result_o <= (result_cvt_fi, fflags_cvt_fi, result_cvt_valid);
+		    when FPU_CVT_IF => result_o <= (result_cvt_if, fflags_cvt_if, result_cvt_valid);
+			when FPU_CVT_FF => result_o <= (result_cvt_ff, fflags_cvt_ff, '1');
+			when FPU_MINMAX => result_o <= (result_min_max, fflags_min_max, '1');
+			when FPU_SGNJ => result_o <= (result_sgnj, (others => '0'), '1');
+--			when FPU_MV_XF => result_o.value <= x_int_i;
+--	        when FPU_CVT_FI => result_o.value <= result_cvt_fi; 
+--	        when FPU_CMP => result_o.value <= (63 downto 1 => '0') & result_cmp;
+--	        when FPU_CLASS => result_o.value <= (63 downto 10 => '0') & result_class;
+--	        when FPU_MV_FX => result_o.value <= x_i; 
+		    when others => result_o <= ((others => '0'), (others => '0'), '0');
 		end case; 
 	end process;
-         
-    with fp_op_i select fp_valid <= '1' when FPU_CVT_FF | FPU_CMP | FPU_MINMAX | FPU_CLASS | FPU_SGNJ | FPU_MV_FX | FPU_MV_XF, '0' when others;
-	result_o.valid <= fp_valid or result_cvt_valid or result_div.valid or result_fma.valid;
-    result_cmp <= results_cmp(0) when fp_precision_i = '0' else results_cmp(1);	
+         	
+--	with fp_op_i select fp_valid <= '1' when FPU_CVT_FF | FPU_CMP | FPU_MINMAX | FPU_CLASS | FPU_SGNJ | FPU_MV_FX | FPU_MV_XF, '0' when others;
+	
+--	result_o.valid <= result_fma.valid or result_div.valid or result_cvt_valid or fp_valid; 
+
+    result_cmp <= results_cmp(0) when fp_precision_i(0) = '1' else results_cmp(1);	
     
-	MUX_RESULT_INT_OUTPUT: process(all)
-	begin
-	   case fp_op_i is 
-	       when FPU_CVT_FI => result_int_o <= result_cvt_fi; 
-	       when FPU_CMP => result_int_o <= (63 downto 1 => '0') & result_cmp;
-	       when FPU_CLASS => result_int_o <= (63 downto 10 => '0') & result_class;
-	       when FPU_MV_FX => result_int_o <= x_i; 
-	       when others => result_int_o <= (others => '0'); 
-	   end case;
-	end process;
+--	MUX_RESULT_INT_OUTPUT: process(all)
+--	begin
+--	   case fp_op_i is 
+--	       when FPU_CVT_FI => result_int_o <= result_cvt_fi; 
+--	       when FPU_CMP => result_int_o <= (63 downto 1 => '0') & result_cmp;
+--	       when FPU_CLASS => result_int_o <= (63 downto 10 => '0') & result_class;
+--	       when FPU_MV_FX => result_int_o <= x_i; 
+--	       when others => result_int_o <= (others => '0'); 
+--	   end case;
+--	end process;
 		
-	process (all)
-	begin
-        case fp_op_i is
-            when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o.fflags <= result_fma.fflags;
-			when FPU_DIV | FPU_SQRT => result_o.fflags <= result_div.fflags;
-			when FPU_CVT_FI => result_o.fflags <= fflags_cvt_fi;
-			when FPU_CVT_IF => result_o.fflags <= fflags_cvt_if;
-			when FPU_CVT_FF => result_o.fflags <= fflags_cvt_ff;
-			when FPU_CMP => result_o.fflags <= fflags_cmp;
-			when FPU_MINMAX => result_o.fflags <= fflags_min_max;
-			when others => result_o.fflags <= (others => '0'); 
-        end case;
-	end process;
+--	process (all)
+--	begin
+--        case fp_op_i is
+--            when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o.fflags <= result_fma.fflags;
+--			when FPU_DIV | FPU_SQRT => result_o.fflags <= result_div.fflags;
+--			when FPU_CVT_FI => result_o.fflags <= fflags_cvt_fi;
+--			when FPU_CVT_IF => result_o.fflags <= fflags_cvt_if;
+--			when FPU_CVT_FF => result_o.fflags <= fflags_cvt_ff;
+--			when FPU_CMP => result_o.fflags <= fflags_cmp;
+--			when FPU_MINMAX => result_o.fflags <= fflags_min_max;
+--			when others => result_o.fflags <= (others => '0'); 
+--        end case;
+--	end process;
 	  
 	
 end behavioral;

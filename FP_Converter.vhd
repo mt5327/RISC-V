@@ -7,7 +7,8 @@ use work.constants.all;
 entity FP_Converter is
 	port (
 	    clk_i : in STD_LOGIC;
-		fp_precision_i : in STD_LOGIC;
+	    enable_i : in STD_LOGIC;
+		fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -22,7 +23,8 @@ end FP_Converter;
 
 architecture behavioral of FP_Converter is
 
-	signal signaling_nan, valid, valid_res, output_ff, output_if, output_fi : STD_LOGIC;
+	signal signaling_nan, valid, valid_res : STD_LOGIC;
+    signal enable_cvt_fi : STD_LOGIC_VECTOR (1 downto 0);
 
 	signal result_fi_sp, result_fi_dp, result_if_dp, result_ff_dp : STD_LOGIC_VECTOR (63 downto 0);
 	signal result_if_sp, result_ff_sp : STD_LOGIC_VECTOR (63 downto 0);
@@ -44,6 +46,7 @@ architecture behavioral of FP_Converter is
 			M : NATURAL);
 		port (
 			clk_i : in STD_LOGIC;
+		    enable_i : in STD_LOGIC;
 			x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 			mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 			rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -58,6 +61,7 @@ architecture behavioral of FP_Converter is
 			M : NATURAL);
 		port (
 		    clk_i : in STD_LOGIC;
+		    enable_i : in STD_LOGIC;
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
 			mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 			rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -75,10 +79,10 @@ architecture behavioral of FP_Converter is
 	
 begin
 
-	FP_CVT_IF_SP : FP_Converter_int_to_float generic map(32, 8, 24) port map(clk_i, x_int_i, mode_i, rm_i, fflags_if_sp, result_if_sp);
-	FP_CVT_IF_DP : FP_Converter_int_to_float generic map(64, 11, 53) port map(clk_i, x_int_i, mode_i, rm_i, fflags_if_dp, result_if_dp);
-	FP_CVT_FI_SP : FP_Converter_float_to_int generic map(32, 8, 24) port map(clk_i, x_i(31 downto 0), mode_i, rm_i, fflags_fi_sp, result_fi_sp);
-	FP_CVT_FI_DP : FP_Converter_float_to_int generic map(64, 11, 53) port map(clk_i, x_i, mode_i, rm_i, fflags_fi_dp, result_fi_dp);
+	FP_CVT_IF_SP : FP_Converter_int_to_float generic map(32, 8, 24) port map(clk_i, enable_i, x_int_i, mode_i, rm_i, fflags_if_sp, result_if_sp);
+	FP_CVT_IF_DP : FP_Converter_int_to_float generic map(64, 11, 53) port map(clk_i, enable_i, x_int_i, mode_i, rm_i, fflags_if_dp, result_if_dp);
+	FP_CVT_FI_SP : FP_Converter_float_to_int generic map(32, 8, 24) port map(clk_i, enable_i, x_i(31 downto 0), mode_i, rm_i, fflags_fi_sp, result_fi_sp);
+	FP_CVT_FI_DP : FP_Converter_float_to_int generic map(64, 11, 53) port map(clk_i, enable_i, x_i, mode_i, rm_i, fflags_fi_dp, result_fi_dp);
 
 	FP_CVT_FF : FP_Converter_double_to_float port map(x_i, rm_i, fflags_ff_sp, result_ff_sp);
 	
@@ -87,12 +91,12 @@ begin
 	signaling_nan <= (and x_i(30 downto 22)) and (nor x_i(21 downto 0));
 	fflags_ff_dp <= signaling_nan & "0000";
 	
-	result_fi_o <= result_fi_sp when fp_precision_i = '0' else result_fi_dp;    
-    result_if_o <= result_if_sp when fp_precision_i = '0' else result_if_dp;
-    result_ff_o <= result_ff_sp when fp_precision_i = '0' else result_ff_dp;
+	result_fi_o <= result_fi_sp when fp_precision_i(0) = '1' else result_fi_dp;    
+    result_if_o <= result_if_sp when fp_precision_i(0) = '1' else result_if_dp;
+    result_ff_o <= result_ff_sp when fp_precision_i(0) = '1' else result_ff_dp;
     
-	fflags_fi_o <= fflags_fi_sp when fp_precision_i = '0' else fflags_fi_dp;
-	fflags_if_o <= fflags_if_sp when fp_precision_i = '0' else fflags_if_dp;
-	fflags_ff_o <= fflags_ff_sp when fp_precision_i = '0' else fflags_ff_dp; 
+	fflags_fi_o <= fflags_fi_sp when fp_precision_i(0) = '1' else fflags_fi_dp;
+	fflags_if_o <= fflags_if_sp when fp_precision_i(0) = '1' else fflags_if_dp;
+	fflags_ff_o <= fflags_ff_sp when fp_precision_i(0) = '1' else fflags_ff_dp; 
 
 end behavioral;
