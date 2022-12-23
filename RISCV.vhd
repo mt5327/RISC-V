@@ -81,6 +81,8 @@ architecture behavioral of RISCV is
             pc_src_o : out STD_LOGIC;
             imm_src_o : out STD_LOGIC;
             ctrl_flow_o : out STD_LOGIC;
+
+     		mul_div_o : out STD_LOGIC_VECTOR (1 downto 0);
             fp_o : out STD_LOGIC;
     
             imm_o : out STD_LOGIC_VECTOR (63 downto 0);
@@ -146,6 +148,8 @@ architecture behavioral of RISCV is
             pc_src_i : in STD_LOGIC;
             imm_src_i : in STD_LOGIC;
             ctrl_flow_i : in STD_LOGIC;
+     
+     		mul_div_i : in STD_LOGIC_VECTOR (1 downto 0);
             fp_i : in STD_LOGIC;
             funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
             
@@ -378,7 +382,7 @@ architecture behavioral of RISCV is
 	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
-	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel, csr_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
+	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel, csr_mux_sel, mul_div : STD_LOGIC_VECTOR (1 downto 0);
 	signal CSR_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
@@ -429,6 +433,8 @@ begin
 		pc_src_o => pc_src,
 		imm_src_o => imm_src,
 		ctrl_flow_o => ctrl_flow,
+		
+		mul_div_o => mul_div,
 		fp_o => float,
         csr_data_i => csr_data,
 		mem_read_o => mem_read_execute,
@@ -491,6 +497,8 @@ begin
 		pc_src_i => pc_src,
 		imm_src_i => imm_src,
 		ctrl_flow_i => ctrl_flow,
+		
+		mul_div_i => mul_div,
 		fp_i => float,
 
 		multicycle_op_o => multicycle_op,

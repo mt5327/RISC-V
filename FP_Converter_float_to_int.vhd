@@ -15,8 +15,7 @@ entity FP_Converter_float_to_int is
 		x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
-		fflags_o : out STD_LOGIC_VECTOR (4 downto 0);
-		result_o : out STD_LOGIC_VECTOR (63 downto 0));
+		result_o : out FP_RESULT);
 end FP_Converter_float_to_int;
 
 architecture behavioral of FP_Converter_float_to_int is
@@ -32,7 +31,7 @@ architecture behavioral of FP_Converter_float_to_int is
 	
 	signal int, int_fin, signed_int, int_neg : STD_LOGIC_VECTOR (63 downto 0);
 	signal exponent : signed (E - 1 downto 0);
-	signal sign_reg, inexact, not_inexact : STD_LOGIC;
+	signal sign_reg, inexact, not_inexact, valid : STD_LOGIC := '0';
 
 	component FP_Classifier is
 		generic (
@@ -102,12 +101,15 @@ begin
 	       if enable_i = '1' then
                 sign_reg <= sign;
                 int_reg <= int;
+                valid <= '1';
                 mantissa_shifted_reg <= mantissa_shifted(mantissa_shifted'left downto M + 1);
                 round_sticky_reg <= round_sticky;
                 overflow_value_reg <= overflow_value_final;
                 overflow_reg <= overflow or fp_class.nan or fp_class.inf;
                 mode <= mode_i; 
                 rm <= rm_i;
+            else 
+                valid <= '0';
             end if;
         end if; 
     end process;
@@ -122,12 +124,12 @@ begin
 	int_neg <= STD_LOGIC_VECTOR(-signed(int_reg));
 	
     signed_int <= int_neg when sign_reg = '1' else int_reg;
-	not_zero <= or int;
+	not_zero <= or int_reg;
 	int_fin <= (63 downto 32 => signed_int(31)) & signed_int(31 downto 0) when mode(1) = '0' else
 	           signed_int;
     
-	result_o <= overflow_value_reg when special_case = '1' else int_fin; 
-	         
-    fflags_o <= ( special_case and not_inexact ) & "000" & inexact;
+	result_o.value <= overflow_value_reg when special_case = '1' else int_fin; 
+    result_o.fflags <= ( special_case and not_inexact ) & "000" & inexact;
+    result_o.valid <= valid;
         
 end behavioral; 

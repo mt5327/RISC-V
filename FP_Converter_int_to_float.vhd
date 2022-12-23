@@ -15,18 +15,17 @@ entity FP_Converter_int_to_float is
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
-		fflags_o : out STD_LOGIC_VECTOR (4 downto 0);
-		result_o : out STD_LOGIC_VECTOR (63 downto 0));
+		result_o : out FP_RESULT);
 end FP_Converter_int_to_float;
 
 architecture behavioral of FP_Converter_int_to_float is
 
 	constant BIAS : unsigned(E - 1 downto 0) := to_unsigned(2 ** (E - 1) - 1, E);
 
-	signal int_sign, long_sign : STD_LOGIC;
+	signal int_sign, long_sign, valid : STD_LOGIC := '0';
 
 	signal lz_counter : unsigned(5 downto 0);
-
+   
 	signal int_mantissa, long_mantissa : unsigned(63 downto 0);
 	signal exp, exp_init, exp_final : unsigned(E - 1 downto 0);
 	signal sign, sign_reg : STD_LOGIC;
@@ -73,6 +72,9 @@ begin
                shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
                sign_reg <= sign;
                rm <= rm_i;
+               valid <= '1';
+            else 
+               valid <= '0';
             end if;
          end if;
     end process;
@@ -83,12 +85,12 @@ begin
 
 	ROUNDING: rounder generic map (num'length) port map (num, sign_reg, rm, round_sticky, rounded_num);
 
-	result_o <= (63 downto P - 1 => sign_reg) & rounded_num;
+	result_o.value <= (63 downto P - 1 => sign_reg) & rounded_num;
 
 	overflow <= and exp_result;
     underflow <= ( nand exp_result ) and inexact;	
 	inexact <= or round_sticky;
 
-	fflags_o <= "00" & overflow & underflow & inexact;
-
+	result_o.fflags <= "00" & overflow & underflow & inexact;
+    result_o.valid <= valid;
 end behavioral;

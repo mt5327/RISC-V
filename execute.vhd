@@ -25,6 +25,8 @@ entity execute is
 		pc_src_i : in STD_LOGIC;
 		imm_src_i : in STD_LOGIC;
 		ctrl_flow_i : in STD_LOGIC;
+		
+		mul_div_i : in STD_LOGIC_VECTOR (1 downto 0);
 		fp_i : in STD_LOGIC;
         funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
         
@@ -34,7 +36,7 @@ entity execute is
 		branch_predict_i : in BRANCH_PREDICTION;
 		branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
         branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-
+        
 		reg_write_i : in STD_LOGIC;
 
 		reg_dst_i : in STD_LOGIC_VECTOR (4 downto 0);
@@ -42,6 +44,7 @@ entity execute is
 
 		alu_operator_i : in ALU_OP;
 		mem_operator_i : in MEM_OP;
+        
         result_fp_o : out STD_LOGIC_VECTOR (63 downto 0);
 
         x_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -98,12 +101,10 @@ architecture behavioral of execute is
 		port (
 			clk_i : in STD_LOGIC;
 			rst_i : in STD_LOGIC;
-			enable_i : in STD_LOGIC;
-
+            enable_i : in STD_LOGIC;
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
 			y_i : in STD_LOGIC_VECTOR (63 downto 0);
 			op_i : in ALU_OP;
-
 			mul_valid_o : out STD_LOGIC;
 			result_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component multiplier;
@@ -141,7 +142,7 @@ architecture behavioral of execute is
     signal result_fp : FP_RESULT;
 	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
 	signal instr_misaligned, mem_write, reg_write_fp, csr_op : STD_LOGIC := '0';
-	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, mem_read, multiply, divide : STD_LOGIC := '0';
+	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, enable_mem, alu_out, mem_read : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
@@ -188,7 +189,7 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		enable_i => enable_div,
+		enable_i => enable_mul,
 		x_i => x_sel,
 		y_i => y_sel,
 		op_i => alu_operator_i,
@@ -222,8 +223,8 @@ begin
 	  	 
     csr_op <= or csr_operator_i; 
 
-	result <= result_mul when multiply = '1' and ctrl_flow_i = '0' else
-		      result_div when divide = '1' and ctrl_flow_i = '0' else
+	result <= result_mul when mul_div_i(0) = '1' and ctrl_flow_i = '0' else
+		      result_div when mul_div_i(0) = '1' and ctrl_flow_i = '0' else
 		      result_fp.value when fp_i = '1' and ctrl_flow_i = '0' else
 		      csr_data_mux when csr_op = '1' else -- and ctrl_flow_i = '0' else 
 		      z;
@@ -304,21 +305,13 @@ begin
 			end if;
 		end if;
 	end process;
-	
-		with alu_operator_i select
-		multiply <= '1' when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
-		            '0' when others;
-
-	with alu_operator_i select
-		divide <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
-		          '0' when others;
 
 	enable_mem <= mem_write_i or mem_read_i;
-	enable_mul <= multiply and (not mul_valid);
-	enable_div <= divide and (not div_valid );
+	enable_mul <= mul_div_i(0) and (not mul_valid);
+	enable_div <= mul_div_i(1) and (not div_valid);
 	enable_fp <= fp_i and (not result_fp.valid);
 
-	multicycle_op_o <= enable_mul or enable_div or enable_fp; -- when multiply or divide or fp_i else '0';
+	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
 
 	reg_write_fp_o <= reg_write_fp;

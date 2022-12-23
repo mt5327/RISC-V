@@ -22,7 +22,6 @@ architecture behavioral of FP_Converter_double_to_float is
 	signal num : unsigned(30 downto 0);
 	signal rounded_num : STD_LOGIC_VECTOR(30 downto 0);
 
-	signal fp_class : FP_INFO;
 
 	component FP_Classifier is
 		generic (
@@ -45,16 +44,6 @@ architecture behavioral of FP_Converter_double_to_float is
 	end component rounder;
 
 begin
-
-	CLASSIFY : FP_Classifier generic map(64, 11, 53) port map(x_i(62 downto 0), fp_class);
-
-	exp_sp <= resize(unsigned(x_i(62 downto 52)) - BIAS_DIFF, 8);
-	mantissa_sp <= unsigned(x_i(51 downto 29));
-	sticky_bit <= or x_i(27 downto 0);
-
-	num <= exp_sp & mantissa_sp;
-
-	ROUND : rounder generic map(num'length) port map(num, x_i(63), rm_i, x_i(28) & sticky_bit, rounded_num);
 
 	result_o <= (63 downto 31 => x_i(63)) & rounded_num when fp_class.nan = '0' else
 		        (30 downto 22 => '1', others => '0');
