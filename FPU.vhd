@@ -10,7 +10,7 @@ entity FPU is
 		rst_i : in STD_LOGIC;
 		fp_op_i : in FPU_OP;
 	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (2 downto 0);
-		fp_i : in STD_LOGIC;
+	--	fp_i : in STD_LOGIC;
 		fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -83,9 +83,8 @@ architecture behavioral of FPU is
             y_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
             funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
             result_cmp_o : out STD_LOGIC;
-            result_min_max_o : out STD_LOGIC_VECTOR (63 downto 0);
-            fflags_cmp_o : out STD_LOGIC_VECTOR (4 downto 0);
-            fflags_min_max_o : out STD_LOGIC_VECTOR (4 downto 0));
+            result_min_max_o : out FP_RESULT;
+            fflags_cmp_o : out STD_LOGIC_VECTOR (4 downto 0));
     end component FP_Comparator;
 
 	component FP_Classifier is
@@ -107,15 +106,13 @@ architecture behavioral of FPU is
     signal fused_multiply_add, sgnj_out, div_sqrt, result_cvt_valid : STD_LOGIC := '0';
 
     signal fflags_cmp_sp_dp, fflags_min_max_sp_dp : STD_LOGIC_VECTOR (9 downto 0);
-    signal result_min_max : STD_LOGIC_VECTOR (63 downto 0);
+    signal result_min_max : FP_RESULT;
     signal results_cmp : STD_LOGIC_VECTOR (1 downto 0);
     signal result_cmp : STD_LOGIC;
 	signal fp_class_sp, fp_class_dp, result_class : STD_LOGIC_VECTOR (9 downto 0);
 
-    signal results_min_max : STD_LOGIC_VECTOR (127 downto 0);
-
     type fp_results is array (0 to 1) of FP_RESULT;
-    signal results_fma, results_div, results_cvt_fi, results_cvt_if, results_cvt_ff : fp_results;
+    signal results_fma, results_div, results_cvt_fi, results_cvt_if, results_cvt_ff, results_min_max : fp_results;
 
 begin
 
@@ -168,12 +165,10 @@ begin
 	        y_i => y_i(FP_FORMATS(i).P - 1 downto 0),
 	        funct3_i => rm_i,
 	        result_cmp_o => results_cmp(i),
-	        result_min_max_o => results_min_max(i * 64 + 63 downto i * 64),
-	        fflags_cmp_o => fflags_cmp_sp_dp(i * 5 + 4 downto i * 5),
-	        fflags_min_max_o => fflags_min_max_sp_dp(i * 5 + 4 downto i * 5)
+	        result_min_max_o => results_min_max(i),
+	        fflags_cmp_o => fflags_cmp_sp_dp(i * 5 + 4 downto i * 5)
 	    );
 	end generate;
-
 
 	FP_CLASSIFIER_SP : FP_Classifier generic map(32, 8, 24) port map(x_i(30 downto 0), fp_info_sp);
 	FP_CLASSIFIER_DP : FP_Classifier generic map(64, 11, 53) port map(x_i(62 downto 0), fp_info_dp);
@@ -199,32 +194,19 @@ begin
     result_cvt_fi <= results_cvt_fi(0) when fp_precision_i(0) = '1' else results_cvt_fi(1);
     result_cvt_if <= results_cvt_if(0) when fp_precision_i(0) = '1' else results_cvt_if(1);
     result_cvt_ff <= results_cvt_ff(0) when fp_precision_i(0) = '1' else results_cvt_ff(1);
-
---    process (clk_i) 
---    begin 
---        if rising_edge(clk_i) then 
---            if result_cvt_valid = '1' then
---                result_cvt_valid <= '0';
---            elsif enable_cvt = '1' then
---                result_cvt_valid <= '1';
---            end if;
---        end if; 
---    end process;
-
-
-    result_min_max <= results_min_max(63 downto 0) when fp_precision_i(0) = '1' else results_min_max(127 downto 64); 
-    fflags_min_max <= fflags_min_max_sp_dp(4 downto 0) when fp_precision_i(0) = '1' else fflags_min_max_sp_dp(9 downto 5);
+    result_min_max <= results_min_max(0) when fp_precision_i(0) = '1' else results_min_max(1); 
+    result_cmp <= results_cmp(0) when fp_precision_i(0) = '1' else results_cmp(1);	
     fflags_cmp <= fflags_cmp_sp_dp(4 downto 0) when fp_precision_i(0) = '1' else fflags_cmp_sp_dp(9 downto 5);
 
 	MUX_RESULT_FP_OUTPUT : process (all)
 	begin
 		case fp_op_i is 
 	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o <= result_fma;
-			when FPU_DIV | FPU_SQRT => result_o <= result_div;
+			when FPU_DIV | FPU_SQRT => result_o <= ((others => '0'), (others => '0'), '1');  --result_div;
 		    when FPU_CVT_FI => result_o <= result_cvt_fi;
 		    when FPU_CVT_IF => result_o <= result_cvt_if;
 			when FPU_CVT_FF => result_o <= result_cvt_ff;
-			when FPU_MINMAX => result_o <= (result_min_max, fflags_min_max, '1'); 
+			when FPU_MINMAX => result_o <= result_min_max; 
 	        when FPU_CMP => result_o <= ((63 downto 1 => '0') & result_cmp, fflags_cmp, '1');
 			when FPU_SGNJ => result_o <= (result_sgnj, "00000", '1');
 	        when FPU_CLASS => result_o <= ((63 downto 10 => '0') & result_class, "00000", '1');
@@ -233,9 +215,6 @@ begin
 		    when others => result_o <= ((others => '0'), (others => '0'), '0');
 		end case; 
 	end process;
-         		
-
-    result_cmp <= results_cmp(0) when fp_precision_i(0) = '1' else results_cmp(1);	
-    
+         		    
 	
 end behavioral;

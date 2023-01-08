@@ -78,11 +78,13 @@ begin
         overflows(i) <= '1' when exponent >= INT_WIDTHS(i) else '0';
     end generate; 
       
-	with mode_i select overflow <= overflows(0) when "00",
-	                               overflows(1) when "01",
-	                               overflows(2) when "10",
-	                               overflows(3) when "11",
-	                               '0' when others;
+    overflow <= overflows(to_integer(unsigned(mode_i)));
+      
+--	with mode_i select overflow <= overflows(0) when "00",
+--	                               overflows(1) when "01",
+--	                               overflows(2) when "10",
+--	                               overflows(3) when "11",
+--	                               '0' when others;
 
     overflow_value <= (30 downto 0 => '1', others => '0') when mode_i = "00" else
     	              (63 => mode_i(0), others => '1');
@@ -98,19 +100,15 @@ begin
 
 	process(clk_i) begin 
 	    if rising_edge(clk_i) then
-	       if enable_i = '1' then
-                sign_reg <= sign;
-                int_reg <= int;
-                valid <= '1';
-                mantissa_shifted_reg <= mantissa_shifted(mantissa_shifted'left downto M + 1);
-                round_sticky_reg <= round_sticky;
-                overflow_value_reg <= overflow_value_final;
-                overflow_reg <= overflow or fp_class.nan or fp_class.inf;
-                mode <= mode_i; 
-                rm <= rm_i;
-            else 
-                valid <= '0';
-            end if;
+            sign_reg <= sign;
+            int_reg <= int;
+            valid <= enable_i;
+            mantissa_shifted_reg <= mantissa_shifted(mantissa_shifted'left downto M + 1);
+            round_sticky_reg <= round_sticky;
+            overflow_value_reg <= overflow_value_final;
+            overflow_reg <= overflow or fp_class.nan or fp_class.inf;
+            mode <= mode_i; 
+            --rm <= rm_i;
         end if; 
     end process;
     

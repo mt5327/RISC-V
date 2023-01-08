@@ -14,7 +14,8 @@ entity csr_regfile is
         csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
         mpc_o : out STD_LOGIC_VECTOR (63 downto 0);
         fcsr_o : out STD_LOGIC_VECTOR (7 downto 0);
-        exception_num_o : out STD_LOGIC_VECTOR (3 downto 0));
+        exception_num_o : out STD_LOGIC_VECTOR (3 downto 0);
+        system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
 end csr_regfile;
 
 architecture behavioral of csr_regfile is
@@ -33,7 +34,7 @@ begin
     CYCLES_COUNTER : process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i = '1' then
+            if rst_i = '1' or cpu_enable_i = '0' then
                 cycles <= (others => '0');
             else
                 cycles <= STD_LOGIC_VECTOR(unsigned(cycles) + 1);
@@ -76,18 +77,18 @@ begin
     end process;
 
     with csr_read_addr_i select 
-        csr_data_o <= STD_LOGIC_VECTOR(resize(unsigned(fflags_reg), 64)) when FFLAGS,
-                      STD_LOGIC_VECTOR(resize(unsigned(frm_reg), 64)) when FRM,
+        csr_data_o <= (63 downto 5 => '0') & fflags_reg when FFLAGS,
+                      (63 downto 3 => '0') & frm_reg when FRM,
                       (63 downto 8 => '0') & frm_reg & fflags_reg when FCSR,
                       X"8000000000001128" when MISA,
                       mepc_reg when MEPC,
                       mtval_reg when MTVAL,
-                      STD_LOGIC_VECTOR(resize(unsigned(mcause_reg), 64)) when MCAUSE,
+                      (63 downto 4 => '0') & mcause_reg when MCAUSE,
                       cycles when CYCLE,
                       (others => '0') when others;
 
-    exception_num_o <= NO_EXCEPTION when mcause_reg = X"0" else mcause_reg;
+    exception_num_o <= mcause_reg;
     fcsr_o <= frm_reg & fflags_reg;
     mpc_o <= mepc_reg;
-
+    system_time_o <= cycles;
 end behavioral;

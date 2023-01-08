@@ -38,8 +38,6 @@ architecture behavioral of instruction_cache is
 	alias tag : STD_LOGIC_VECTOR (TAG_WIDTH - 1 downto 0) is instr_address_i(instr_address_i'left downto INDEX_WIDTH + num_bits(BLOCK_SIZE/32));
 	alias block_address : STD_LOGIC_VECTOR (INDEX_WIDTH - 1 downto 0) is instr_address_i(INDEX_WIDTH + num_bits(BLOCK_SIZE/32)  - 1 downto num_bits(BLOCK_SIZE/32));
 
-    signal integ : natural range 0 to 20;
-
 begin
 
 	read_address <= tag & block_address;
@@ -88,7 +86,6 @@ begin
 	end process;
 
 
-    integ <= num_bits(BLOCK_SIZE/32);
 	DOUBLE_WORD_SELECT : for i in 0 to BLOCK_SIZE/32 - 1 generate
 		IR_o <= cache(to_integer(unsigned(block_address)))(i * 32 + 31 downto i * 32) when unsigned(instr_address_i(num_bits(BLOCK_SIZE/32)-1 downto 0)) = i else (others => 'Z');
 	end generate;

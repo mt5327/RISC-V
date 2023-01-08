@@ -28,7 +28,7 @@ entity decode is
 
 		branch_predict_o : out BRANCH_PREDICTION;
 
-		mem_read_o : out STD_LOGIC;
+		mem_read_o : out STD_LOGIC_VECTOR (1 downto 0);
 		mem_write_o : out STD_LOGIC;
 
 		pc_src_o : out STD_LOGIC;
@@ -37,7 +37,8 @@ entity decode is
 		
 		mul_div_o : out STD_LOGIC_VECTOR (1 downto 0);
 		fp_o : out STD_LOGIC;
-
+        csr_op_o : out STD_LOGIC;
+        
 		imm_o : out STD_LOGIC_VECTOR (63 downto 0);
         branch_next_pc_o : out STD_LOGIC_VECTOR (63 downto 0);
         
@@ -86,8 +87,10 @@ architecture behavioral of decode is
     signal branch_next_pc, branch_next_pc_reg : STD_LOGIC_VECTOR (63 downto 0);
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
-	signal mem_read, mem_read_reg, mem_write, mem_write_reg : STD_LOGIC := '0';
-	signal reg_write_fp, float, float_reg : STD_LOGIC := '0';
+	signal mem_read, mem_read_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
+	signal mem_write, mem_write_reg : STD_LOGIC := '0';
+	
+	signal reg_write_fp, float, float_reg, csr_op : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
 	signal fp_regs_IDEX : FP_IDEX;
 	signal alu_operator, alu_operator_reg : ALU_OP;
@@ -111,6 +114,8 @@ architecture behavioral of decode is
     signal reg_cmp3_mem_reg, reg_cmp3_wb_reg : STD_LOGIC;
     signal csr_cmp_mem_reg, csr_cmp_wb_reg : STD_LOGIC;
 
+    signal reg_dst_not_zero : STD_LOGIC;
+
 	alias opcode : STD_LOGIC_VECTOR(6 downto 0) is IR_i(6 downto 0);
 
 	alias reg_src1 : STD_LOGIC_VECTOR(4 downto 0) is IR_i(19 downto 15);
@@ -122,7 +127,7 @@ architecture behavioral of decode is
 	alias funct7 : STD_LOGIC_VECTOR(6 downto 0) is IR_i(31 downto 25);
 
     signal registers, registers_fp : reg_t;
-    signal csr_operator, csr_operator_reg, mul_div, mul_div_reg : STD_LOGIC_VECTOR (1 downto 0);
+    signal csr_operator, csr_operator_reg, mul_div, mul_div_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
 
     signal csr_exception_id, csr_exception_id_reg : STD_LOGIC_VECTOR (3 downto 0);
 
@@ -380,7 +385,7 @@ begin
 						reg_write_fp <= '1';
 				end case;
 			when others =>
-				reg_write <= '0';
+				reg_write <= '0'; 
 				reg_write_fp <= '0';
 		end case;
 	end process;
@@ -391,12 +396,12 @@ begin
     branch_target_address <= STD_LOGIC_VECTOR(unsigned(pc_i) + unsigned(resize(signed(imm_b) & "0", 64)));
     branch_next_pc <= STD_LOGIC_VECTOR(unsigned(pc_i) + FOUR);
 
-    load_hazard_int <= mem_read_reg and reg_write_reg and ( ( reg_cmp1_mem and reg_src1_valid ) or 
-                                                            ( reg_cmp2_mem and reg_src2_valid ) );
+    load_hazard_int <= mem_read_reg(0) and ( ( reg_cmp1_mem and reg_src1_valid ) or 
+                                          ( reg_cmp2_mem and reg_src2_valid ) );
 
-    load_hazard_fp <= mem_read_reg and fp_regs_IDEX.write and ( ( reg_cmp1_mem and reg_fp_src1_valid ) or 
-                                                                ( reg_cmp2_mem and reg_fp_src2_valid ) or
-                                                                ( reg_cmp3_mem and reg_fp_src3_valid ) );
+    load_hazard_fp <= mem_read_reg(1) and ( ( reg_cmp1_mem and reg_fp_src1_valid ) or 
+                                         ( reg_cmp2_mem and reg_fp_src2_valid ) or
+                                         ( reg_cmp3_mem and reg_fp_src3_valid ) );
     
     flush <= ( load_hazard_int or load_hazard_fp or flush_i ) and not pipeline_stall_i;
 
@@ -411,7 +416,7 @@ begin
 			when others => imm <= (others => '0');
 		end case;
     end process;
-
+    
     reg_cmp1_mem <= '1' when reg_src1 = reg_dst else '0';
     reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i else '0';
     
@@ -445,11 +450,10 @@ begin
 	    mem_write <= '1' when STORE | STORE_FP, 
 	                 '0' when others;
 
-
 	with opcode select 
-	    mem_read <= or IR_i(11 downto 7) when LOAD, 
-	                '1' when LOAD_FP, 
-	                '0' when others;
+	    mem_read <= "0" & or IR_i(11 downto 7) when LOAD, 
+	                "10" when LOAD_FP, 
+	                "00" when others;
         
     fun3 <= frm_i when funct3 = "111" and float = '1' else funct3;
     
@@ -474,7 +478,7 @@ begin
 			if rst_i = '1' or flush = '1' then
 				ctrl_flow_reg <= '0';
 				reg_write_reg <= '0';
-				mem_read_reg <= '0';
+				mem_read_reg <= "00";
 				mem_write_reg <= '0';
 				alu_operator_reg <= ALU_NONE;
 				mem_operator_reg <= LSU_NONE;
@@ -505,6 +509,7 @@ begin
 				    mem_read_reg <= mem_read;
 					mem_write_reg <= mem_write;
 				    float_reg <= float;
+				    csr_op <= or csr_operator; 
 				end if;
 			end if;
 		end if;
@@ -667,6 +672,8 @@ begin
     csr_cmp_mem_o <= csr_cmp_mem_reg;
     csr_cmp_wb_o <= csr_cmp_wb_reg;
     csr_write_addr_o <= csr_write_addr;
+
+    csr_op_o <= csr_op;
 
     csr_write_o <= csr_write;
     csr_exception_id_o <= csr_exception_id_reg;

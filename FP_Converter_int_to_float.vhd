@@ -56,26 +56,23 @@ begin
 	int_sign <= x_i(31) and (not mode_i(0));
 	long_sign <= x_i(63) and (not mode_i(0));
 	
-	int_mantissa <= unsigned(-signed(x_i(31 downto 0))) & (31 downto 0 => '0') when int_sign else unsigned(x_i(31 downto 0)) & (31 downto 0 => '0');
+	int_mantissa <= unsigned(-signed(x_i(31 downto 0))) & (31 downto 0 => '0') when int_sign = '1' else unsigned(x_i(31 downto 0)) & (31 downto 0 => '0');
     long_mantissa <= unsigned(-signed(x_i)) when long_sign = '1' else unsigned(x_i);
-    mantissa <= int_mantissa when mode_i(1) = '0' else long_mantissa; 
     
     lz_counter <= leading_zero_counter(mantissa, lz_counter'length);
+    
+    mantissa <= int_mantissa when mode_i(1) = '0' else long_mantissa; 
     exp_init <= int_exp_init when mode_i(1) = '0' else long_exp_init; 
     sign <= int_sign when mode_i(1) = '0' else long_sign;
 	    
     process(clk_i) 
     begin 
         if rising_edge(clk_i) then
-            if enable_i = '1' then
-               exp <= exp_init - resize(lz_counter, E);
-               shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
-               sign_reg <= sign;
-               rm <= rm_i;
-               valid <= '1';
-            else 
-               valid <= '0';
-            end if;
+           shifted_mantissa <= shift_left(mantissa, to_integer(lz_counter));
+           exp <= exp_init - resize(lz_counter, E);
+           sign_reg <= sign;
+           rm <= rm_i;
+           valid <= enable_i;
          end if;
     end process;
     
@@ -85,12 +82,10 @@ begin
 
 	ROUNDING: rounder generic map (num'length) port map (num, sign_reg, rm, round_sticky, rounded_num);
 
-	result_o.value <= (63 downto P - 1 => sign_reg) & rounded_num;
-
-	overflow <= and exp_result;
+	overflow <= and exp_result when inexact = '1' else and exp_final;
     underflow <= ( nand exp_result ) and inexact;	
 	inexact <= or round_sticky;
 
-	result_o.fflags <= "00" & overflow & underflow & inexact;
-    result_o.valid <= valid;
+	result_o <= ( (63 downto P - 1 => sign_reg) & rounded_num, "00" & overflow & underflow & inexact, valid);
+
 end behavioral;

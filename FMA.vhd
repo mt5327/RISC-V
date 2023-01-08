@@ -41,7 +41,7 @@ architecture behavioral of FMA is
 
 	signal exponent_x, exponent_y, exponent_z : signed(E downto 0);
 	signal exponent_a, exponent_p, exponent_p_reg, exponent_pa : signed(E downto 0);
-	signal exponent_diff, exponent_diff_reg : signed(E downto 0);
+	signal exponent_diff, exponent_diff_reg : signed(E downto 0) := (others => '0');
 	signal exponent_tent, exponent_a_reg : signed(E - 1 downto 0);
 
     signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
@@ -59,15 +59,13 @@ architecture behavioral of FMA is
 	signal lz_counter, lz_counter_reg : unsigned(num_bits(LOWER_SUM_WIDTH) - 1 downto 0);
 
 	signal y, z: STD_LOGIC_VECTOR (P - 1 downto 0);
-    signal fp_valid : STD_LOGIC;
+    signal fp_valid, fp_valid_reg : STD_LOGIC := '0';
 
 	signal mantissa, mantissa_reg : unsigned(3 * M + 4 downto 0);
 	signal mantissa_final : unsigned(M-1 downto 0);
 	signal special_value, special_value_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
 
     signal result, result_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
-
-    signal sticky : unsigned(mantissa'left-M-1 downto 0);
 
     signal fflags_fma, fflags_reg : STD_LOGIC_VECTOR (4 downto 0) := (others => '0');
 
@@ -464,14 +462,13 @@ begin
     process (clk_i) 
     begin 
         if rising_edge(clk_i) then    
-            if enable_output_regs = '1' then
-                result_reg <= result;
-                fflags_reg <= fflags_fma;
-            end if; 
+            result_reg <= result;
+            fflags_reg <= fflags_fma;
+            fp_valid_reg <= fp_valid;
         end if;
     end process;  
      
-	result_o <= ( result_reg, fflags_reg, fp_valid );
+	result_o <= ( result_reg, fflags_reg, fp_valid_reg );
 
     underflow_after_round <= nor rounded_num(rounded_num'left downto M - 1);
     overflow_after_round <= and rounded_num(rounded_num'left downto M - 1);
@@ -483,6 +480,6 @@ begin
 	fflags_fma <= "00" & overflow & underflow & inexact when special_case_reg = '0' else
 		          invalid_reg & "0000";
 
-	fp_valid <= '1' when state = FINALIZE else '0';
+	fp_valid <= '1' when state = ROUND else '0';
 
 end behavioral;   

@@ -14,14 +14,13 @@ entity FP_Comparator is
 		y_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
 		funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
 		result_cmp_o : out STD_LOGIC;
-		result_min_max_o : out STD_LOGIC_VECTOR (63 downto 0);
-        fflags_cmp_o : out STD_LOGIC_VECTOR (4 downto 0);
-        fflags_min_max_o : out STD_LOGIC_VECTOR (4 downto 0));
+	    fflags_cmp_o : out STD_LOGIC_VECTOR (4 downto 0);
+		result_min_max_o : out FP_RESULT);
 end FP_Comparator;
 
 architecture behavioral of FP_Comparator is
 
-	signal cmp, lt, eq, nan, signaling_nan : STD_LOGIC;
+	signal cmp, lt, lt_abs, eq, nan, signaling_nan : STD_LOGIC;
 
 	signal fp_infos : fp_infos_t(0 to 1);
 
@@ -44,8 +43,9 @@ begin
 	FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i(P-2 downto 0), fp_infos(0));
 	FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i(P-2 downto 0), fp_infos(1));
 
-	lt <= '1' when unsigned(x_i) < unsigned(y_i) else '0';
-	eq <= '1' when (unsigned(x_i) = unsigned(y_i)) or (fp_infos(0).zero = '1' and fp_infos(0).zero = '1') else '0';
+	lt_abs <= '1' when unsigned(x_i) < unsigned(y_i) else '0';
+	eq <= '1' when (unsigned(x_i) = unsigned(y_i)) or (fp_infos(0).zero = '1' and fp_infos(1).zero = '1') else '0';
+	lt <= lt_abs xor (x_i(x_i'left) or y_i(y_i'left));
 	fp_min <= x_i when lt = '1' and fp_infos(0).nan = '0' else y_i;
 	fp_max <= x_i when lt = '0' and fp_infos(0).nan = '0' else y_i;
 
@@ -82,13 +82,12 @@ begin
 	end process;
 
     fflags_cmp_o <= (signaling_nan or invalid_nan ) & "0000";
-	fflags_min_max_o <= signaling_nan & "0000";
     result_cmp_o <= cmp;
     
     MIN_MAX_OUTPUT: if P = 32 generate 
-        result_min_max_o <= (63 downto 32 => '1') & min_max_result;
+        result_min_max_o <= ((63 downto 32 => '1') & min_max_result, signaling_nan & "0000", '1');
     else generate 
-        result_min_max_o <= min_max_result;
+        result_min_max_o <= (min_max_result, signaling_nan & "0000", '1');
     end generate;
     
 end behavioral;

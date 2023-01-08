@@ -10,8 +10,9 @@ entity load_store_unit is
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;
 		exception_i : in STD_LOGIC;
-		mem_req_i : in MEMORY_REQUEST;
-		MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
+	    MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
+		MDR_i : in STD_LOGIC_VECTOR (63 downto 0);
+	    memory_operation_i : in MEM_OP;	
 		cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 4 downto 0));
 		unaligned_access_o : out STD_LOGIC;
 		data_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -19,39 +20,39 @@ entity load_store_unit is
 end load_store_unit;
 
 architecture behavioral of load_store_unit is
-
+    
 	signal we : STD_LOGIC_VECTOR (7 downto 0);
 	signal unaligned_access, unaligned, is_signed : STD_LOGIC := '0';
 	signal reg_data, data_mem : STD_LOGIC_VECTOR (63 downto 0);
-
+    
 	signal b : STD_LOGIC_VECTOR (7 downto 0);
 	signal h : STD_LOGIC_VECTOR (15 downto 0);
 	signal w : STD_LOGIC_VECTOR (31 downto 0);
 	signal lb, lh, lw, d, MDR : STD_LOGIC_VECTOR (63 downto 0);
 	signal unaligned_address, unaligned_address_reg : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 4 downto 0);
     signal int_column : integer range 0 to 7;
-    
+        
     alias column : STD_LOGIC_VECTOR (2 downto 0) is MAR_i(2 downto 0);
     
 begin
 
-	CHECK_UNALIGNED : process (mem_req_i.MEMOp, MAR_i)
+	CHECK_UNALIGNED : process (memory_operation_i, column)
 	begin
 		unaligned <= '0';
-		case mem_req_i.MEMOp is
+		case memory_operation_i is
 			when LSU_LH | LSU_LHU | LSU_SH => unaligned <= and column;
 			when LSU_LW | LSU_LWU | LSU_SW => unaligned <= column(2) and (or column(1 downto 0));
 			when LSU_LD | LSU_SD => unaligned <= or column;
 			when others => unaligned <= '0';
 		end case;
 	end process;
-
+    
     int_column <= to_integer(unsigned(MAR_i(2 downto 0)));
 	
 	BYTE_SELECT : process (all)
 	begin
 	    we <= (others => '0');
-        case mem_req_i.MEMOp is
+        case memory_operation_i is
             when LSU_SB => we(int_column) <= '1';
             when LSU_SH =>
                 if unaligned_access = '0' then
@@ -88,17 +89,17 @@ begin
         end case;
 	end process;
 
-	MDR_SELECT : process (column, mem_req_i.MDR)
+	MDR_SELECT : process (column, MDR_i)
 	begin
 		case column is 
-			when "000" => MDR <= mem_req_i.MDR;
-			when "001" => MDR <= mem_req_i.MDR(55 downto 0) & mem_req_i.MDR(63 downto 56);
-			when "010" => MDR <= mem_req_i.MDR(47 downto 0) & mem_req_i.MDR(63 downto 48);
-			when "011" => MDR <= mem_req_i.MDR(39 downto 0) & mem_req_i.MDR(63 downto 40);
-			when "100" => MDR <= mem_req_i.MDR(31 downto 0) & mem_req_i.MDR(63 downto 32);
-			when "101" => MDR <= mem_req_i.MDR(23 downto 0) & mem_req_i.MDR(63 downto 24);
-			when "110" => MDR <= mem_req_i.MDR(15 downto 0) & mem_req_i.MDR(63 downto 16);
-			when "111" => MDR <= mem_req_i.MDR(7 downto 0) & mem_req_i.MDR(63 downto 8);
+			when "000" => MDR <= MDR_i;
+			when "001" => MDR <= MDR_i(55 downto 0) & MDR_i(63 downto 56);
+			when "010" => MDR <= MDR_i(47 downto 0) & MDR_i(63 downto 48);
+			when "011" => MDR <= MDR_i(39 downto 0) & MDR_i(63 downto 40);
+			when "100" => MDR <= MDR_i(31 downto 0) & MDR_i(63 downto 32);
+			when "101" => MDR <= MDR_i(23 downto 0) & MDR_i(63 downto 24);
+			when "110" => MDR <= MDR_i(15 downto 0) & MDR_i(63 downto 16);
+			when "111" => MDR <= MDR_i(7 downto 0) & MDR_i(63 downto 8);
 			when others => MDR <= (others => '0'); 
 		end case;
 	end process;
@@ -112,22 +113,22 @@ begin
 		end if;
 	end process;
 
-	process (clk_i)
-	begin
-		if rising_edge(clk_i) then
-			if rst_i = '1' or exception_i = '1' then
-				unaligned_access <= '0';
-			else
-			     if unaligned_access = '1' then
-			        unaligned_access <= '0';
-			     else
-                    unaligned_access <= unaligned;
+    process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_i = '1' or exception_i = '1' then
+                unaligned_access <= '0';
+            else      
+                if unaligned = '1' and unaligned_access = '0' then
+                    unaligned_access <= '1';
                     unaligned_address_reg <= unaligned_address;
-                 end if;
-			end if;
-		end if; 
-	end process;
- 	
+                else 
+                    unaligned_access <= '0';
+                end if;
+            end if;
+        end if; 
+    end process;
+
     with column select
         b <= data_i(7 downto 0) when "000",
              data_i(15 downto 8) when "001",
@@ -173,7 +174,7 @@ begin
              data_i(55 downto 0) & reg_data(63 downto 56) when "111",
              (others => '0') when others;
              
-	with mem_req_i.MEMOp select
+	with memory_operation_i select
 	   is_signed <= '1' when LSU_LB | LSU_LH | LSU_LW,
 	 	            '0' when others;
 	
@@ -181,20 +182,19 @@ begin
 	lh <= (63 downto 16 => ( h(15) and is_signed ) ) & h;
 	lw <= (63 downto 32 => ( w(31) and is_signed ) ) & w;
 
-	with mem_req_i.MEMOp select
+	with memory_operation_i select
 	   data_mem <= lb when LSU_LB | LSU_LBU,
 		           lh when LSU_LH | LSU_LHU,
 		           lw when LSU_FLW | LSU_LW | LSU_LWU,
 		           d when LSU_FLD | LSU_LD,
 		           (others => '0') when others;
 
-
-    unaligned_address <= STD_LOGIC_VECTOR(unsigned(MAR_i(MAR_i'left downto 3)) + 1);
+    unaligned_address <= STD_LOGIC_VECTOR(unsigned(MAR_i(ADDRESS_WIDTH-1 downto 3)) + 1);
 	unaligned_access_o <= unaligned and (not unaligned_access);
+
+	data_o <= data_mem;
 	
-	data_o <= data_mem when mem_req_i.enable_mem else (others => '0');
-	
-	cache_req_o.MAR <= MAR_i(MAR_i'left downto 3) when unaligned_access = '0' else unaligned_address_reg;
+	cache_req_o.MAR <= MAR_i(ADDRESS_WIDTH-1 downto 3) when unaligned_access = '0' else unaligned_address_reg;
 
 	cache_req_o.MDR <= MDR;
 	cache_req_o.we <= we;

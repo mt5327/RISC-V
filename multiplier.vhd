@@ -47,7 +47,7 @@ architecture behavioral of multiplier is
 
 	signal MULR : STD_LOGIC_VECTOR (127 downto 0);
 
-	signal result, result_32bit : STD_LOGIC_VECTOR (63 downto 0);
+	signal result : STD_LOGIC_VECTOR (63 downto 0);
 
 	type state_type is (IDLE, MULTIPLY, FINALIZE);
 	signal state, next_state : state_type;
@@ -101,7 +101,7 @@ begin
 
 	x <= signed((x_i(x_i'left) and x_is_signed) & x_i);
 	y <= signed((y_i(y_i'left) and y_is_signed) & y_i);
-	
+
 	MUL_A0B0 : mul_dsp_signed generic map(17, 14, 29) port map(clk_i, start_mul, ('0' & A0), ('0' & B0), A0B0);
 	MUL_A0B1 : mul_dsp_signed port map(clk_i, start_mul, ('0' & A0 & X"00"), ('0' & B1), A0B1);
 	MUL_A0B2 : mul_dsp_signed port map(clk_i, start_mul, ('0' & A0 & X"00"), ('0' & B2), A0B2);
@@ -125,23 +125,17 @@ begin
 	P5 <= A0B3 & X"000000000" & "000";
 
 	MULR <= STD_LOGIC_VECTOR(resize(P0, 128) + resize(P1, 128) + resize(P2, 128) + P3 + resize(P4, 128) + resize(P5, 128));
-    result_32bit <= (63 downto 32 => MULR(31)) & MULR(31 downto 0);
 
-	MUX_OUTPUT : process (op_i, MULR, mul_valid)
+	MUX_OUTPUT : process (op_i, MULR)
 	begin
-		if mul_valid = '1' then
-			case op_i is
-				when ALU_MULH | ALU_MULHU | ALU_MULHSU => result_o <= MULR(127 downto 64);
-				when ALU_MULW => result_o <= (63 downto 32 => MULR(31)) & MULR(31 downto 0);
-				when ALU_MUL => result_o <= MULR(63 downto 0);
-				when others => result_o <= (others => '0');
-			end case;
-	    else
-			result_o <= (others => '0');
-	    end if;
+        case op_i is
+            when ALU_MULH | ALU_MULHU | ALU_MULHSU => result_o <= MULR(127 downto 64);
+            when ALU_MULW => result_o <= (63 downto 32 => MULR(31)) & MULR(31 downto 0);
+            when ALU_MUL => result_o <= MULR(63 downto 0);
+            when others => result_o <= (others => '0');
+        end case;
 	end process;
 
-	mul_valid <= '1' when state = FINALIZE else '0';
-	mul_valid_o <= mul_valid;
+	mul_valid_o <= '1' when state = FINALIZE else '0';
 
 end behavioral;

@@ -10,6 +10,7 @@ entity memory is
 
 		pipeline_stall_i : in STD_LOGIC;
         mem_read_i : in STD_LOGIC;
+        mem_operator_i : in MEM_OP;
 		reg_dst_i : in REG;
         
 		reg_write_fp_i : in STD_LOGIC;
@@ -29,9 +30,21 @@ architecture behavioral of memory is
 	signal data, data_fp : STD_LOGIC_VECTOR (63 downto 0);
 	signal csr : CSR := ('0', X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
 	signal reg_dst, reg_dst_fp : REG;
-
+    
+    signal reg_write, reg_write_fp : STD_LOGIC;
+    
 begin
 
+    with mem_operator_i select
+       reg_write <= mem_read_i when LSU_LB | LSU_LBU | LSU_LH | LSU_LHU | LSU_LW | LSU_LWU | LSU_LD, 
+                    reg_dst_i.write when LSU_NONE,
+                    '0' when others;
+
+    with mem_operator_i select
+       reg_write_fp <= mem_read_i when LSU_FLW | LSU_FLD, 
+                       reg_write_fp_i when LSU_NONE,      
+                       '0' when others; 
+       
     data <= mem_data_i when mem_read_i = '1' else reg_dst_i.data;
 	data_fp <= mem_data_i when mem_read_i = '1' else result_fp_i;
 
@@ -43,7 +56,7 @@ begin
 			else
 				if pipeline_stall_i = '0' then
 					reg_dst.data <= data;
-					reg_dst.write <= reg_dst_i.write;
+					reg_dst.write <= reg_write;
 					reg_dst.dest <= reg_dst_i.dest;
 				end if;
  			end if;
@@ -78,7 +91,6 @@ begin
 			end if;
 		end if;
 	end process;
-
 
 	reg_dst_o <= reg_dst;
 	reg_dst_fp_o <= reg_dst_fp;
