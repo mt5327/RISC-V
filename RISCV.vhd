@@ -798,7 +798,7 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-    test_number_o <= registers(10);
+   test_number_o <= registers(10);
     system_time_o <= system_time;
     
 end behavioral;

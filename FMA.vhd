@@ -234,7 +234,8 @@ begin
 	sign <= '1' when effective_substraction_reg = '1' and sum_carry /= sign_p_reg else
 		    '0' when effective_substraction_reg = '1' else sign_p_reg;
 	-- Calculate exponent of the product
-	exponent_p <= exponent_x + exponent_y - BIAS + 2 - ((E downto 1 => '0') & fp_infos(0).normal) -
+	exponent_p <= E_MIN when fp_infos(0).zero = '1' or fp_infos(1).zero = '1' else
+	              exponent_x + exponent_y - BIAS + 2 - ((E downto 1 => '0') & fp_infos(0).normal) -
 		          ((E downto 1 => '0') & fp_infos(1).normal);
 
 	exponent_a <= exponent_z + 1 - ((E downto 1 => '0') & fp_infos(2).normal);
