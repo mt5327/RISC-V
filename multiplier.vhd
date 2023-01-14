@@ -132,7 +132,7 @@ begin
             when ALU_MULH | ALU_MULHU | ALU_MULHSU => result_o <= MULR(127 downto 64);
             when ALU_MULW => result_o <= (63 downto 32 => MULR(31)) & MULR(31 downto 0);
             when ALU_MUL => result_o <= MULR(63 downto 0);
-            when others => result_o <= (others => '0');
+            when others => result_o <= (others => '-');
         end case;
 	end process;
 

@@ -134,8 +134,6 @@ begin
 		end if;
 	end process;
 	
-	
-
 	CHECK_MISS : process (valid, tag, tags, block_address)
 	begin
 		miss <= '1';

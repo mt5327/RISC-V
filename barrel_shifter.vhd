@@ -16,7 +16,7 @@ architecture behavioral of barrel_shifter is
 
 	type bs_level_t is array (shamt_i'length downto 0) of STD_LOGIC_VECTOR(SIZE - 1 downto 0);
 	signal bs_level : bs_level_t;
-	signal result : STD_LOGIC_VECTOR(SIZE - 1 downto 0);
+	signal result, reverse_x : STD_LOGIC_VECTOR(SIZE - 1 downto 0);
 	signal shift_left, pad_bit : STD_LOGIC;
 
 begin

@@ -25,11 +25,11 @@ entity RISCV is
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
        
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
         
 	-- !!! SIMULATION ONLY !!! 
- 	  -- test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
-       -- system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
+ 	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
+        system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
 end RISCV;
 
 architecture behavioral of RISCV is
@@ -77,7 +77,7 @@ architecture behavioral of RISCV is
             branch_predict_o : out BRANCH_PREDICTION;
     
             mem_read_o : out STD_LOGIC_VECTOR (1 downto 0);
-            mem_write_o : out STD_LOGIC;
+            mem_write_o : out STD_LOGIC_VECTOR (1 downto 0);
     
             pc_src_o : out STD_LOGIC;
             imm_src_o : out STD_LOGIC;
@@ -140,7 +140,7 @@ architecture behavioral of RISCV is
             pipeline_stall_i : in STD_LOGIC;
     
             mem_read_i : in STD_LOGIC_VECTOR (1 downto 0);    
-            mem_write_i : in STD_LOGIC;
+            mem_write_i : in STD_LOGIC_VECTOR (1 downto 0);
     
             multicycle_op_o : out STD_LOGIC;
     
@@ -345,8 +345,8 @@ architecture behavioral of RISCV is
 	signal load_hazard, exception, cpu_enable, uart_tx_enable, uart_tx_busy : STD_LOGIC := '0';
 	signal multicycle_op, miss_instr, miss_data : STD_LOGIC;
 
-	signal mem_init, mem_write, mem_write_ram : STD_LOGIC;
-    signal mem_read : STD_LOGIC_VECTOR (1 downto 0);
+	signal mem_init, mem_write_ram : STD_LOGIC;
+    signal mem_read, mem_write : STD_LOGIC_VECTOR (1 downto 0);
 	signal x_fwd, y_fwd, result_fwd, x, y, reg_src1_data, reg_src2_data : STD_LOGIC_VECTOR (63 downto 0);
 	signal x_fwd_fp, y_fwd_fp, z_fwd_fp : STD_LOGIC_VECTOR (63 downto 0);
 	signal UART_data : STD_LOGIC_VECTOR (3 downto 0);
@@ -788,7 +788,7 @@ begin
     
     csr_mux_sel <= "01" when csr_fwd_mem = '1' else
                    "10" when csr_fwd_wb = '1' else
-                   "11";
+                   "11" when csr_op = '1' else "00";
                    
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable;
@@ -798,7 +798,7 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-    --test_number_o <= registers(10);
-    --system_time_o <= system_time;
+    test_number_o <= registers(10);
+    system_time_o <= system_time;
     
 end behavioral;

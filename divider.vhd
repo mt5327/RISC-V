@@ -22,7 +22,7 @@ architecture behavioral of divider is
 	signal quotient, new_q : STD_LOGIC_VECTOR (63 downto 0);
 	signal x, y, remainder, new_r, b : unsigned(63 downto 0);
 	signal normalized_divisor, estimated_divisor, estimated_divisor_div_2, divisor : unsigned(63 downto 0);
-	signal is_signed, is_word, sign, sign_reg, div_out, div_out_reg, div_by_zero, div_by_zero_reg, terminate, div_valid : STD_LOGIC;
+	signal is_signed, is_word, is_word_reg, sign, sign_reg, div_out, div_out_reg, div_by_zero, div_by_zero_reg, terminate, div_valid : STD_LOGIC;
 	signal clz_r, clz_y, clz_delta : unsigned (5 downto 0);
 
 
@@ -122,6 +122,7 @@ begin
                     div_by_zero_reg <= div_by_zero;
                     sign_reg <= sign;
                     div_out_reg <= div_out;
+                    is_word_reg <= is_word;
 				when DIVIDE =>
 					if terminate = '0' then
 						quotient <= new_q;
@@ -130,17 +131,18 @@ begin
 			    when others =>
 			        div_by_zero_reg <= '0';
 			        div_out_reg <= '0';
+			        is_word_reg <= '0';
 			end case;
 		end if;
 	end process;
 
-	result <= quotient when div_out = '1' else
+	result <= quotient when div_out_reg = '1' else
 	          STD_LOGIC_VECTOR(remainder);
 
 	z <= STD_LOGIC_VECTOR(-signed(result)) when sign_reg = '1' and div_by_zero_reg = '0' else
 	     result;
 	     
-	z_o <= (63 downto 32 => z(31)) & z(31 downto 0) when is_word = '1' else z; 
+	z_o <= (63 downto 32 => z(31)) & z(31 downto 0) when is_word_reg = '1' else z; 
 	
     div_valid_o <= '1' when state = FINALIZE else '0';
 

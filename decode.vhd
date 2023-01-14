@@ -29,7 +29,7 @@ entity decode is
 		branch_predict_o : out BRANCH_PREDICTION;
 
 		mem_read_o : out STD_LOGIC_VECTOR (1 downto 0);
-		mem_write_o : out STD_LOGIC;
+		mem_write_o : out STD_LOGIC_VECTOR (1 downto 0);
 
 		pc_src_o : out STD_LOGIC;
 		imm_src_o : out STD_LOGIC;
@@ -87,8 +87,7 @@ architecture behavioral of decode is
     signal branch_next_pc, branch_next_pc_reg : STD_LOGIC_VECTOR (63 downto 0);
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
-	signal mem_read, mem_read_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
-	signal mem_write, mem_write_reg : STD_LOGIC := '0';
+	signal mem_read, mem_read_reg, mem_write, mem_write_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
 	
 	signal reg_write_fp, float, float_reg, csr_op : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
@@ -417,8 +416,8 @@ begin
 		end case;
     end process;
     
-    reg_cmp1_mem <= '1' when reg_src1 = reg_dst else '0';
-    reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i else '0';
+    reg_cmp1_mem <= '1' when reg_src1 = reg_dst and (reg_src1_valid or reg_fp_src1_valid ) = '1' else '0';
+    reg_cmp1_wb <= '1' when reg_src1 = reg_mem_i and (reg_src1_valid or reg_fp_src1_valid ) = '1' else '0';
     
     reg_cmp2_mem <= '1' when reg_src2 = reg_dst else '0';
     reg_cmp2_wb <= '1' when reg_src2 = reg_mem_i else '0';
@@ -447,8 +446,9 @@ begin
 	             '0' when others;
 
 	with opcode select 
-	    mem_write <= '1' when STORE | STORE_FP, 
-	                 '0' when others;
+	    mem_write <= "01" when STORE, 
+	                 "10" when STORE_FP, 
+	                 "00" when others;
 
 	with opcode select 
 	    mem_read <= "0" & or IR_i(11 downto 7) when LOAD, 
@@ -460,7 +460,7 @@ begin
     with opcode select 
         x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 | FP | SYSTEM,
                   (others => '0') when others;
-
+ 
 	with opcode select
 		y_data <= (2 => '1', others => '0') when JAL | JALR,
 		          y_data_reg when BRANCH | STORE | RR | RR32,
@@ -479,7 +479,7 @@ begin
 				ctrl_flow_reg <= '0';
 				reg_write_reg <= '0';
 				mem_read_reg <= "00";
-				mem_write_reg <= '0';
+				mem_write_reg <= "00";
 				alu_operator_reg <= ALU_NONE;
 				mem_operator_reg <= LSU_NONE;
 		        branch_predict.cf_type <= "00";
@@ -598,10 +598,10 @@ begin
 		                  
 		                  
     with fpu_operator select 
-	  enable_fpu_subunit <= "001" when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
-		                    "010" when FPU_DIV | FPU_SQRT,
-		                    "100" when FPU_CVT_FI | FPU_CVT_IF,
-		                    "000" when others;	                  
+		enable_fpu_subunit <= "001" when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
+		                      "010" when FPU_DIV | FPU_SQRT,
+		                      "100" when FPU_CVT_FI | FPU_CVT_IF,
+		                      "000" when others;	                  
 
     process (IR_i)
     begin
@@ -677,4 +677,5 @@ begin
 
     csr_write_o <= csr_write;
     csr_exception_id_o <= csr_exception_id_reg;
+
 end behavioral;

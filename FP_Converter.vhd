@@ -77,18 +77,14 @@ begin
             signal exp_dp : STD_LOGIC_VECTOR(10 downto 0);
         begin
             exp_dp <= STD_LOGIC_VECTOR(("000" & unsigned(x_i(30 downto 23))) + BIAS_DIFF);
-            result_ff_o.value <= x_i(31) & exp_dp & x_i(22 downto 0) & (28 downto 0 => '0');
-        	result_ff_o.fflags <= fp_class.signaling_nan & "0000";
-            result_ff_o.valid <= '1';
+            result_ff_o <= ( x_i(31) & exp_dp & x_i(22 downto 0) & (28 downto 0 => '0'), fp_class.signaling_nan & "0000", '1' );
         
         when 53 =>
 
             signal exp_sp : unsigned(7 downto 0);
-            signal mantissa_sp : unsigned(22 downto 0);
 
             signal sticky_bit, overflow, underflow, inexact : STD_LOGIC;
 
-            signal num : unsigned(30 downto 0);
             signal rounded_num : STD_LOGIC_VECTOR(30 downto 0);
 
             component rounder is
@@ -102,22 +98,22 @@ begin
             end component rounder;
         
         begin
+        
             exp_sp <= resize(unsigned(x_i(62 downto 52)) - BIAS_DIFF, 8);
-            mantissa_sp <= unsigned(x_i(51 downto 29));
             sticky_bit <= or x_i(27 downto 0);
-            num <= exp_sp & mantissa_sp;
-
-            ROUND : rounder generic map(num'length) port map(num, x_i(63), rm_i, x_i(28) & sticky_bit, rounded_num);
+           
+            ROUND : rounder generic map(31) port map(exp_sp & unsigned(x_i(51 downto 29)), x_i(63), rm_i, x_i(28) & sticky_bit, rounded_num);
 
             result_ff_o.value <= (63 downto 31 => x_i(63)) & rounded_num when fp_class.nan = '0' else
                                  (30 downto 22 => '1', others => '0');
 
             overflow <= (not fp_class.inf) and (and rounded_num(30 downto 23));
             underflow <= or rounded_num(30 downto 23);
-            inexact <= x_i(28) or sticky_bit or overflow;
+            inexact <= ( or x_i(28 downto 0) ) or overflow;
 
             result_ff_o.fflags <= "00" & overflow & underflow & inexact when fp_class.nan = '0' else
-                           fp_class.signaling_nan & "0000";
+                                  fp_class.signaling_nan & "0000";
+         
             result_ff_o.valid <= '1';
     end generate;
 

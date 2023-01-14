@@ -23,6 +23,9 @@ end FPU;
 
 architecture behavioral of FPU is
 
+    type iters is array(0 to 1) of NATURAL;
+    constant num_iters : iters := (11, 25);
+
     component FMA is
         generic (
             P : NATURAL;
@@ -44,7 +47,8 @@ architecture behavioral of FPU is
         generic (
             P : NATURAL;
             E : NATURAL;
-            M : NATURAL);
+            M : NATURAL;
+            NUM_ITERS : NATURAL);
         port (
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
@@ -132,7 +136,7 @@ begin
         );
         
         FP_DIV: FP_Divider
-        generic map (FP_FORMATS(i).P, FP_FORMATS(i).E, FP_FORMATS(i).M)
+        generic map (FP_FORMATS(i).P, FP_FORMATS(i).E, FP_FORMATS(i).M, num_iters(i))
     	port map(
             clk_i => clk_i,
             rst_i => rst_i,
@@ -186,9 +190,9 @@ begin
 	ENABLE_GEN: for i in 0 to 1 generate	                    
         enable_fma(i) <= enable_fpu_subunit_i(0) and fp_precision_i(i) and not results_fma(i).valid;
         enable_div_sqrt(i) <= enable_fpu_subunit_i(1) and fp_precision_i(i) and not results_div(i).valid;                   
-        enable_cvt(i) <= enable_fpu_subunit_i(2) and fp_precision_i(i);
+        enable_cvt(i) <= enable_fpu_subunit_i(2) and fp_precision_i(i) and not results_cvt_fi(i).valid;
     end generate;
-    
+   
     result_fma <= results_fma(0) when fp_precision_i(0) = '1' else results_fma(1);
     result_div <= results_div(0) when fp_precision_i(0) = '1' else results_div(1);
     result_cvt_fi <= results_cvt_fi(0) when fp_precision_i(0) = '1' else results_cvt_fi(1);
@@ -197,12 +201,12 @@ begin
     result_min_max <= results_min_max(0) when fp_precision_i(0) = '1' else results_min_max(1); 
     result_cmp <= results_cmp(0) when fp_precision_i(0) = '1' else results_cmp(1);	
     fflags_cmp <= fflags_cmp_sp_dp(4 downto 0) when fp_precision_i(0) = '1' else fflags_cmp_sp_dp(9 downto 5);
-
+ 
 	MUX_RESULT_FP_OUTPUT : process (all)
 	begin
 		case fp_op_i is 
 	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o <= result_fma;
-			when FPU_DIV | FPU_SQRT => result_o <= ((others => '0'), (others => '0'), '1');  --result_div;
+			when FPU_DIV | FPU_SQRT => result_o <= result_div;
 		    when FPU_CVT_FI => result_o <= result_cvt_fi;
 		    when FPU_CVT_IF => result_o <= result_cvt_if;
 			when FPU_CVT_FF => result_o <= result_cvt_ff;

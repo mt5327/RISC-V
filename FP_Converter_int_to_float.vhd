@@ -82,7 +82,7 @@ begin
 
 	ROUNDING: rounder generic map (num'length) port map (num, sign_reg, rm, round_sticky, rounded_num);
 
-	overflow <= and exp_result when inexact = '1' else and exp_final;
+	overflow <= and exp_result;
     underflow <= ( nand exp_result ) and inexact;	
 	inexact <= or round_sticky;
 

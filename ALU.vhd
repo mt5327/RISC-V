@@ -5,7 +5,7 @@ use IEEE.NUMERIC_STD.all;
 use work.constants.all;
 
 entity ALU is
-	port (
+	port ( 
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
 		z_o : out STD_LOGIC_VECTOR (63 downto 0);
@@ -72,13 +72,13 @@ begin
 	begin
 		case op_i is
 			when ALU_ADD | ALU_SUB => z_o <= add_sub_r(64 downto 1);
-			when ALU_ADDW | ALU_SUBW => z_o <= STD_LOGIC_VECTOR(resize(signed(add_sub_r(32 downto 1)), 64));
+			when ALU_ADDW | ALU_SUBW => z_o <= (63 downto 32 => add_sub_r(32)) & add_sub_r(32 downto 1);
 			when ALU_SLT | ALU_SLTU => z_o <= (0 => lt_r, others => '0');
 			when ALU_XOR => z_o <= xor_r;
 			when ALU_OR => z_o <= or_r;
 			when ALU_AND => z_o <= and_r;
 			when ALU_SLL | ALU_SRL | ALU_SRA => z_o <= shift64_r;
-			when ALU_SLLW | ALU_SRLW | ALU_SRAW => z_o <= STD_LOGIC_VECTOR(resize(signed(shift32_r), 64));
+			when ALU_SLLW | ALU_SRLW | ALU_SRAW => z_o <= (63 downto 32 => shift32_r(31)) & shift32_r;
 			when others => z_o <= (others => '0');
 		end case;
 	end process;

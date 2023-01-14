@@ -64,10 +64,6 @@ begin
 		end if;
 	end process;
 	
-	-- synthesis translate_off
-	--assert ctrl_flow_i = '1' report to_hex_string(x_i) & " comparing to " & to_hex_string(y_i) severity note;
-	-- synthesis translate_on
-	
 	branch_info_o.valid <= ctrl_flow_i;
 
  end behavioral;

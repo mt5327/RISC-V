@@ -51,10 +51,11 @@ begin
 
 	signaling_nan <= fp_infos(0).signaling_nan or fp_infos(1).signaling_nan;
 
-	MIN_MAX : process (fp_min, fp_max, funct3_i, nan)
+	MIN_MAX : process (fp_min, fp_max, funct3_i, fp_infos(0).nan, fp_infos(1).nan)
 	begin
-		if nan then
-			min_max_result <= (P - 2 downto P - E => '1', others => '0');
+		if fp_infos(0).nan and fp_infos(1).nan then
+			min_max_result <= (P - 2 downto P - E - 2 => '1', others => '0');
+		
 		else
 			case funct3_i is
 				when "000" => min_max_result <= fp_min;
@@ -85,7 +86,7 @@ begin
     result_cmp_o <= cmp;
     
     MIN_MAX_OUTPUT: if P = 32 generate 
-        result_min_max_o <= ((63 downto 32 => '1') & min_max_result, signaling_nan & "0000", '1');
+        result_min_max_o <= ((63 downto 32 => min_max_result(P-1)) & min_max_result, signaling_nan & "0000", '1');
     else generate 
         result_min_max_o <= (min_max_result, signaling_nan & "0000", '1');
     end generate;

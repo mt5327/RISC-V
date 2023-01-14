@@ -15,7 +15,7 @@ entity execute is
 		pipeline_stall_i : in STD_LOGIC;
 
 		mem_read_i : in STD_LOGIC_VECTOR (1 downto 0);    
-		mem_write_i : in STD_LOGIC;
+		mem_write_i : in STD_LOGIC_VECTOR (1 downto 0);
 
 		multicycle_op_o : out STD_LOGIC;
 
@@ -25,6 +25,7 @@ entity execute is
 		
 		mul_div_i : in STD_LOGIC_VECTOR (1 downto 0);
 		fp_i : in STD_LOGIC;
+	
 		csr_op_i : in STD_LOGIC;
 		
         funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -68,7 +69,6 @@ entity execute is
         csr_exception_id_i : in STD_LOGIC_VECTOR (3 downto 0);
         csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
 		csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
-		
 		csr_o : out CSR);
 end execute;
 
@@ -148,6 +148,8 @@ architecture behavioral of execute is
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
 
+    signal result_select : STD_LOGIC_VECTOR (3 downto 0);
+
 begin
 
 	RISCV_ALU : ALU
@@ -219,11 +221,15 @@ begin
     y <= imm_i when imm_src_i = '1' else
 	  	 y_sel;
 	  	 
-	result <= result_fp.value when fp_i = '1'  and reg_write_i = '1' else
-		      result_mul when mul_div_i(0) = '1' else
-		      result_div when mul_div_i(1) = '1' else
-		      csr_data_mux when csr_op_i = '1' else
-		      z;
+	  	 
+	result_select <= csr_op_i & fp_i & mul_div_i;  	 
+	with result_select select 
+	   result <= z when "0000",
+	             result_mul when "0001",
+	             result_div when "0010",
+	             result_fp.value when "0100",
+	             csr_data_mux when "1000",
+	             (others => '-') when others;
     
     with x_mux_sel_i select 
         x_sel <= reg_dst.data when "01",
@@ -237,29 +243,27 @@ begin
 
    with x_fp_mux_sel_i select 
         x_fp_sel <= result_fp_reg when "01",
-                 result_fwd_fp_wb_i when "10",
-                 fp_regs_idex_i.x when others;    
+                    result_fwd_fp_wb_i when "10",
+                    fp_regs_idex_i.x when others;    
                  
     with y_fp_mux_sel_i select 
         y_fp_sel <= result_fp_reg when "01",
-                 result_fwd_fp_wb_i when "10",
-                 fp_regs_idex_i.y when others;
+                    result_fwd_fp_wb_i when "10",
+                    fp_regs_idex_i.y when others;
    
     with z_fp_mux_sel_i select                     
         z_fp_sel <= result_fp_reg when "01",
-                 result_fwd_fp_wb_i when "10",
-                 fp_regs_idex_i.z when others;
+                    result_fwd_fp_wb_i when "10",
+                    fp_regs_idex_i.z when others;
 
-
-	instr_misaligned <= (or branch_inf.target_address(1 downto 0)) and branch_inf.taken;
+	instr_misaligned <= ( or branch_inf.target_address(1 downto 0) ) and branch_inf.taken;
 
 	--    Y_fp <= X"FFFFFFFF" & fp_regs_IDEX_i.y(31 downto 0) when (or fp_regs_IDEX_i.y(63 downto 31)) = '0' else 
 	--                                       fp_regs_IDEX_i.y; 
 
-
-	with mem_operator_i select 
-	   MDR <= y_fp_sel when LSU_FSW | LSU_FSD,
-		      y_sel when LSU_SB | LSU_SH | LSU_SW | LSU_SD,
+	with mem_write_i select 
+	   MDR <= y_sel when "01",
+	          y_fp_sel when "10",
 		      (others => '0') when others;
 
 	REGS : process (clk_i)
@@ -278,7 +282,7 @@ begin
 					reg_dst.write <= reg_write;
 					reg_dst.dest <= reg_dst_i;
 					mem_req.read <= or mem_read_i;
-					mem_req.write <= mem_write_i;
+					mem_req.write <= or mem_write_i;
 					mem_req.MEMOp <= mem_operator_i;
 					mem_req.MDR <= MDR;
 				end if;
@@ -294,11 +298,7 @@ begin
 				csr.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-                    csr.write <= csr_write_i;
-                    csr.write_addr <= csr_write_addr_i;
-                    csr.data <= csr_data;
-                    csr.epc <= pc_i; 
-                    csr.exception_id <= csr_exception_id_i;
+                    csr <= (csr_write_i, csr_write_addr_i, csr_exception_id_i, pc_i, csr_data);
 				end if;
 			end if;
 		end if;
@@ -307,9 +307,9 @@ begin
 	enable_mul <= mul_div_i(0) and (not mul_valid);
 	enable_div <= mul_div_i(1) and (not div_valid);
 	enable_fp <= fp_i and (not result_fp.valid);
-	
-	reg_write_fp <= fp_regs_idex_i.write or ( mem_read_i(0) and ( nor z(63 downto ADDRESS_WIDTH ) ) );
-    reg_write <= reg_write_i or ( mem_read_i(1) and ( nor z(63 downto ADDRESS_WIDTH ) ) ); 
+
+    reg_write <= reg_write_i or ( mem_read_i(0) and ( nor z(63 downto ADDRESS_WIDTH ) ) ); 	
+	reg_write_fp <= fp_regs_idex_i.write or ( mem_read_i(1) and ( nor z(63 downto ADDRESS_WIDTH ) ) );
  
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
@@ -318,20 +318,24 @@ begin
 	result_fp_o <= result_fp_reg;
 	
 	with csr_mux_sel_i select 
-	   csr_data_mux <= csr.data when "01",
-	               csr_data_wb_i when "10",
-	               csr_data_i when others; 
+	    csr_data_mux <= csr.data when "01",
+	                    csr_data_wb_i when "10",
+	                    csr_data_i when "11",
+	                     (63 downto 5 => '0') & result_fp.fflags when "00",
+	                     (others => '0') when others;
 
     csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
 	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_exception_id_i;
 
 	with csr_operator_i select
-		csr_data <= csr_data_sel when CSR_RW,
-		            csr_data_mux or csr_data_sel when CSR_RS,
-		            csr_data_mux and (not csr_data_sel) when CSR_RC,
-		            ((63 downto 5 => '0') & result_fp.fflags) when others;
+	   csr_data <= csr_data_sel when CSR_RW,
+		           csr_data_mux or csr_data_sel when CSR_RS,
+		           csr_data_mux and (not csr_data_sel ) when CSR_RC,
+		           csr_data_mux when CSR_NONE,
+	               (others => '0') when others;
 
 	csr_o <= csr;
+
 
     mem_req_o <= mem_req;
 	branch_info_o <= branch_inf;
