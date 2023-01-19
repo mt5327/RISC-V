@@ -47,7 +47,7 @@ architecture behavioral of FP_Divider is
 	signal q, qm : STD_LOGIC_VECTOR(q_length(M-2) downto 0) := (others => '0');	
     signal mantissa : STD_LOGIC_VECTOR (q_length(M) downto 0) := (others => '0');
 
-	signal special_value : STD_LOGIC_VECTOR (63 downto 0);
+	signal special_value : STD_LOGIC_VECTOR (P-1 downto 0);
      
     signal mantissa_final : STD_LOGIC_VECTOR (M-1 downto 0);
     signal mantissa_round : STD_LOGIC_VECTOR (P-2 downto 0);
@@ -180,7 +180,7 @@ begin
         -- Canonical NaN
 		special_value <= (P - 2 downto P - E - 2 => '1', others => '0');
         if fp_info_y.zero and div then
-            special_value <= (63 downto P - 1 => sign_d) & INFINITY;
+            special_value <= sign_d & INFINITY;
         end if;
     end process;
     
@@ -314,9 +314,18 @@ begin
     result_o.fflags <= invalid & div_by_zero & "000" when special_case = '1' else
                        "0000" & inexact;
                             
-    result_o.value <= special_value when special_case = '1' else 
-                      (63 downto P - 1 => sign) & mantissa_round;
+    
+    RESULT_GEN: if P = 32 generate 
+        result_o.value <= (63 downto 32 => '1') & sign_reg & mantissa_round when special_case = '0' else 
+                          (63 downto 32 => '1') & special_value;
+    else generate
+        result_o.value <= sign_reg & mantissa_round when special_case = '0' else 
+                          special_value; 
+    end generate;
+
         
     result_o.valid <= '1' when state = FINALIZE else '0';
+   
+   
    
  end behavioral;  

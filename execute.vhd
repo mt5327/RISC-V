@@ -318,12 +318,12 @@ begin
 	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_exception_id_i;
 
 	with csr_operator_i select
-	   csr_result <= csr_data_mux when CSR_RW,
+	   csr_result <= csr_data_sel when CSR_RW,
 		           csr_data_mux or csr_data_sel when CSR_RS,
 		           csr_data_mux and (not csr_data_sel ) when CSR_RC,
 	               (others => '0') when others;
 
-    csr_data <= ((63 downto 5 => '0') & result_fp.fflags) or csr_result;
+    csr_data <= ((63 downto 5 => '0') & result_fp.fflags) when result_select_i(2) = '1' else csr_result;
 
 	csr_o <= csr;
 

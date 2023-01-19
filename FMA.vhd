@@ -477,6 +477,7 @@ begin
             result <= sign_reg & rounded_num when special_case_reg = '0' else 
                       special_value_reg; 
     end generate;
+    
     process (clk_i) 
     begin 
         if rising_edge(clk_i) then    

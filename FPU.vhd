@@ -179,8 +179,8 @@ begin
 	    );
 	end generate;
 
-	FP_CLASS_X : FP_Classifier generic map(32, 8, 11) port map(x_i, fp_info_sp);
-    FP_CLASS_Y : FP_Classifier generic map(64, 11, 53) port map(x_i, fp_info_dp);
+	FP_CLASSIFIER_SP : FP_Classifier generic map(32, 8, 24) port map(x_i, fp_info_sp);
+    FP_CLASSIFIER_DP : FP_Classifier generic map(64, 11, 53) port map(x_i, fp_info_dp);
 
 	fp_class_sp <= fp_classify(fp_info_sp, x_i(31));
 	fp_class_dp <= fp_classify(fp_info_dp, x_i(63));

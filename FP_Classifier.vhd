@@ -34,6 +34,6 @@ begin
 	fp_class_o.inf <= is_boxed and ( (and exp) and (nor man) );
 	fp_class_o.nan <= not is_boxed or ( (and exp) and (or man) );
 	fp_class_o.signaling_nan <= is_boxed and ( (and exp) and ( not  x_i(M - 2) ) and ( or x_i(M-3 downto 0)) );
-	fp_class_o.quiet_nan <= (and exp) and ( x_i(M - 2) or ( nor x_i(M-3 downto 0)));
+	fp_class_o.quiet_nan <= not is_boxed or ( (and exp) and ( x_i(M - 2) or ( nor x_i(M-3 downto 0))) );
 
 end behavioral; 
