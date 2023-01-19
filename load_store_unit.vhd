@@ -185,7 +185,8 @@ begin
 	with memory_operation_i select
 	   data_mem <= lb when LSU_LB | LSU_LBU,
 		           lh when LSU_LH | LSU_LHU,
-		           lw when LSU_FLW | LSU_LW | LSU_LWU,
+		           lw when LSU_LW | LSU_LWU,
+		           (63 downto 32 => '1') & w when LSU_FLW,
 		           d when LSU_FLD | LSU_LD,
 		           (others => '0') when others;
 

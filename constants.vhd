@@ -126,8 +126,6 @@ constant POS_INFINITY : STD_LOGIC_VECTOR (9 downto 0) := (7 => '1', others => '0
 constant SIGNALING_NAN : STD_LOGIC_VECTOR (9 downto 0) := (8 => '1', others => '0');
 constant QUIET_NAN : STD_LOGIC_VECTOR (9 downto 0) := (9 => '1', others => '0');
 
-constant BIAS_DIFF : unsigned(10 downto 0) := "01110000000"; -- 1023 - 127 = 896 
-
 subtype word_t is STD_LOGIC_VECTOR(63 downto 0);
 type reg_t is array(0 to 31) of word_t;
 
@@ -138,7 +136,7 @@ type FP_IDEX is record
     write : STD_LOGIC;
     precision : STD_LOGIC_VECTOR (1 downto 0);
     fp_op : FPU_OP;
-    enable_fpu_subunit : STD_LOGIC_VECTOR (2 downto 0);
+    enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
 end record;
 
 type REG is record
@@ -217,10 +215,10 @@ function leading_zero_counter(X : unsigned; E : natural) return signed;
 function reverse(x : STD_LOGIC_VECTOR) return STD_LOGIC_VECTOR;
 function check_rm(rm, frm : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC;
 function fp_classify(fp_class : FP_INFO; sign : STD_LOGIC) return STD_LOGIC_VECTOR;
-function fp_sign_injection(x : STD_LOGIC_VECTOR; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR;
+function fp_sign_injection(x : STD_LOGIC_VECTOR; x_sign : STD_LOGIC; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR;
 function leading_one_index(X : unsigned) return unsigned;
 function q_length(x : natural) return natural;
-       
+function dst_fp_format(P : natural) return FP_FORMAT;
 end package;
 
 package body constants is
@@ -302,14 +300,14 @@ begin
     return QUIET_NAN;
 end function fp_classify;
 
-function fp_sign_injection(x : STD_LOGIC_VECTOR; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR is
-    variable x_v : STD_LOGIC_VECTOR (x'range);
+function fp_sign_injection(x : STD_LOGIC_VECTOR; x_sign : STD_LOGIC; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR is
+    variable x_v : STD_LOGIC_VECTOR (x'length downto 0);
 begin
     case funct3 is
-        when "000" => x_v := y_sign & x(x'left-1 downto 0);
-        when "001" => x_v := not y_sign & x(x'left-1 downto 0);
-        when "010" => x_v := ( x(x'left) xor y_sign ) & x(x'left-1 downto 0);
-        when others => x_v := (others => '0');
+        when "000" => x_v := y_sign & x;
+        when "001" => x_v := not y_sign & x;
+        when "010" => x_v := ( x_sign xor y_sign ) & x;
+        when others => x_v := (others => '-');
     end case;
     return x_v;
 end function fp_sign_injection;
@@ -334,6 +332,14 @@ begin
         return x+1;   
     end if;
     return x+2;
+end function;
+
+function dst_fp_format(P : natural) return FP_FORMAT is
+begin
+    if P = 32 then
+        return FP_FORMATS(1);
+    end if;
+    return FP_FORMATS(0);
 end function;
 
 end package body;

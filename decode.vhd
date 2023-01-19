@@ -35,9 +35,7 @@ entity decode is
 		imm_src_o : out STD_LOGIC;
 		ctrl_flow_o : out STD_LOGIC;
 		
-		mul_div_o : out STD_LOGIC_VECTOR (1 downto 0);
-		fp_o : out STD_LOGIC;
-        csr_op_o : out STD_LOGIC;
+		result_select_o : out STD_LOGIC_VECTOR (3 downto 0);
         
 		imm_o : out STD_LOGIC_VECTOR (63 downto 0);
         branch_next_pc_o : out STD_LOGIC_VECTOR (63 downto 0);
@@ -89,7 +87,7 @@ architecture behavioral of decode is
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
 	signal mem_read, mem_read_reg, mem_write, mem_write_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
 	
-	signal reg_write_fp, float, float_reg, csr_op : STD_LOGIC := '0';
+	signal reg_write_fp : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
 	signal fp_regs_IDEX : FP_IDEX;
 	signal alu_operator, alu_operator_reg : ALU_OP;
@@ -97,7 +95,7 @@ architecture behavioral of decode is
 	signal mem_operator, mem_operator_reg : MEM_OP;
 	signal branch_predict : BRANCH_PREDICTION;
     signal write_fflags : STD_LOGIC;
-    signal enable_fpu_subunit : STD_LOGIC_VECTOR (2 downto 0);
+    signal enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
     signal csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write : STD_LOGIC;
 
@@ -126,7 +124,9 @@ architecture behavioral of decode is
 	alias funct7 : STD_LOGIC_VECTOR(6 downto 0) is IR_i(31 downto 25);
 
     signal registers, registers_fp : reg_t;
-    signal csr_operator, csr_operator_reg, mul_div, mul_div_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
+    signal csr_operator, csr_operator_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
+
+    signal result_select, result_select_reg : STD_LOGIC_VECTOR(3 downto 0) := "0000";
 
     signal csr_exception_id, csr_exception_id_reg : STD_LOGIC_VECTOR (3 downto 0);
 
@@ -442,8 +442,8 @@ begin
 	                 '0' when others;
 	
 	with opcode select 
-	    float <= '1' when FP | FMADD | FMSUB | FNMADD | FNMSUB, 
-	             '0' when others;
+	    result_select(2) <= '1' when FP | FMADD | FMSUB | FNMADD | FNMSUB, 
+	                        '0' when others;
 
 	with opcode select 
 	    mem_write <= "01" when STORE, 
@@ -455,7 +455,8 @@ begin
 	                "10" when LOAD_FP, 
 	                "00" when others;
         
-    fun3 <= frm_i when funct3 = "111" and float = '1' else funct3;
+    fun3 <= frm_i when funct3 = "111" and result_select(2) = '1' else funct3;
+    result_select(3) <= or csr_operator; 
     
     with opcode select 
         x_data <= x_data_reg when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 | FP | SYSTEM,
@@ -497,19 +498,17 @@ begin
 					pc_src_reg <= pc_src;
 					imm_src_reg <= imm_src;
 					reg_dst <= IR_i(11 downto 7);
+					result_select_reg <= result_select;
 					alu_operator_reg <= alu_operator;
 					imm_reg <= imm;
 					branch_next_pc_reg <= branch_next_pc;
 					reg_write_reg <= reg_write;
-					mul_div_reg <= mul_div;
 					pc <= pc_i;
 					branch_predict <= branch_predict_i;
 					ctrl_flow_reg <= ctrl_flow;
 					mem_operator_reg <= mem_operator;
 				    mem_read_reg <= mem_read;
 					mem_write_reg <= mem_write;
-				    float_reg <= float;
-				    csr_op <= or csr_operator; 
 				end if;
 			end if;
 		end if;
@@ -569,7 +568,7 @@ begin
 	csr_data_o <= csr_data;
 	
 	with alu_operator select
-		mul_div <= "01" when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
+		result_select(1 downto 0) <= "01" when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
 	               "10" when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW | ALU_REM | ALU_REMU | ALU_REMW | ALU_REMUW,
                    "00" when others;
 
@@ -598,10 +597,12 @@ begin
 		                  
 		                  
     with fpu_operator select 
-		enable_fpu_subunit <= "001" when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
-		                      "010" when FPU_DIV | FPU_SQRT,
-		                      "100" when FPU_CVT_FI | FPU_CVT_IF,
-		                      "000" when others;	                  
+		enable_fpu_subunit <= "00001" when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB, 
+		                     "00010" when FPU_DIV | FPU_SQRT,
+		                     "00100" when FPU_CVT_FI,
+		                     "01000" when FPU_CVT_IF,
+		                     "10000" when FPU_CVT_FF,
+		                     "00000" when others;	                  
 
     process (IR_i)
     begin
@@ -653,8 +654,6 @@ begin
 	branch_predict_o <= branch_predict;
 	ctrl_flow_o <= ctrl_flow_reg;
 	
-	mul_div_o <= mul_div_reg;
-	fp_o <= float_reg;
 	funct3_o <= funct3_reg;
 	
 	reg_cmp1_mem_o <= reg_cmp1_mem_reg;
@@ -673,9 +672,9 @@ begin
     csr_cmp_wb_o <= csr_cmp_wb_reg;
     csr_write_addr_o <= csr_write_addr;
 
-    csr_op_o <= csr_op;
-
     csr_write_o <= csr_write;
     csr_exception_id_o <= csr_exception_id_reg;
+
+    result_select_o <= result_select_reg;
 
 end behavioral;

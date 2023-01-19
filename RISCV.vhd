@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity RISCV is
 	generic (
-		RAM_FILENAME : STRING := "C:\\DigitalDesign\\hex\\simple.hex";
+		RAM_FILENAME : STRING := "C:\\DigitalDesign\\hex\\fclass_f.hex";
 		ADDRESS_WIDTH : NATURAL := 18;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 2;
@@ -82,11 +82,9 @@ architecture behavioral of RISCV is
             pc_src_o : out STD_LOGIC;
             imm_src_o : out STD_LOGIC;
             ctrl_flow_o : out STD_LOGIC;
-
-     		mul_div_o : out STD_LOGIC_VECTOR (1 downto 0);
-            fp_o : out STD_LOGIC;    
-            csr_op_o : out STD_LOGIC;
-
+            
+            result_select_o : out STD_LOGIC_VECTOR (3 downto 0);
+            
             imm_o : out STD_LOGIC_VECTOR (63 downto 0);
             branch_next_pc_o : out STD_LOGIC_VECTOR (63 downto 0);
             
@@ -148,9 +146,7 @@ architecture behavioral of RISCV is
             imm_src_i : in STD_LOGIC;
             ctrl_flow_i : in STD_LOGIC;
             
-            mul_div_i : in STD_LOGIC_VECTOR (1 downto 0);
-            fp_i : in STD_LOGIC;
-            csr_op_i : in STD_LOGIC;
+            result_select_i : in STD_LOGIC_VECTOR (3 downto 0);
             
             funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
             
@@ -193,7 +189,6 @@ architecture behavioral of RISCV is
             csr_exception_id_i : in STD_LOGIC_VECTOR (3 downto 0);
             csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
             csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
-            
             csr_o : out CSR);
 	end component execute;
 
@@ -361,9 +356,11 @@ architecture behavioral of RISCV is
 
     signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
 
+    signal result_select : STD_LOGIC_VECTOR (3 downto 0);
+
 	signal imm : STD_LOGIC_VECTOR (63 downto 0);
 
-	signal pc_src, imm_src, ctrl_flow, float, csr_op, unaligned_access : STD_LOGIC;
+	signal pc_src, imm_src, ctrl_flow, unaligned_access : STD_LOGIC;
 
 	signal fp_op : STD_LOGIC_VECTOR (6 downto 0);
 
@@ -395,7 +392,7 @@ architecture behavioral of RISCV is
 	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
-	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel, csr_mux_sel, mul_div : STD_LOGIC_VECTOR (1 downto 0);
+	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel, csr_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
 	signal CSR_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
@@ -446,11 +443,8 @@ begin
 		pc_src_o => pc_src,
 		imm_src_o => imm_src,
 		ctrl_flow_o => ctrl_flow,
-		
-		mul_div_o => mul_div,
-		fp_o => float,
-		csr_op_o => csr_op,
-		
+			
+        result_select_o => result_select,
         csr_data_i => csr_data,
 		mem_read_o => mem_read,
 		mem_write_o => mem_write,
@@ -513,11 +507,9 @@ begin
 		pc_src_i => pc_src,
 		imm_src_i => imm_src,
 		ctrl_flow_i => ctrl_flow,
-		
-		mul_div_i => mul_div,
-		fp_i => float,
-		csr_op_i => csr_op,
-
+	
+	    result_select_i => result_select,
+	
 		multicycle_op_o => multicycle_op,
         funct3_i => funct3,
 		imm_i => imm,
@@ -535,7 +527,7 @@ begin
 
 		mem_write_i => mem_write,
 		mem_read_i => mem_read,
-        
+              
 		branch_predict_i => branch_predict,
 		branch_info_o => branch_inf,
         branch_next_pc_i => branch_next_pc,
@@ -788,7 +780,7 @@ begin
     
     csr_mux_sel <= "01" when csr_fwd_mem = '1' else
                    "10" when csr_fwd_wb = '1' else
-                   "11" when csr_op = '1' else "00";
+                   "11" when result_select(3) = '1' else "00";
                    
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable;
@@ -798,7 +790,7 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-   test_number_o <= registers(10);
+    test_number_o <= registers(10);
     system_time_o <= system_time;
     
 end behavioral;

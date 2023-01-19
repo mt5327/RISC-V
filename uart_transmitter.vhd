@@ -20,7 +20,7 @@ architecture behavioral of uart_transmitter is
 
     signal tx_bit_counter : unsigned (2 downto 0) := "000";
 
-    signal uart_tx_fin, uart_tx_enable : STD_LOGIC;
+    signal uart_tx_fin, uart_tx_enable, enable : STD_LOGIC;
     
 	signal uart_clk, uart_clk_enable, sh_reg_enable, tx : STD_LOGIC;
 
@@ -85,13 +85,19 @@ begin
 		end case;
 	end process;
 	
-	OUTPUT_DECODE : process (state, uart_tx_enable_i)
+	OUTPUT_DECODE : process (state, enable, uart_tx_enable_i)
 	begin
 		case state is
+		    when READY =>
+		        uart_tx_enable <= enable; 
+		        uart_clk_enable <= '0';
+		        sh_reg_enable <= '0';
 			when START | DATA | STOP =>
+				uart_tx_enable <= '0';
 				uart_clk_enable <= '1';
 				sh_reg_enable <= '1';
 			when others =>
+			    uart_tx_enable <= '0';
 				uart_clk_enable <= '0';
 				sh_reg_enable <= '0';
 		end case;
@@ -114,7 +120,7 @@ begin
     uart_tx_fin <= '1' when state = STOP and uart_clk = '1' else '0'; 
     tx_o <= tx;
     
-    uart_tx_enable <= '1' when uart_tx_enable_i = '1' and addr_i = X"FFFFFFFFFFFFFFFF" else '0';
+    enable <= '1' when uart_tx_enable_i = '1' and addr_i = X"FFFFFFFFFFFFFFFF" else '0';
     uart_tx_busy_o <= '1' when uart_tx_enable and not uart_tx_fin else '0';
 	
 	UART_TX_COUNTER: process(clk_i)

@@ -15,9 +15,9 @@ entity FMA is
         enable_i : in STD_LOGIC;
         fp_op_i : in FPU_OP;
         rm_i  : in STD_LOGIC_VECTOR (2 downto 0);
-        x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
-        y_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
-        z_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
+        x_i : in STD_LOGIC_VECTOR (63 downto 0);
+        y_i : in STD_LOGIC_VECTOR (63 downto 0);
+        z_i : in STD_LOGIC_VECTOR (63 downto 0);
         result_o : out FP_RESULT);
 end FMA;
 
@@ -58,12 +58,12 @@ architecture behavioral of FMA is
 	signal add_shamt, add_shamt_reg, norm_shamt, norm_shamt_pa, norm_shamt_subnormal, norm_shamt_subnormal_reg : unsigned(SHIFT_SIZE - 1 downto 0);
 	signal lz_counter, lz_counter_reg : unsigned(num_bits(LOWER_SUM_WIDTH) - 1 downto 0);
 
-	signal y, z: STD_LOGIC_VECTOR (P - 1 downto 0);
+	signal y, z: STD_LOGIC_VECTOR (63 downto 0);
     signal fp_valid, fp_valid_reg : STD_LOGIC := '0';
 
 	signal mantissa, mantissa_reg : unsigned(3 * M + 4 downto 0);
 	signal mantissa_final : unsigned(M-1 downto 0);
-	signal special_value, special_value_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
+	signal special_value, special_value_reg : STD_LOGIC_VECTOR (P-1 downto 0) := (others => '0');
 
     signal result, result_reg : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
 
@@ -73,7 +73,7 @@ architecture behavioral of FMA is
 	signal state, next_state : state_type;
 	signal fp_infos : fp_infos_t(0 to 2);
 
-	type inputs_type is array (0 to 2) of STD_LOGIC_VECTOR (P - 2 downto 0);
+	type inputs_type is array (0 to 2) of STD_LOGIC_VECTOR (63 downto 0);
 	signal inputs : inputs_type;
 	signal exponent_plus_1, exponent_minus_1 : unsigned(E - 1 downto 0);
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
@@ -100,7 +100,7 @@ architecture behavioral of FMA is
 			E : NATURAL;
 			M : NATURAL);
 		port (
-			x_i : in STD_LOGIC_VECTOR (P - 2 downto 0);
+			x_i : in STD_LOGIC_VECTOR (63 downto 0);
 			fp_class_o : out FP_INFO);
 	end component FP_Classifier;
 
@@ -138,19 +138,31 @@ architecture behavioral of FMA is
 begin
 
 	-- y is 1.0 if addition/subtraction
-	with fp_op_i select y <=
-		FP_ONE when FPU_ADD | FPU_SUB,
-		y_i when others;
+    INPUT_GEN: if P = 32 generate 	
+        with fp_op_i select y <=
+            (63 downto 32 => '1') & FP_ONE when FPU_ADD | FPU_SUB,
+            y_i when others;
 
-    with fp_op_i select z <=
-        y_i when FPU_ADD | FPU_SUB,
-        (others => '0') when FPU_MUL,
-        z_i when others;
+        with fp_op_i select z <=
+            y_i when FPU_ADD | FPU_SUB,
+            (63 downto 32 => '1', others => '0') when FPU_MUL,
+            z_i when others;
+    else generate 
+        with fp_op_i select y <=
+            FP_ONE when FPU_ADD | FPU_SUB,
+            y_i when others;
 
+        with fp_op_i select z <=
+            y_i when FPU_ADD | FPU_SUB,
+            (others => '0') when FPU_MUL,
+            z_i when others;
+    end generate;
+
+ 
 	-- Classify inputs
-	inputs(0) <= x_i(P - 2 downto 0);
-	inputs(1) <= y(P - 2 downto 0);
-	inputs(2) <= z(P - 2 downto 0);
+	inputs(0) <= x_i;
+	inputs(1) <= y;
+	inputs(2) <= z;
 	CLASSIFY : for i in 0 to 2 generate
 		FP_CLASS : FP_Classifier generic map(P, E, M) port map(inputs(i), fp_infos(i));
 	end generate;
@@ -173,9 +185,9 @@ begin
 		elsif product_inf and fp_infos(2).inf and effective_substraction then
 			invalid <= '1';
 		elsif product_inf = '1' then
-			special_value <= (63 downto P-1 => sign_p) & INFINITY;
+			special_value <= sign_p & INFINITY;
 		elsif fp_infos(2).inf = '1' then
-			special_value <= (63 downto P-1 => sign_z) & INFINITY;
+			special_value <= sign_z & INFINITY;
 		end if;
 	end process;
 
@@ -233,6 +245,7 @@ begin
 	sign_p <= sign_x xor sign_y;
 	sign <= '1' when effective_substraction_reg = '1' and sum_carry /= sign_p_reg else
 		    '0' when effective_substraction_reg = '1' else sign_p_reg;
+	
 	-- Calculate exponent of the product
 	exponent_p <= E_MIN when fp_infos(0).zero = '1' or fp_infos(1).zero = '1' else
 	              exponent_x + exponent_y - BIAS + 2 - ((E downto 1 => '0') & fp_infos(0).normal) -
@@ -457,9 +470,13 @@ begin
 	
 	ROUNDING : rounder generic map(P - 1) port map(exp_fin & mantissa_final(M - 1 downto 1), sign_reg, rm, round_sticky, rounded_num);
  
-	result <= (63 downto P-1 => sign_reg) & rounded_num when special_case_reg = '0' else 
-		      special_value_reg;
-  
+    RESULT_GEN: if P = 32 generate 
+        result <= (63 downto 32 => '1') & sign_reg & rounded_num when special_case_reg = '0' else 
+                   (63 downto 32 => '1') & special_value_reg;
+    else generate
+            result <= sign_reg & rounded_num when special_case_reg = '0' else 
+                      special_value_reg; 
+    end generate;
     process (clk_i) 
     begin 
         if rising_edge(clk_i) then    
@@ -483,4 +500,4 @@ begin
 
 	fp_valid <= '1' when state = ROUND else '0';
 
-end behavioral;   
+ end behavioral;   

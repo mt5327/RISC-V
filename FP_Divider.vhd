@@ -8,30 +8,33 @@ entity FP_Divider is
 	generic (
 		P : NATURAL;
 		E : NATURAL; 
-		M : NATURAL; 
-		NUM_ITERS : NATURAL);
+		M : NATURAL);
 	port (
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;
 		enable_i : in STD_LOGIC;
 		fp_op_i : in FPU_OP;
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
-		x_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
-		y_i : in STD_LOGIC_VECTOR (P - 1 downto 0);
+		x_i : in STD_LOGIC_VECTOR (63 downto 0);
+		y_i : in STD_LOGIC_VECTOR (63 downto 0);
 		result_o : out FP_RESULT);
 end FP_Divider; 
 
 architecture behavioral of FP_Divider is
 
+	
 	constant BIAS : signed(E downto 0) := to_signed(2 ** (E - 1) - 1, E + 1);
 	constant BIAS_DIV_2 : signed(E-1 downto 0) := to_signed(2 ** (E - 2) - 1, E);
 	constant INFINITY : STD_LOGIC_VECTOR (P - 2 downto 0) := (P - 2 downto P - E - 1 => '1', others => '0');
+    constant NUM_ITERS : natural := (M-2) / 2;
 
-	signal sign, sign_reg, div, sqrt, div_reg, sqrt_reg, inexact, div_by_zero, sign_d : STD_LOGIC := '0';
+	signal counter : unsigned (num_bits(NUM_ITERS) downto 0);
+
+	signal sign, sign_reg, div, sqrt, div_reg, sqrt_reg, inexact, inexact_reg, div_by_zero, sign_d : STD_LOGIC := '0';
 	signal invalid, invalid_div, invalid_sqrt, special_case : STD_LOGIC := '0';
 	signal mantissa_x, mantissa_y : STD_LOGIC_VECTOR (M - 1 downto 0);
     signal exponent_div, exponent_x, exponent_y : signed(E downto 0);
-    signal exp, exp_reg, exponent_div_reg, exponent_div_final, exponent_div_minus_one, exponent_sqrt, exponent_sqrt_reg : STD_LOGIC_VECTOR (E-1 downto 0);
+    signal exp, exponent_div_reg, exponent_div_final, exponent_div_minus_one, exponent_sqrt, exponent_sqrt_reg : STD_LOGIC_VECTOR (E-1 downto 0);
    
 	alias exp_odd : STD_LOGIC is x_i(P-E-1);
 	alias sign_x : STD_LOGIC is x_i(P - 1);
@@ -41,7 +44,7 @@ architecture behavioral of FP_Divider is
 
     signal digit, last_digit, sign_rem : signed(2 downto 0);
 
-	signal q, qm, qp, q_final : STD_LOGIC_VECTOR(q_length(M-2) downto 0) := (others => '0');	
+	signal q, qm : STD_LOGIC_VECTOR(q_length(M-2) downto 0) := (others => '0');	
     signal mantissa : STD_LOGIC_VECTOR (q_length(M) downto 0) := (others => '0');
 
 	signal special_value : STD_LOGIC_VECTOR (63 downto 0);
@@ -51,7 +54,7 @@ architecture behavioral of FP_Divider is
 
 	signal square_estimate, estimate, rm : STD_LOGIC_VECTOR (2 downto 0);
 
-	signal a, b, c : STD_LOGIC_VECTOR (1 downto 0);
+	signal a, b : STD_LOGIC_VECTOR (1 downto 0);
 	
 	signal cmp : STD_LOGIC_VECTOR (3 downto 0);
         
@@ -61,13 +64,12 @@ architecture behavioral of FP_Divider is
     signal F, PR, PR_mul, PR_init, PR_sqrt, PR_div, PR_new : STD_LOGIC_VECTOR (q'left+4 downto 0);
    
     signal carry : unsigned (q'left+4 downto 0);
-	signal counter : unsigned (num_bits(M/2) downto 0);
- 
+  
 	signal lda, ldb : STD_LOGIC;
 	signal position : NATURAL range q'left downto 0;
         
 	type state_type is (IDLE, DIVIDE, ROUND, FINALIZE);
-	signal state, next_state : state_type := IDLE;
+	signal state, next_state : state_type;
     
     type selection_constants_t is array(0 to 7, 0 to 3) of signed(6 downto 0);
     constant SEL_CONSTANTS : selection_constants_t := ( 
@@ -87,7 +89,7 @@ architecture behavioral of FP_Divider is
             E : NATURAL;
             M : NATURAL);
         port (
-            x_i : in STD_LOGIC_VECTOR (P - 2 downto 0);
+            x_i : in STD_LOGIC_VECTOR (63 downto 0);
             fp_class_o : out FP_INFO);
     end component FP_Classifier;
     
@@ -106,8 +108,8 @@ architecture behavioral of FP_Divider is
      
 begin
 
-    FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i(P - 2 downto 0), fp_info_x);
-    FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i(P - 2 downto 0), fp_info_y);
+    FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i, fp_info_x);
+    FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i, fp_info_y);
     
     SYNC_PROC : process (clk_i)
     begin
@@ -222,6 +224,10 @@ begin
                     
                     q(position downto position - 1) <= a;
                     qm(position downto position - 1) <= b;
+                when ROUND => 
+                    inexact_reg <= inexact;
+                    mantissa <= q & STD_LOGIC_VECTOR(digit(1 downto 0)) when digit_sign = '0' else 
+                               qm & STD_LOGIC_VECTOR(digit(1 downto 0));                    
                 when FINALIZE =>
                     special_case <= '0';          
                 when others =>
@@ -231,8 +237,8 @@ begin
     end process;    
     
     digit <= (digit_sign & signed(a)) - sign_rem;                      
-    mantissa <= q & STD_LOGIC_VECTOR(digit(1 downto 0)) when digit_sign = '0' else 
-               qm & STD_LOGIC_VECTOR(digit(1 downto 0));
+
+               
     MANTISSA_FINAL_GEN: if M = 24 generate 
         mantissa_final <= mantissa(mantissa'left-1 downto 2) when mantissa(mantissa'left) = '1' else 
                           mantissa(mantissa'left-2 downto 1);     
@@ -240,17 +246,14 @@ begin
         mantissa_final <= mantissa(mantissa'left-1 downto 1) when mantissa(mantissa'left) = '1' else 
                           mantissa(mantissa'left-2 downto 0);         
     end generate;   
-    
 
     ROUNDING: rounder generic map(P-1) port map (
         unsigned(exp) & unsigned(mantissa_final(mantissa_final'left downto 1)), 
-        '0', 
-        rm_i,
+        sign, 
+        rm,
         mantissa_final(0) & inexact, 
         mantissa_round);      
-
-    exp_reg <= exp;
-      
+              
     inexact <= or PR;
     exponent_div_minus_one <= STD_LOGIC_VECTOR(unsigned(exponent_div_reg(E-1 downto 0)) - 1);
     sign_reg <= sign_d and div;
@@ -260,14 +263,7 @@ begin
     
     digit_sign <= or cmp(3 downto 2);
     sign_rem <= "00" & PR_mul(PR'left);
-    
-    -- 3 011
-    -- 2 010
-    -- 1 001
-    -- 0 000
-    -- -1 111
-    -- -2 110
-    -- -3 101
+
     a <= (cmp(0) or cmp(2) or cmp(3)) & (cmp(1) or cmp(2));
     
     with a select 
@@ -277,13 +273,6 @@ begin
              "10" when "11",
              "--" when others;
 
-    with a select
-        c <= "01" when "00",
-             "10" when "01",
-             "11" when "10",
-             "00" when "11",
-             "--" when others;
- 
     x_reg <= q & "00" when sqrt_reg = '1' else y;     
     y_reg <= qm & "00" when sqrt_reg = '1' else y;
     

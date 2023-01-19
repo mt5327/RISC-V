@@ -23,10 +23,7 @@ entity execute is
 		imm_src_i : in STD_LOGIC;
 		ctrl_flow_i : in STD_LOGIC;
 		
-		mul_div_i : in STD_LOGIC_VECTOR (1 downto 0);
-		fp_i : in STD_LOGIC;
-	
-		csr_op_i : in STD_LOGIC;
+	    result_select_i : in STD_LOGIC_VECTOR (3 downto 0);
 		
         funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
         
@@ -60,7 +57,7 @@ entity execute is
     
 		fp_regs_idex_i : in FP_IDEX;
 		reg_write_fp_o : out STD_LOGIC;
-        
+		
 		csr_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
         
@@ -125,7 +122,7 @@ architecture behavioral of execute is
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
             fp_op_i : in FPU_OP;
-    	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (2 downto 0);
+    	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (4 downto 0);
        --     fp_i : in STD_LOGIC;
             fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
             cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -137,9 +134,9 @@ architecture behavioral of execute is
             result_o : out FP_RESULT);
 	end component FPU;
 
-    signal result_fp_reg, z, csr_data, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
+    signal result_fp_reg, z, csr_data, csr_result, csr_data_sel, csr_data_mux : STD_LOGIC_VECTOR (63 downto 0);
     signal result_fp : FP_RESULT;
-	signal result, result_mul, result_div, Y_fp, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
+	signal result, result_mul, result_div, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
 	signal instr_misaligned, reg_write_fp, reg_write_fp_reg, reg_write : STD_LOGIC := '0';
 	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, alu_out : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', '0', (others => '0'), LSU_NONE);
@@ -147,8 +144,6 @@ architecture behavioral of execute is
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
-
-    signal result_select : STD_LOGIC_VECTOR (3 downto 0);
 
 begin
 
@@ -220,10 +215,8 @@ begin
 
     y <= imm_i when imm_src_i = '1' else
 	  	 y_sel;
-	  	 
-	  	 
-	result_select <= csr_op_i & fp_i & mul_div_i;  	 
-	with result_select select 
+	  	 	  	 
+	with result_select_i select 
 	   result <= z when "0000",
 	             result_mul when "0001",
 	             result_div when "0010",
@@ -257,9 +250,6 @@ begin
                     fp_regs_idex_i.z when others;
 
 	instr_misaligned <= ( or branch_inf.target_address(1 downto 0) ) and branch_inf.taken;
-
-	--    Y_fp <= X"FFFFFFFF" & fp_regs_IDEX_i.y(31 downto 0) when (or fp_regs_IDEX_i.y(63 downto 31)) = '0' else 
-	--                                       fp_regs_IDEX_i.y; 
 
 	with mem_write_i select 
 	   MDR <= y_sel when "01",
@@ -304,9 +294,9 @@ begin
 		end if;
 	end process;
   
-	enable_mul <= mul_div_i(0) and (not mul_valid);
-	enable_div <= mul_div_i(1) and (not div_valid);
-	enable_fp <= fp_i and (not result_fp.valid);
+	enable_mul <= result_select_i(0) and (not mul_valid);
+	enable_div <= result_select_i(1) and (not div_valid);
+	enable_fp <= result_select_i(2) and (not result_fp.valid);
 
     reg_write <= reg_write_i or ( mem_read_i(0) and ( nor z(63 downto ADDRESS_WIDTH ) ) ); 	
 	reg_write_fp <= fp_regs_idex_i.write or ( mem_read_i(1) and ( nor z(63 downto ADDRESS_WIDTH ) ) );
@@ -321,21 +311,21 @@ begin
 	    csr_data_mux <= csr.data when "01",
 	                    csr_data_wb_i when "10",
 	                    csr_data_i when "11",
-	                     (63 downto 5 => '0') & result_fp.fflags when "00",
-	                     (others => '0') when others;
+	                    (others => '0') when others;
 
     csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
+	
 	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_exception_id_i;
 
 	with csr_operator_i select
-	   csr_data <= csr_data_sel when CSR_RW,
+	   csr_result <= csr_data_mux when CSR_RW,
 		           csr_data_mux or csr_data_sel when CSR_RS,
 		           csr_data_mux and (not csr_data_sel ) when CSR_RC,
-		           csr_data_mux when CSR_NONE,
 	               (others => '0') when others;
 
-	csr_o <= csr;
+    csr_data <= ((63 downto 5 => '0') & result_fp.fflags) or csr_result;
 
+	csr_o <= csr;
 
     mem_req_o <= mem_req;
 	branch_info_o <= branch_inf;

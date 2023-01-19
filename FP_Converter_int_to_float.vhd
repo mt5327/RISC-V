@@ -11,6 +11,7 @@ entity FP_Converter_int_to_float is
 		M : NATURAL);
 	port (
         clk_i : in STD_LOGIC;
+        rst_i : in STD_LOGIC;
         enable_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -25,6 +26,9 @@ architecture behavioral of FP_Converter_int_to_float is
 	signal int_sign, long_sign, valid : STD_LOGIC := '0';
 
 	signal lz_counter : unsigned(5 downto 0);
+
+    signal result, result_reg : STD_LOGIC_VECTOR (63 downto 0);
+    signal fflags, fflags_reg : STD_LOGIC_VECTOR (4 downto 0);
    
 	signal int_mantissa, long_mantissa : unsigned(63 downto 0);
 	signal exp, exp_init, exp_final : unsigned(E - 1 downto 0);
@@ -51,8 +55,37 @@ architecture behavioral of FP_Converter_int_to_float is
 			z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
 	end component rounder;
 
+	type state_type is (IDLE, CONVERT, ROUND, FINALIZE);
+	signal state, next_state : state_type;
+
 begin
 
+    SYNC_PROC : process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_i = '1' then
+                state <= IDLE;
+            else
+                state <= next_state;
+            end if;
+        end if;
+    end process;
+
+    NEXT_STATE_DECODE : process (all)
+    begin
+        next_state <= state;
+        case state is
+            when IDLE => 
+                if enable_i = '1' then
+                    next_state <= CONVERT;
+                end if;
+            when CONVERT => next_state <= ROUND; 
+            when ROUND => next_state <= FINALIZE;
+            when FINALIZE => next_state <= IDLE;
+            when others => next_state <= IDLE;
+        end case;
+    end process;
+    
 	int_sign <= x_i(31) and (not mode_i(0));
 	long_sign <= x_i(63) and (not mode_i(0));
 	
@@ -64,7 +97,7 @@ begin
     mantissa <= int_mantissa when mode_i(1) = '0' else long_mantissa; 
     exp_init <= int_exp_init when mode_i(1) = '0' else long_exp_init; 
     sign <= int_sign when mode_i(1) = '0' else long_sign;
-	    
+
     process(clk_i) 
     begin 
         if rising_edge(clk_i) then
@@ -72,7 +105,6 @@ begin
            exp <= exp_init - resize(lz_counter, E);
            sign_reg <= sign;
            rm <= rm_i;
-           valid <= enable_i;
          end if;
     end process;
     
@@ -80,12 +112,24 @@ begin
     num <= exp_final & shifted_mantissa(62 downto 63-M+1);
     round_sticky <= shifted_mantissa(63-M) & ( or shifted_mantissa(63-M-1 downto 0));
 
-	ROUNDING: rounder generic map (num'length) port map (num, sign_reg, rm, round_sticky, rounded_num);
+	ROUNDING: rounder generic map (num'length) port map (num, sign_reg, rm_i, round_sticky, rounded_num);
 
 	overflow <= and exp_result;
     underflow <= ( nand exp_result ) and inexact;	
 	inexact <= or round_sticky;
 
-	result_o <= ( (63 downto P - 1 => sign_reg) & rounded_num, "00" & overflow & underflow & inexact, valid);
+    process (clk_i) 
+    begin
+        if rising_edge(clk_i) then
+            result_reg <= result;
+            fflags_reg <= fflags;
+        end if;
+    end process;
 
+	result <= (63 downto P - 1 => sign_reg) & rounded_num; 
+	fflags <= "00" & overflow & underflow & inexact;
+    valid <= '1' when state = FINALIZE else '0';
+    
+    result_o <= (result_reg, fflags_reg, valid);
+    
 end behavioral;
