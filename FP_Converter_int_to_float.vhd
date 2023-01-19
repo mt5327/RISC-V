@@ -126,7 +126,12 @@ begin
         end if;
     end process;
 
-	result <= (63 downto P - 1 => sign_reg) & rounded_num; 
+	    RESULT_GEN: if P = 32 generate 
+        result <= (63 downto 32 => '1') & sign_reg & rounded_num;
+    else generate
+        result <= sign_reg & rounded_num;
+    end generate;
+	
 	fflags <= "00" & overflow & underflow & inexact;
     valid <= '1' when state = FINALIZE else '0';
     
