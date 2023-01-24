@@ -10,6 +10,7 @@ entity load_store_unit is
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;
 		exception_i : in STD_LOGIC;
+		mem_write_i : in STD_LOGIC;
 	    MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
 		MDR_i : in STD_LOGIC_VECTOR (63 downto 0);
 	    memory_operation_i : in MEM_OP;	
@@ -24,7 +25,7 @@ architecture behavioral of load_store_unit is
 	signal we : STD_LOGIC_VECTOR (7 downto 0);
 	signal unaligned_access, unaligned, is_signed : STD_LOGIC := '0';
 	signal reg_data, data_mem : STD_LOGIC_VECTOR (63 downto 0);
-    
+    signal mem_write : STD_LOGIC;
 	signal b : STD_LOGIC_VECTOR (7 downto 0);
 	signal h : STD_LOGIC_VECTOR (15 downto 0);
 	signal w : STD_LOGIC_VECTOR (31 downto 0);

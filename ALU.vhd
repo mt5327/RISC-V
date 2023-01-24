@@ -27,7 +27,7 @@ architecture behavioral of ALU is
 	signal lt_r : STD_LOGIC;
 	signal xor_r, or_r, and_r : STD_LOGIC_VECTOR (63 downto 0);
 	signal shift32_r : STD_LOGIC_VECTOR (31 downto 0);
-	signal shift64_r : STD_LOGIC_VECTOR (63 downto 0);
+	signal shift, shift64_r : STD_LOGIC_VECTOR (63 downto 0);
 	signal arithmetic_shift, shift_left, is_sub, is_signed, lt : STD_LOGIC;
 	signal x, y : STD_LOGIC_VECTOR (64 downto 0);
 
@@ -67,6 +67,7 @@ begin
 	and_r <= x_i and y_i;
 
 	lt_r <= '1' when signed((x_i(63) and is_signed) & x_i) < signed((y_i(63) and is_signed) & y_i) else '0';
+
 
 	MUX_OUTPUT : process (add_sub_r, lt_r, xor_r, or_r, and_r, shift64_r, shift32_r, op_i)
 	begin

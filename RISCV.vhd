@@ -23,7 +23,8 @@ entity RISCV is
 		rgb_o : out STD_LOGIC_VECTOR (11 downto 0);
 
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
-       
+        
+        -- Seven-segment display       
 		anode_o : out STD_LOGIC;
 		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
         
@@ -36,7 +37,7 @@ architecture behavioral of RISCV is
 
 	component fetch is
 		generic (
-			ADDRESS_WIDTH : NATURAL := 18;
+			ADDRESS_WIDTH : NATURAL := 19;
 			BHT_INDEX_WIDTH : NATURAL := 2);
 		port (
 			clk_i : in STD_LOGIC;
@@ -173,15 +174,18 @@ architecture behavioral of RISCV is
             result_fwd_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
             result_fwd_fp_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
             
-            x_mux_sel_i, y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
-            x_fp_mux_sel_i, y_fp_mux_sel_i, z_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            x_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            x_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            y_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            z_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
             
             mem_req_o : out MEMORY_REQUEST;
         
             fp_regs_idex_i : in FP_IDEX;
             reg_write_fp_o : out STD_LOGIC;
             
-            csr_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+            csr_mux_sel_i : in STD_LOGIC_VECTOR (2 downto 0);
             csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
             
             csr_write_i : in STD_LOGIC;
@@ -234,6 +238,7 @@ architecture behavioral of RISCV is
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
             exception_i : in STD_LOGIC;
+            mem_write_i : in STD_LOGIC;
             MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
             MDR_i : in STD_LOGIC_VECTOR (63 downto 0);
             memory_operation_i : in MEM_OP;	
@@ -265,7 +270,7 @@ architecture behavioral of RISCV is
 
 	component instruction_cache is
 		generic (
-			ADDRESS_WIDTH : NATURAL := 18;
+			ADDRESS_WIDTH : NATURAL := 19;
 			BLOCK_SIZE : NATURAL := 256;
 			INDEX_WIDTH : NATURAL := 2);
 		port (
@@ -392,7 +397,8 @@ architecture behavioral of RISCV is
 	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
-	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel, csr_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
+	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
+	signal csr_mux_sel : STD_LOGIC_VECTOR (2 downto 0);
 	signal CSR_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
@@ -596,6 +602,7 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		exception_i => exception,
+		mem_write_i => mem_req.write,
 		MAR_i => reg_dst_memory.data(ADDRESS_WIDTH-1 downto 0),
 		MDR_i => mem_req.MDR,
 		memory_operation_i => mem_req.MEMOp,
@@ -778,9 +785,9 @@ begin
     
     csr_data <= csr_write.data when csr_write.write_addr = csr_read_addr and csr_write.write = '1' else csr_read_data;
     
-    csr_mux_sel <= "01" when csr_fwd_mem = '1' else
-                   "10" when csr_fwd_wb = '1' else
-                   "11" when result_select(3) = '1' else "00";
+    csr_mux_sel <= "001" when csr_fwd_mem = '1' else
+                   "010" when csr_fwd_wb = '1' else
+                   "100" when result_select(3) = '1' else "000";
                    
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable;

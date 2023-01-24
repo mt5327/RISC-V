@@ -50,15 +50,18 @@ entity execute is
 		result_fwd_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
 		result_fwd_fp_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
 		
-		x_mux_sel_i, y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
-		x_fp_mux_sel_i, y_fp_mux_sel_i, z_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+		x_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+        y_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+        x_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+        y_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+        z_fp_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
 		
 		mem_req_o : out MEMORY_REQUEST;
     
 		fp_regs_idex_i : in FP_IDEX;
 		reg_write_fp_o : out STD_LOGIC;
 		
-		csr_mux_sel_i : in STD_LOGIC_VECTOR (1 downto 0);
+		csr_mux_sel_i : in STD_LOGIC_VECTOR (2 downto 0);
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
         
         csr_write_i : in STD_LOGIC;
@@ -118,13 +121,15 @@ architecture behavioral of execute is
 	end component divider;
 
 	component FPU is
-		port (
+        generic ( 
+            P : natural; 
+            E : natural; 
+            M : natural);		
+	    port (
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
             fp_op_i : in FPU_OP;
     	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (4 downto 0);
-       --     fp_i : in STD_LOGIC;
-            fp_precision_i : in STD_LOGIC_VECTOR (1 downto 0);
             cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
             x_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -141,9 +146,15 @@ architecture behavioral of execute is
 	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, alu_out : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', '0', (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
+	signal mem_read, mem_read_fp : STD_LOGIC;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
+    
+    type fp_results is array (0 to 1) of FP_RESULT;
+    signal results_fp : fp_results;
+    
+    signal enable_fpu_subunit : STD_LOGIC_VECTOR (9 downto 0);
 
 begin
 
@@ -193,22 +204,24 @@ begin
 		z_o => result_div
 	);
 
-	RISCV_FPU : FPU
-	port map(
-		clk_i => clk_i,
-		rst_i => rst_i,
-		fp_op_i => fp_regs_idex_i.fp_op,
-		enable_fpu_subunit_i => fp_regs_idex_i.enable_fpu_subunit,
-		fp_precision_i => fp_regs_idex_i.precision,
-		--fp_i => fp_i,
-		rm_i => funct3_i,
-		cvt_mode_i => imm_i(1 downto 0),
-		x_i => x_fp_sel,
-		y_i => y_fp_sel,
-		z_i => z_fp_sel,
-		x_int_i => x_sel,
-		result_o => result_fp
-	);
+    
+	FPU_UNITS : for i in 0 to 1 generate 
+        FPU_UNIT: FPU 
+        generic map (FP_FORMATS(i).P, FP_FORMATS(i).E, FP_FORMATS(i).M)
+        port map(
+            clk_i => clk_i,
+            rst_i => rst_i,
+            fp_op_i => fp_regs_idex_i.fp_op,
+            enable_fpu_subunit_i => enable_fpu_subunit(i*5+4 downto i*5),
+            rm_i => funct3_i,
+            cvt_mode_i => imm_i(1 downto 0),
+            x_i => x_fp_sel,
+            y_i => y_fp_sel,
+            z_i => z_fp_sel,
+            x_int_i => x_sel,
+            result_o => results_fp(i)
+        );
+    end generate;
 
 	x <= pc_i when pc_src_i = '1' else
 	     x_sel;
@@ -233,11 +246,11 @@ begin
         y_sel <= reg_dst.data when "01",
                  result_fwd_wb_i when "10",
                  y_i when others;                 
-
+ 
    with x_fp_mux_sel_i select 
         x_fp_sel <= result_fp_reg when "01",
                     result_fwd_fp_wb_i when "10",
-                    fp_regs_idex_i.x when others;    
+                    fp_regs_idex_i.x when others;
                  
     with y_fp_mux_sel_i select 
         y_fp_sel <= result_fp_reg when "01",
@@ -254,7 +267,7 @@ begin
 	with mem_write_i select 
 	   MDR <= y_sel when "01",
 	          y_fp_sel when "10",
-		      (others => '0') when others;
+		      (others => '-') when others;
 
 	REGS : process (clk_i)
 	begin  
@@ -298,8 +311,11 @@ begin
 	enable_div <= result_select_i(1) and (not div_valid);
 	enable_fp <= result_select_i(2) and (not result_fp.valid);
 
-    reg_write <= reg_write_i or ( mem_read_i(0) and ( nor z(63 downto ADDRESS_WIDTH ) ) ); 	
-	reg_write_fp <= fp_regs_idex_i.write or ( mem_read_i(1) and ( nor z(63 downto ADDRESS_WIDTH ) ) );
+    mem_read <= nor z(63 downto ADDRESS_WIDTH ) when mem_read_i(0) = '1' else '0'; 
+    mem_read_fp <= nor z(63 downto ADDRESS_WIDTH ) when mem_read_i(1) = '1' else '0';
+
+    reg_write <= reg_write_i or mem_read; 	
+	reg_write_fp <= fp_regs_idex_i.write or mem_read_fp;
  
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
@@ -308,9 +324,9 @@ begin
 	result_fp_o <= result_fp_reg;
 	
 	with csr_mux_sel_i select 
-	    csr_data_mux <= csr.data when "01",
-	                    csr_data_wb_i when "10",
-	                    csr_data_i when "11",
+	    csr_data_mux <= csr.data when "001",
+	                    csr_data_wb_i when "010",
+	                    csr_data_i when "100",
 	                    (others => '0') when others;
 
     csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
@@ -323,8 +339,22 @@ begin
 		           csr_data_mux and (not csr_data_sel ) when CSR_RC,
 	               (others => '0') when others;
 
-    csr_data <= ((63 downto 5 => '0') & result_fp.fflags) when result_select_i(2) = '1' else csr_result;
+    with result_select_i(3 downto 2) select 
+        csr_data <= ((63 downto 5 => '0') & result_fp.fflags) when "01",
+        csr_result when "10", 
+        (others => '0') when others;
 
+
+    with fp_regs_idex_i.precision select
+        result_fp <= results_fp(0) when "01",
+                     results_fp(1) when "10",
+                     ((others => '0'), (others => '0'), '0') when others;
+                     
+    ENABLE_FPU_SUBUNIT_GEN: for i in 0 to 1 generate 
+        enable_fpu_subunit(i*5+4 downto i*5) <= fp_regs_idex_i.enable_fpu_subunit(4 downto 0) and 
+                                      (4 downto 0 => fp_regs_idex_i.precision(i)) and
+                                      (4 downto 0 => not results_fp(i).valid);
+    end generate;
 	csr_o <= csr;
 
     mem_req_o <= mem_req;

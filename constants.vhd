@@ -218,7 +218,7 @@ function fp_classify(fp_class : FP_INFO; sign : STD_LOGIC) return STD_LOGIC_VECT
 function fp_sign_injection(x : STD_LOGIC_VECTOR; x_sign : STD_LOGIC; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR;
 function leading_one_index(X : unsigned) return unsigned;
 function q_length(x : natural) return natural;
-function dst_fp_format(P : natural) return FP_FORMAT;
+function src_fp_format(P : natural) return FP_FORMAT;
 end package;
 
 package body constants is
@@ -334,7 +334,7 @@ begin
     return x+2;
 end function;
 
-function dst_fp_format(P : natural) return FP_FORMAT is
+function src_fp_format(P : natural) return FP_FORMAT is
 begin
     if P = 32 then
         return FP_FORMATS(1);

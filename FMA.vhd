@@ -15,9 +15,10 @@ entity FMA is
         enable_i : in STD_LOGIC;
         fp_op_i : in FPU_OP;
         rm_i  : in STD_LOGIC_VECTOR (2 downto 0);
-        x_i : in STD_LOGIC_VECTOR (63 downto 0);
-        y_i : in STD_LOGIC_VECTOR (63 downto 0);
-        z_i : in STD_LOGIC_VECTOR (63 downto 0);
+        x_i : in STD_LOGIC_VECTOR (P-1 downto 0);
+        y_i : in STD_LOGIC_VECTOR (P-1 downto 0);
+        z_i : in STD_LOGIC_VECTOR (P-1 downto 0);
+        is_boxed_i : in STD_LOGIC_VECTOR (2 downto 0);
         result_o : out FP_RESULT);
 end FMA;
 
@@ -58,7 +59,7 @@ architecture behavioral of FMA is
 	signal add_shamt, add_shamt_reg, norm_shamt, norm_shamt_pa, norm_shamt_subnormal, norm_shamt_subnormal_reg : unsigned(SHIFT_SIZE - 1 downto 0);
 	signal lz_counter, lz_counter_reg : unsigned(num_bits(LOWER_SUM_WIDTH) - 1 downto 0);
 
-	signal y, z: STD_LOGIC_VECTOR (63 downto 0);
+	signal y, z: STD_LOGIC_VECTOR (P-1 downto 0);
     signal fp_valid, fp_valid_reg : STD_LOGIC := '0';
 
 	signal mantissa, mantissa_reg : unsigned(3 * M + 4 downto 0);
@@ -73,7 +74,7 @@ architecture behavioral of FMA is
 	signal state, next_state : state_type;
 	signal fp_infos : fp_infos_t(0 to 2);
 
-	type inputs_type is array (0 to 2) of STD_LOGIC_VECTOR (63 downto 0);
+	type inputs_type is array (0 to 2) of STD_LOGIC_VECTOR (P-2 downto 0);
 	signal inputs : inputs_type;
 	signal exponent_plus_1, exponent_minus_1 : unsigned(E - 1 downto 0);
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
@@ -100,7 +101,8 @@ architecture behavioral of FMA is
 			E : NATURAL;
 			M : NATURAL);
 		port (
-			x_i : in STD_LOGIC_VECTOR (63 downto 0);
+			x_i : in STD_LOGIC_VECTOR (P-2 downto 0);
+			is_boxed_i : in STD_LOGIC;
 			fp_class_o : out FP_INFO);
 	end component FP_Classifier;
 
@@ -125,6 +127,8 @@ architecture behavioral of FMA is
 
 	signal nan, inf, product_inf : STD_LOGIC;
 
+    signal is_boxed : STD_LOGIC_VECTOR(2 downto 0);
+
 	alias sum_carry : STD_LOGIC is mantissa_sum_reg(mantissa_sum_reg'left);
 
 	component normalizer is
@@ -137,41 +141,38 @@ architecture behavioral of FMA is
 
 begin
 
+    with fp_op_i select 
+        is_boxed <= is_boxed_i(2) & '1' & is_boxed_i(0) when FPU_ADD | FPU_SUB,
+                    '1' & is_boxed_i(1 downto 0) when FPU_MUL,
+                    is_boxed_i when others;
+
 	-- y is 1.0 if addition/subtraction
-    INPUT_GEN: if P = 32 generate 	
-        with fp_op_i select y <=
-            (63 downto 32 => '1') & FP_ONE when FPU_ADD | FPU_SUB,
-            y_i when others;
+    with fp_op_i select y <=
+        FP_ONE when FPU_ADD | FPU_SUB,
+        y_i when others;
 
-        with fp_op_i select z <=
-            y_i when FPU_ADD | FPU_SUB,
-            (63 downto 32 => '1', others => '0') when FPU_MUL,
-            z_i when others;
-    else generate 
-        with fp_op_i select y <=
-            FP_ONE when FPU_ADD | FPU_SUB,
-            y_i when others;
+    with fp_op_i select z <=
+        y_i when FPU_ADD | FPU_SUB,
+        (others => '0') when FPU_MUL,
+        z_i when others;
 
-        with fp_op_i select z <=
-            y_i when FPU_ADD | FPU_SUB,
-            (others => '0') when FPU_MUL,
-            z_i when others;
-    end generate;
-
- 
-	-- Classify inputs
-	inputs(0) <= x_i;
-	inputs(1) <= y;
-	inputs(2) <= z;
-	CLASSIFY : for i in 0 to 2 generate
-		FP_CLASS : FP_Classifier generic map(P, E, M) port map(inputs(i), fp_infos(i));
-	end generate;
-
+    
 	nan <= fp_infos(0).nan or fp_infos(1).nan or fp_infos(2).nan;
 	inf <= fp_infos(0).inf or fp_infos(1).inf or fp_infos(2).inf;
 	special_case <= (inf or nan);
 	product_inf <= fp_infos(0).inf or fp_infos(1).inf;
 
+	-- Classify inputs
+
+	
+	inputs(0) <= x_i(P-2 downto 0);
+	inputs(1) <= y(P-2 downto 0);
+	inputs(2) <= z(P-2 downto 0);
+	
+	CLASSIFY : for i in 0 to 2 generate
+		FP_CLASS : FP_Classifier generic map(P, E, M) port map(inputs(i), is_boxed(i), fp_infos(i));
+	end generate;
+	
 	SPECIAL_CASES : process (fp_infos, effective_substraction, sign_z, sign_p, product_inf, nan)
 	begin
 		invalid <= '0';
@@ -255,7 +256,6 @@ begin
 	exponent_diff <= exponent_z - exponent_p;
 	exponent_tent <= exponent_p_reg(E - 1 downto 0) when exponent_diff_reg <= 2 else exponent_a_reg(E - 1 downto 0);
         
-
     enable <= '1' when enable_i = '1' and state = IDLE else '0';
     enable_output_regs <= '1' when state = ROUND else '0';
 
@@ -480,10 +480,12 @@ begin
     
     process (clk_i) 
     begin 
-        if rising_edge(clk_i) then    
-            result_reg <= result;
-            fflags_reg <= fflags_fma;
-            fp_valid_reg <= fp_valid;
+        if rising_edge(clk_i) then
+          --  if enable_output_regs = '1' then    
+                result_reg <= result;
+                fflags_reg <= fflags_fma;
+                fp_valid_reg <= fp_valid;
+           -- end if;
         end if;
     end process;  
      

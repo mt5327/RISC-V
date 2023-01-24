@@ -191,7 +191,7 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			if hcount < HDT + HFP or hcount >= HDT + HFP + HSP then
-				hsync_reg <= '1';
+ 				hsync_reg <= '1';
 			else
 				hsync_reg <= '0';
 			end if;

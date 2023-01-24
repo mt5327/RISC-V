@@ -22,16 +22,15 @@ architecture behavioral of divider is
 	signal quotient, new_q : STD_LOGIC_VECTOR (63 downto 0);
 	signal x, y, remainder, new_r, b : unsigned(63 downto 0);
 	signal normalized_divisor, estimated_divisor, estimated_divisor_div_2, divisor : unsigned(63 downto 0);
-	signal is_signed, is_word, is_word_reg, sign, sign_reg, div_out, div_out_reg, div_by_zero, div_by_zero_reg, terminate, div_valid : STD_LOGIC;
+	signal is_signed, is_word, is_word_reg, sign, sign_reg, div_out, div_out_reg, div_by_zero, div_by_zero_reg, terminate, div_valid, x_sign, y_sign : STD_LOGIC := '0';
 	signal clz_r, clz_y, clz_delta : unsigned (5 downto 0);
 
-
-	signal q_bit1, q_bit2, result, z : STD_LOGIC_VECTOR (63 downto 0);
+	signal q_bit1, q_bit2, result, z, z_reg, z_signed : STD_LOGIC_VECTOR (63 downto 0);
 
 	type state_type is (IDLE, DIVIDE, FINALIZE);
 	signal state, next_state : state_type;
  
-	constant NEW_BIT_MASK : STD_LOGIC_VECTOR(63 downto 0) := (0 => '1', others => '0');
+	constant NEW_BIT_MASK : unsigned(63 downto 0) := (0 => '1', others => '0');
 
 begin
 
@@ -78,16 +77,18 @@ begin
 	   div_out <= '1' when ALU_DIV | ALU_DIVU | ALU_DIVW | ALU_DIVUW,
 	              '0' when others;
 	
-	x <= unsigned(-signed(x_i)) when (x_i(x_i'left) and is_signed) = '1' else unsigned(x_i);
-	y <= unsigned(-signed(y_i)) when (y_i(y_i'left) and is_signed) = '1' else unsigned(y_i);
+	x <= unsigned(-signed(x_i)) when x_sign = '1' else unsigned(x_i);
+	y <= unsigned(-signed(y_i)) when y_sign = '1' else unsigned(y_i);
 
 	clz_r <= leading_zero_counter(remainder, clz_r'length);
 	clz_y <= leading_zero_counter(divisor, clz_y'length);
 
 	clz_delta <= clz_y - clz_r;
     normalized_divisor <= shift_left(divisor, to_integer(clz_y));
-
-	q_bit1 <= STD_LOGIC_VECTOR(shift_left(unsigned(NEW_BIT_MASK), to_integer(clz_delta)));
+    x_sign <= x_i(x_i'left) and is_signed;
+    y_sign <= y_i(y_i'left) and is_signed;
+    
+	q_bit1 <= STD_LOGIC_VECTOR(shift_left(NEW_BIT_MASK, to_integer(clz_delta)));
 	q_bit2 <= '0' & q_bit1(63 downto 1);
 
 	estimated_divisor <= shift_right(normalized_divisor, to_integer(clz_r));
@@ -107,43 +108,51 @@ begin
 	 	 x_i(x_i'left) when ALU_REM | ALU_REMW,
 			'0'	when others;
 			
-	div_by_zero <= (nor y_i) and (not y_i(0));
+	div_by_zero <= nor y_i;
 	
 	terminate <= '1' when remainder < divisor else '0';
 
 	DIVISION : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			case state is
-				when IDLE => 
-                    remainder <= x;
-                    divisor <= y;
-                    quotient <= (others => div_by_zero);
-                    div_by_zero_reg <= div_by_zero;
-                    sign_reg <= sign;
-                    div_out_reg <= div_out;
-                    is_word_reg <= is_word;
-				when DIVIDE =>
-					if terminate = '0' then
-						quotient <= new_q;
-						remainder <= new_r;
-				    end if;
-			    when others =>
-			        div_by_zero_reg <= '0';
-			        div_out_reg <= '0';
-			        is_word_reg <= '0';
-			end case;
-		end if;
+		    if rst_i = '1' then
+                div_valid <= '0';
+		    else 
+                case state is
+                    when IDLE => 
+                        remainder <= x;
+                        divisor <= y;
+                        quotient <= (others => div_by_zero);
+                        div_by_zero_reg <= div_by_zero;
+                        sign_reg <= sign;
+                        div_out_reg <= div_out;
+                        is_word_reg <= is_word;
+                    when DIVIDE =>
+                        if terminate = '0' then
+                            quotient <= new_q;
+                            remainder <= new_r;
+                        else
+                            z_reg <= z;
+                            div_valid <= '1';
+                        end if;
+                    when others =>
+                        div_valid <= '0';
+                        div_by_zero_reg <= '0';
+                        div_out_reg <= '0';
+                        is_word_reg <= '0';
+                end case;
+		    end if;
+		end if; 
 	end process;
 
 	result <= quotient when div_out_reg = '1' else
 	          STD_LOGIC_VECTOR(remainder);
 
-	z <= STD_LOGIC_VECTOR(-signed(result)) when sign_reg = '1' and div_by_zero_reg = '0' else
+	z_signed <= STD_LOGIC_VECTOR(-signed(result)) when sign_reg = '1' and div_by_zero_reg = '0' else
 	     result;
 	     
-	z_o <= (63 downto 32 => z(31)) & z(31 downto 0) when is_word_reg = '1' else z; 
-	
-    div_valid_o <= '1' when state = FINALIZE else '0';
-
+	z <= (63 downto 32 => z_signed(31)) & z_signed(31 downto 0) when is_word_reg = '1' else z_signed; 
+	z_o <= z_reg;
+    div_valid_o <= div_valid;	
+    
 end behavioral;

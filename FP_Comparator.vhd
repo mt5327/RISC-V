@@ -10,8 +10,9 @@ entity FP_Comparator is
 		E : NATURAL;
 		M : NATURAL);
 	port (
-		x_i : in STD_LOGIC_VECTOR (63 downto 0);
-		y_i : in STD_LOGIC_VECTOR (63 downto 0);
+		x_i : in STD_LOGIC_VECTOR (P-1 downto 0);
+		y_i : in STD_LOGIC_VECTOR (P-1 downto 0);
+		is_boxed_i : in STD_LOGIC_VECTOR (1 downto 0);
 		funct3_i : in STD_LOGIC_VECTOR (2 downto 0);
 		result_cmp_o : out STD_LOGIC;
 	    fflags_cmp_o : out STD_LOGIC_VECTOR (4 downto 0);
@@ -20,7 +21,7 @@ end FP_Comparator;
 
 architecture behavioral of FP_Comparator is
 
-	signal cmp, lt, lt_abs, eq, x_nan, y_nan, nan, signaling_nan : STD_LOGIC;
+	signal cmp, cmp_fle, cmp_flt, cmp_feq, lt, lt_abs, eq, x_nan, y_nan, nan, signaling_nan : STD_LOGIC;
 
 	signal fp_infos : fp_infos_t(0 to 1);
 
@@ -30,7 +31,8 @@ architecture behavioral of FP_Comparator is
 			E : NATURAL;
 			M : NATURAL);
 		port (
-			x_i : in STD_LOGIC_VECTOR (63 downto 0);
+			x_i : in STD_LOGIC_VECTOR (P-2 downto 0);
+			is_boxed_i : in STD_LOGIC;
 			fp_class_o : out FP_INFO);
 	end component FP_Classifier;
 
@@ -40,8 +42,8 @@ architecture behavioral of FP_Comparator is
     signal invalid_sp_x, invalid_sp_y  : STD_LOGIC;
 begin
 
-	FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i, fp_infos(0));
-	FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i, fp_infos(1));
+	FP_CLASS_X : FP_Classifier generic map(P, E, M) port map(x_i(P-2 downto 0), is_boxed_i(0), fp_infos(0));
+	FP_CLASS_Y : FP_Classifier generic map(P, E, M) port map(y_i(P-2 downto 0), is_boxed_i(1), fp_infos(1));
 
 	lt_abs <= '1' when unsigned(x_i(P-1 downto 0)) < unsigned(y_i(P-1 downto 0)) else '0';
 	
@@ -64,20 +66,25 @@ begin
 			end case;
 		end if;
 	end process;
-
+    
+    cmp_fle <= (lt or eq) and (not nan);
+    cmp_flt <= lt and (not eq) and (not nan);
+    cmp_feq <= eq and (not nan);
+    
 	nan <= fp_infos(0).nan or fp_infos(1).nan;
-	COMPARE : process (funct3_i, lt, eq, nan)
+	
+	COMPARE : process (funct3_i, cmp_fle, cmp_flt, cmp_feq, nan)
 	begin
 		case funct3_i is
 			when FLE =>
 			    invalid_nan <= nan;
-			    cmp <= (lt or eq) and (not nan);
+			    cmp <= cmp_fle;
 			when FLT =>
 			    invalid_nan <= nan;
-			    cmp <= lt and (not eq) and (not nan);
+			    cmp <= cmp_flt;
 			when FEQ =>
 			    invalid_nan <= '0';
-				cmp <= eq and (not nan);
+				cmp <= cmp_feq;
 			when others => cmp <= '0'; invalid_nan <= '0';
 		end case;
 	end process;
@@ -86,7 +93,7 @@ begin
     result_cmp_o <= cmp;
     
     MIN_MAX_OUTPUT: if P = 32 generate 
-        result_min_max_o <= ((63 downto 32 => min_max_result(31)) & min_max_result, signaling_nan & "0000", '1');
+        result_min_max_o <= ((63 downto 32 => '1') & min_max_result, signaling_nan & "0000", '1');
     else generate 
         result_min_max_o <= (min_max_result, signaling_nan & "0000", '1');
     end generate;
