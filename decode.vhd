@@ -183,7 +183,6 @@ begin
 				end case;
 	        -- LOAD / STORE
 			when LOAD =>
-			     alu_operator <= ALU_ADD;
 				case funct3 is
 					when "000" => mem_operator <= LSU_LB;
 					when "001" => mem_operator <= LSU_LH;
@@ -195,7 +194,6 @@ begin
 					when others => invalid_instruction <= '1';
 				end case;
 			when STORE =>
-			    alu_operator <= ALU_ADD; --print-multi-li
 				case funct3 is
 					when "000" => mem_operator <= LSU_SB;
 					when "001" => mem_operator <= LSU_SH;
@@ -366,7 +364,7 @@ begin
 	REGISTER_WRITE : process (all)
 	begin
 		case opcode is
-			when LUI | AUIPC | JAL | JALR | RI | RI32 | RR | RR32 | SYSTEM =>
+			when LUI | AUIPC | LOAD | JAL | JALR | RI | RI32 | RR | RR32 | SYSTEM =>
 				reg_write <= or IR_i(11 downto 7);
 				reg_write_fp <= '0';
 			when LOAD_FP | FMADD | FMSUB | FNMADD | FNMSUB =>

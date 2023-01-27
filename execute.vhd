@@ -288,7 +288,7 @@ begin
 					reg_dst.data <= result;
 					reg_dst.write <= reg_write;
 					reg_dst.dest <= reg_dst_i;
-					mem_req.read <= mem_read or mem_write_fp;
+					mem_req.read <= or mem_read_i;
 					mem_req.write <= mem_write or mem_write_fp;
 					mem_req.MEMOp <= mem_operator_i;
 					mem_req.MDR <= MDR;
@@ -318,16 +318,14 @@ begin
 	enable_fp <= '0'; -- result_select_i(2) and (not result_fp.valid);
     
     memory_address <= STD_LOGIC_VECTOR(unsigned(x_sel) + unsigned(imm_i));  
-    mem_read <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_read_i(0) and (or reg_dst_i); 
-    mem_read_fp <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_read_i(1);
     
     mem_write <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(0); 
     mem_write_fp <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(1);
     
-    uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFE00" else '0';
+    uart_tx_enable <= '1' when mem_write_i(0) = '1'  and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
 
-    reg_write <= reg_write_i or mem_read; 	
-	reg_write_fp <= fp_regs_idex_i.write or mem_read_fp;
+    reg_write <= reg_write_i; 	
+	reg_write_fp <= fp_regs_idex_i.write;
  
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
