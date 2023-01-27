@@ -110,7 +110,8 @@ constant STRONGLY_TAKEN : STD_LOGIC_VECTOR (1 downto 0) := "11";
 constant REFRESH_RATE : unsigned(19 downto 0) := to_unsigned(999999, 20);
 constant NOP : STD_LOGIC_VECTOR (31 downto 0) := X"00000013";
 
-constant MAX_VALUE : NATURAL := 868; -- ( 100 * 10^6 ) / 115200
+--constant MAX_VALUE : NATURAL := 868; -- ( 100 * 10^6 ) / 115200
+constant MAX_VALUE : NATURAL := 2;
 constant HALF_MAX_VALUE : NATURAL := MAX_VALUE / 2;
 
 --constant MAX_PC : unsigned (ADDRESS_WIDTH - 1 downto 0) := (ADDRESS_WIDTH-1 => '1', others => '0')
@@ -156,6 +157,7 @@ end record;
 type MEMORY_REQUEST is record
     read : STD_LOGIC;
     write : STD_LOGIC;
+    MAR : STD_LOGIC_VECTOR (63 downto 0);
     MDR : STD_LOGIC_VECTOR (63 downto 0);    
     MEMOp : MEM_OP;
 end record;

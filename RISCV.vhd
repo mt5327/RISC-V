@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity RISCV is
 	generic (
-		RAM_FILENAME : STRING := "C:\\DigitalDesign\\hex\\fclass_f.hex";
+		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\uart_test\\main.hex";
 		ADDRESS_WIDTH : NATURAL := 18;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 2;
@@ -23,7 +23,7 @@ entity RISCV is
 		rgb_o : out STD_LOGIC_VECTOR (11 downto 0);
 
 		LED_o : out STD_LOGIC_VECTOR (3 downto 0);
-        
+        cpu_enable_i : in STD_LOGIC;
         -- Seven-segment display       
 		anode_o : out STD_LOGIC;
 		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
@@ -184,6 +184,8 @@ architecture behavioral of RISCV is
         
             fp_regs_idex_i : in FP_IDEX;
             reg_write_fp_o : out STD_LOGIC;
+
+            uart_tx_enable_o : out STD_LOGIC;
             
             csr_mux_sel_i : in STD_LOGIC_VECTOR (2 downto 0);
             csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -319,7 +321,6 @@ architecture behavioral of RISCV is
         Port ( clk_i : in STD_LOGIC;
                rst_i : in STD_LOGIC;
                uart_tx_enable_i : in STD_LOGIC;
-               addr_i : in STD_LOGIC_VECTOR (63 downto 0);
                DOUT_i : in STD_LOGIC_VECTOR (7 downto 0);
                tx_o : out STD_LOGIC;
                uart_tx_busy_o : out STD_LOGIC);
@@ -421,7 +422,7 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 
-		cpu_enable_i => cpu_enable,
+		cpu_enable_i => cpu_enable or cpu_enable_i,
 		pipeline_stall_i => pipeline_stall_if,
 		branch_info_i => branch_inf,
 		branch_predict_o => branch_predict_id,
@@ -437,7 +438,7 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		cpu_enable_i => cpu_enable,
+		cpu_enable_i => cpu_enable or cpu_enable_i,
 		flush_i => branch_inf.mispredict,
 		load_hazard_o => load_hazard,
 		pipeline_stall_i => pipeline_stall,
@@ -539,6 +540,8 @@ begin
         branch_next_pc_i => branch_next_pc,
 		fp_regs_idex_i => fp_regs_idex,
 
+        uart_tx_enable_o => uart_tx_enable,
+
 		csr_write_i => csr_write_execute,
 		csr_write_addr_i => csr_write_addr,
         csr_exception_id_i => csr_exception_id,
@@ -586,7 +589,7 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		cpu_enable_i => cpu_enable,
+		cpu_enable_i => cpu_enable or cpu_enable_i,
 		csr_i => csr_write,
 		csr_read_addr_i => csr_read_addr,
 		csr_data_o => csr_read_data,
@@ -603,7 +606,7 @@ begin
 		rst_i => rst_i,
 		exception_i => exception,
 		mem_write_i => mem_req.write,
-		MAR_i => reg_dst_memory.data(ADDRESS_WIDTH-1 downto 0),
+		MAR_i => mem_req.MAR(ADDRESS_WIDTH-1 downto 0),
 		MDR_i => mem_req.MDR,
 		memory_operation_i => mem_req.MEMOp,
 	    unaligned_access_o => unaligned_access,
@@ -686,8 +689,7 @@ begin
     port map ( 
         clk_i => clk_i,
         rst_i => rst_i,
-        uart_tx_enable_i => mem_req.write,
-        addr_i => reg_dst_memory.data,
+        uart_tx_enable_i => uart_tx_enable,
         tx_o => tx_o,
         uart_tx_busy_o => uart_tx_busy,
         DOUT_i => mem_req.MDR(7 downto 0)
@@ -790,7 +792,7 @@ begin
                    "100" when result_select(3) = '1' else "000";
                    
 	LED_o(0) <= rst_i;
-	LED_o(1) <= cpu_enable;
+	LED_o(1) <= cpu_enable or cpu_enable_i;
 	LED_o(3) <= exception;
 
 	anode_o <= anode;

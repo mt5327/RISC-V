@@ -61,6 +61,8 @@ entity execute is
 		fp_regs_idex_i : in FP_IDEX;
 		reg_write_fp_o : out STD_LOGIC;
 		
+		uart_tx_enable_o : out STD_LOGIC;
+		
 		csr_mux_sel_i : in STD_LOGIC_VECTOR (2 downto 0);
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
         
@@ -144,12 +146,15 @@ architecture behavioral of execute is
 	signal result, result_mul, result_div, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
 	signal instr_misaligned, reg_write_fp, reg_write_fp_reg, reg_write : STD_LOGIC := '0';
 	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, alu_out : STD_LOGIC := '0';
-	signal mem_req : MEMORY_REQUEST := ('0', '0', (others => '0'), LSU_NONE);
+	signal mem_req : MEMORY_REQUEST := ('0', '0', (others => '0'), (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
-	signal mem_read, mem_read_fp : STD_LOGIC;
+	signal mem_read, mem_read_fp, mem_write, mem_write_fp : STD_LOGIC;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
+    signal memory_address : STD_LOGIC_VECTOR (63 downto 0);
+    
+    signal uart_tx_enable, uart_tx_enable_reg : STD_LOGIC;
     
     type fp_results is array (0 to 1) of FP_RESULT;
     signal results_fp : fp_results;
@@ -204,7 +209,6 @@ begin
 		z_o => result_div
 	);
 
-    
 	FPU_UNITS : for i in 0 to 1 generate 
         FPU_UNIT: FPU 
         generic map (FP_FORMATS(i).P, FP_FORMATS(i).E, FP_FORMATS(i).M)
@@ -284,10 +288,12 @@ begin
 					reg_dst.data <= result;
 					reg_dst.write <= reg_write;
 					reg_dst.dest <= reg_dst_i;
-					mem_req.read <= or mem_read_i;
-					mem_req.write <= or mem_write_i;
+					mem_req.read <= mem_read or mem_write_fp;
+					mem_req.write <= mem_write or mem_write_fp;
 					mem_req.MEMOp <= mem_operator_i;
 					mem_req.MDR <= MDR;
+					mem_req.MAR <= memory_address;
+					uart_tx_enable_reg <= uart_tx_enable;
 				end if;
 			end if;
 		end if;
@@ -308,11 +314,17 @@ begin
 	end process;
   
 	enable_mul <= result_select_i(0) and (not mul_valid);
-	enable_div <= result_select_i(1) and (not div_valid);
-	enable_fp <= result_select_i(2) and (not result_fp.valid);
-
-    mem_read <= nor z(63 downto ADDRESS_WIDTH ) when mem_read_i(0) = '1' else '0'; 
-    mem_read_fp <= nor z(63 downto ADDRESS_WIDTH ) when mem_read_i(1) = '1' else '0';
+	enable_div <= result_select_i (1) and (not div_valid);
+	enable_fp <= '0'; -- result_select_i(2) and (not result_fp.valid);
+    
+    memory_address <= STD_LOGIC_VECTOR(unsigned(x_sel) + unsigned(imm_i));  
+    mem_read <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_read_i(0) and (or reg_dst_i); 
+    mem_read_fp <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_read_i(1);
+    
+    mem_write <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(0); 
+    mem_write_fp <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(1);
+    
+    uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFE00" else '0';
 
     reg_write <= reg_write_i or mem_read; 	
 	reg_write_fp <= fp_regs_idex_i.write or mem_read_fp;
@@ -359,5 +371,7 @@ begin
 
     mem_req_o <= mem_req;
 	branch_info_o <= branch_inf;
+	
+	uart_tx_enable_o <= uart_tx_enable_reg;
 	
 end behavioral; 

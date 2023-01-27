@@ -41,7 +41,7 @@ begin
 		end case;
 	end process;
 
-    jalr <= '1' when branch_predict_i.cf_type = "01" else '0';
+    jalr <= not branch_predict_i.cf_type(1) and branch_predict_i.cf_type(0);
 	mispredict <= ( cmp xor branch_predict_i.cf_type(0) ) or ( wrong_target and branch_predict_i.cf_type(0) );
 	wrong_target <= '1' when unsigned(offset_i) /= branch_predict_i.predicted_address else '0';
 
@@ -52,15 +52,15 @@ begin
  	
 	BRANCH_INFO : process (ctrl_flow_i, cmp, pc_i, target_address, mispredict, jalr)
 	begin
+	    branch_info_o.mispredict <= '0';
+		branch_info_o.target_address <= (others => '0');
 		branch_info_o.pc <= (others => '0');
 		branch_info_o.taken <= '0';
-		branch_info_o.mispredict <= '0';
-		branch_info_o.target_address <= (others => '0');
 		if ctrl_flow_i = '1' then
-			branch_info_o.pc <= pc_i;
-			branch_info_o.taken <= cmp or jalr;
 		    branch_info_o.target_address <= target_address;
 		    branch_info_o.mispredict <= mispredict;
+			branch_info_o.pc <= pc_i;
+			branch_info_o.taken <= cmp or jalr;		
 		end if;
 	end process;
 	

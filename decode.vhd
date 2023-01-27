@@ -90,14 +90,14 @@ architecture behavioral of decode is
 	signal reg_write_fp : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
 	signal fp_regs_IDEX : FP_IDEX;
-	signal alu_operator, alu_operator_reg : ALU_OP;
+	signal alu_operator, alu_operator_reg : ALU_OP := ALU_NONE;
 	signal fpu_operator : FPU_OP := FPU_NONE;
-	signal mem_operator, mem_operator_reg : MEM_OP;
+	signal mem_operator, mem_operator_reg : MEM_OP := LSU_NONE;
 	signal branch_predict : BRANCH_PREDICTION;
     signal write_fflags : STD_LOGIC;
     signal enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
-    signal csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
-	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write : STD_LOGIC;
+    signal csr_write_addr, csr_write_addr_reg : STD_LOGIC_VECTOR (11 downto 0);
+	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write, csr_write_reg : STD_LOGIC;
 
     signal csr_data : STD_LOGIC_VECTOR (63 downto 0);
 
@@ -183,7 +183,7 @@ begin
 				end case;
 	        -- LOAD / STORE
 			when LOAD =>
-			    alu_operator <= ALU_ADD;
+			     alu_operator <= ALU_ADD;
 				case funct3 is
 					when "000" => mem_operator <= LSU_LB;
 					when "001" => mem_operator <= LSU_LH;
@@ -195,7 +195,7 @@ begin
 					when others => invalid_instruction <= '1';
 				end case;
 			when STORE =>
-		        alu_operator <= ALU_ADD;
+			    alu_operator <= ALU_ADD; --print-multi-li
 				case funct3 is
 					when "000" => mem_operator <= LSU_SB;
 					when "001" => mem_operator <= LSU_SH;
@@ -204,14 +204,12 @@ begin
 					when others => invalid_instruction <= '1';
 				end case;
 			when LOAD_FP =>
-                alu_operator <= ALU_ADD;
 				case funct3 is
 					when "010" => mem_operator <= LSU_FLW;
 					when "011" => mem_operator <= LSU_FLD;
 					when others => invalid_instruction <= '1';
 				end case;
 			when STORE_FP =>
-			    alu_operator <= ALU_ADD;
 				case funct3 is
 					when "010" => mem_operator <= LSU_FSW;
 					when "011" => mem_operator <= LSU_FSD;
@@ -368,7 +366,7 @@ begin
 	REGISTER_WRITE : process (all)
 	begin
 		case opcode is
-			when LUI | AUIPC | JAL | JALR | LOAD | RI | RI32 | RR | RR32 | SYSTEM =>
+			when LUI | AUIPC | JAL | JALR | RI | RI32 | RR | RR32 | SYSTEM =>
 				reg_write <= or IR_i(11 downto 7);
 				reg_write_fp <= '0';
 			when LOAD_FP | FMADD | FMSUB | FNMADD | FNMSUB =>
@@ -545,16 +543,12 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' or flush = '1' then
-				csr_write <= '0';
+				csr_write_reg <= '0';
 				csr_exception_id_reg <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-				    if write_fflags = '0' then
-				        csr_write_addr <= IR_i(31 downto 20); 
-				    else 
-				        csr_write_addr <= FFLAGS;
-				    end if;	   
-                	csr_write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0) or write_fflags;
+   
+                	csr_write_reg <= csr_write;
 				    csr_operator_reg <= csr_operator;
 				    csr_exception_id_reg <= csr_exception_id;
 				    csr_cmp_mem_reg <= csr_cmp_mem;
@@ -566,6 +560,8 @@ begin
 	end process;
 	
 	csr_data_o <= csr_data;
+    csr_write_addr <= IR_i(31 downto 20) when write_fflags = '0' else FFLAGS; 
+	csr_write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0) or write_fflags;			  
 	
 	with alu_operator select
 		result_select(1 downto 0) <= "01" when ALU_MUL | ALU_MULH | ALU_MULHSU | ALU_MULHU | ALU_MULW,
@@ -672,7 +668,7 @@ begin
     csr_cmp_wb_o <= csr_cmp_wb_reg;
     csr_write_addr_o <= csr_write_addr;
 
-    csr_write_o <= csr_write;
+    csr_write_o <= csr_write_reg;
     csr_exception_id_o <= csr_exception_id_reg;
 
     result_select_o <= result_select_reg;

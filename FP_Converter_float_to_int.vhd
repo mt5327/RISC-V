@@ -30,8 +30,9 @@ architecture behavioral of FP_Converter_float_to_int is
 	constant INT_WIDTHS : int_width := (to_signed(31, E), to_signed(32, E), to_signed(63, E), to_signed(64, E));
 
 	alias sign : STD_LOGIC is x_i(P - 1);
-
-	signal int, int_fin, signed_int, int_neg : STD_LOGIC_VECTOR (63 downto 0);
+    
+    signal int : STD_LOGIC_VECTOR (31 downto 0);
+	signal long, int_fin : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal exponent, exponent_reg : signed (E - 1 downto 0);
 	signal inexact : STD_LOGIC := '0';
@@ -69,8 +70,13 @@ architecture behavioral of FP_Converter_float_to_int is
 	signal overflows : STD_LOGIC_VECTOR (3 downto 0);
 	signal shamt, shamt_reg : unsigned(6 downto 0);
 	signal mantissa, mantissa_reg, mantissa_shifted : unsigned(64 + M downto 0);
-	signal round_sticky, round_sticky_reg, mode: STD_LOGIC_VECTOR (1 downto 0);
+    signal mantissa_int : unsigned(31 downto 0);
+    signal mantissa_long : unsigned(63 downto 0);
 
+    signal signed_int : STD_LOGIC_VECTOR (31 downto 0);
+    signal signed_long : STD_LOGIC_VECTOR (63 downto 0);
+	signal round_sticky, round_sticky_reg, mode: STD_LOGIC_VECTOR (1 downto 0);
+     
     signal rm : STD_LOGIC_VECTOR (2 downto 0);
 
 	type state_type is (IDLE, CONVERT, ROUND, FINALIZE);
@@ -127,8 +133,9 @@ begin
     end generate; 
       
     overflow <= overflows(to_integer(unsigned(mode))) or (and exp);
-    overflow_value <= (30 downto 0 => '1', others => '0') when mode_i = "00" else
-    	              (63 => mode_i(0), others => '1');
+    
+    overflow_value <= (30 downto 0 => '1', others => '0') when mode = "00" else
+    	              (63 => mode(0), others => '1');
  
  	overflow_value_final <= not overflow_value when sign = '1' and fp_class.nan = '0' else 
 		                    overflow_value;
@@ -145,26 +152,29 @@ begin
             overflow_value_reg <= overflow_value_final;
             overflow_reg <= overflow;
             sign_reg <= sign;
-            rm <= rm_i;
+            rm <= rm_i; 
         end if; 
     end process;
     
     inexact <= or round_sticky_reg;
     special_case <= overflow_reg or (sign_reg and mode(0) and not_zero );
  
-	ROUNDING : rounder generic map(64) port map(mantissa_shifted_reg, sign_reg, rm, round_sticky_reg, int);	
- 
-	int_neg <= STD_LOGIC_VECTOR(-signed(int));
-	
-    signed_int <= int_neg when sign_reg = '1' else int;
-	int_fin <= (63 downto 32 => signed_int(31)) & signed_int(31 downto 0) when mode(1) = '0' else
-	           signed_int;
-	           
-	not_zero <= or int_fin;
-
-	result <= overflow_value_reg when special_case = '1' else int_fin;
-    fflags <= "10000" when special_case = '1' else "0000" & inexact; 
+	ROUNDING_INT : rounder generic map(32) port map(mantissa_shifted_reg(31 downto 0), sign_reg, rm, round_sticky_reg, int);	
+    ROUNDING_LONG : rounder generic map(64) port map(mantissa_shifted_reg, sign_reg, rm, round_sticky_reg, long);	
     
+    signed_int <= STD_LOGIC_VECTOR(-signed(int)) when sign_reg = '1' else int;
+    signed_long <= STD_LOGIC_VECTOR(-signed(long)) when sign_reg = '1' else long;
+
+    not_zero <= or int when mode(1) = '0' else or long;
+    
+    with mode select int_fin <=
+        (63 downto 32 => signed_int(31)) & signed_int when "00" | "01",
+        signed_long  when "10" | "11",
+        (others => '0') when others;
+        
+    result <= overflow_value_reg when special_case = '1' else int_fin;
+    fflags <= "10000" when special_case = '1' else "0000" & inexact; 
+   
     process (clk_i)
     begin
         if rising_edge(clk_i) then

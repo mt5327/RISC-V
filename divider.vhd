@@ -39,8 +39,10 @@ begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				state <= IDLE;
+				div_valid_o <= '0';
 			else
 				state <= next_state;
+				div_valid_o <= div_valid;
 			end if;
 		end if;
 	end process;
@@ -115,33 +117,30 @@ begin
 	DIVISION : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-		    if rst_i = '1' then
-                div_valid <= '0';
-		    else 
-                case state is
-                    when IDLE => 
-                        remainder <= x;
-                        divisor <= y;
-                        quotient <= (others => div_by_zero);
-                        div_by_zero_reg <= div_by_zero;
-                        sign_reg <= sign;
-                        div_out_reg <= div_out;
-                        is_word_reg <= is_word;
-                    when DIVIDE =>
-                        if terminate = '0' then
-                            quotient <= new_q;
-                            remainder <= new_r;
-                        else
-                            z_reg <= z;
-                            div_valid <= '1';
-                        end if;
-                    when others =>
-                        div_valid <= '0';
-                        div_by_zero_reg <= '0';
-                        div_out_reg <= '0';
-                        is_word_reg <= '0';
-                end case;
-		    end if;
+            case state is
+                when IDLE => 
+                    remainder <= x;
+                    divisor <= y;
+                    quotient <= (others => div_by_zero);
+                    div_by_zero_reg <= div_by_zero;
+                    sign_reg <= sign;
+                    div_out_reg <= div_out;
+                    is_word_reg <= is_word;
+                    div_valid <= '0';
+                when DIVIDE =>
+                    if terminate = '0' then
+                        quotient <= new_q;
+                        remainder <= new_r;
+                    else
+                        div_valid <= '1';
+                        z_reg <= z;
+                    end if;
+                when others =>
+                    div_valid <= '0';
+                    div_by_zero_reg <= '0';
+                    div_out_reg <= '0';
+                    is_word_reg <= '0';
+            end case;
 		end if; 
 	end process;
 
@@ -153,6 +152,5 @@ begin
 	     
 	z <= (63 downto 32 => z_signed(31)) & z_signed(31 downto 0) when is_word_reg = '1' else z_signed; 
 	z_o <= z_reg;
-    div_valid_o <= div_valid;	
     
 end behavioral;

@@ -7,7 +7,7 @@ use work.constants.all;
 
 entity RAM is
 	generic (
-		RAM_FILENAME : STRING := "C:\\cygwin64\\riscv\\hex\\add.hex";
+		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\uart_test\\main.hex";
 		BLOCK_ADDRESS_WIDTH : NATURAL;
 		BLOCK_SIZE : NATURAL);
 	port (
@@ -62,7 +62,7 @@ architecture behavioral of RAM is
 
 begin
 
-	mem_write <= mem_write_i or uart_src;
+	mem_write <= ( mem_write_i or uart_src );
 	MAR <= uart_address when uart_src = '1' else unsigned(write_address_i);
 	MDR <= uart_reg when uart_src = '1' else cache_line_i;
 

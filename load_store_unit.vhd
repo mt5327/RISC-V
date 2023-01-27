@@ -25,7 +25,6 @@ architecture behavioral of load_store_unit is
 	signal we : STD_LOGIC_VECTOR (7 downto 0);
 	signal unaligned_access, unaligned, is_signed : STD_LOGIC := '0';
 	signal reg_data, data_mem : STD_LOGIC_VECTOR (63 downto 0);
-    signal mem_write : STD_LOGIC;
 	signal b : STD_LOGIC_VECTOR (7 downto 0);
 	signal h : STD_LOGIC_VECTOR (15 downto 0);
 	signal w : STD_LOGIC_VECTOR (31 downto 0);
@@ -57,23 +56,42 @@ begin
             when LSU_SB => we(int_column) <= '1';
             when LSU_SH =>
                 if unaligned_access = '0' then
-                    we(int_column + 1 downto int_column) <= "11";
+                    case int_column is
+                        when 7 => we <= X"80";
+                        when others => we(int_column + 1 downto int_column) <= "11";
+                    end case;
                 else
                     we <= X"01";
                 end if;
             when LSU_SW | LSU_FSW =>
                 if unaligned_access = '0' then
-                    we(int_column + 3 downto int_column) <= "1111";
+                    case int_column is
+                        when 5 => we <= X"E0";
+                        when 6 => we <= X"C0";
+                        when 7 => we <= X"80";
+                        when others => we(int_column + 3 downto int_column) <= "1111";
+                    end case;
                 else
                     case int_column is
                         when 5 => we <= X"01";
                         when 6 => we <= X"03";
-                        when others => we <= X"07";
+                        when 7 => we <= X"07";
+                        when others => we <= X"00";
                     end case;
                 end if;
             when LSU_SD | LSU_FSD =>
                 if unaligned_access = '0' then
-                    we <= (others => '1');
+                    case int_column is
+                        when 0 => we <= X"FF";
+                        when 1 => we <= X"FE";
+                        when 2 => we <= X"FC";
+                        when 3 => we <= X"F8";
+                        when 4 => we <= X"F0";
+                        when 5 => we <= X"E0";
+                        when 6 => we <= X"C0";
+                        when 7 => we <= X"80";
+                        when others => we <= X"00";   
+                    end case;             
                 else
                     case int_column is
                         when 1 => we <= X"01";

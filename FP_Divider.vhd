@@ -50,7 +50,7 @@ architecture behavioral of FP_Divider is
 
 	signal special_value, special_value_reg : STD_LOGIC_VECTOR (P-1 downto 0);
      
-    signal mantissa_final : STD_LOGIC_VECTOR (M-1 downto 0);
+    signal mantissa_final, mantissa_final_reg : STD_LOGIC_VECTOR (M-1 downto 0);
     signal num_round : STD_LOGIC_VECTOR (P-2 downto 0);
 
 	signal square_estimate, estimate, first_estimate, rm : STD_LOGIC_VECTOR (2 downto 0);
@@ -206,7 +206,7 @@ begin
                     sqrt_reg <= sqrt;
                     y <= y_init;
                     k <= (k'left => '1', others => div);
-                    sign <= sign_reg; 
+                    sign_reg <= sign; 
                     position <= q'left-1;   
                     invalid_reg <= invalid;
                     div_by_zero_reg <= div_by_zero;
@@ -231,8 +231,7 @@ begin
                     q(position downto position - 1) <= a;
                     qm(position downto position - 1) <= b;
                 when ROUND => 
-                    mantissa <= q & STD_LOGIC_VECTOR(digit(1 downto 0)) when digit_sign = '0' else 
-                               qm & STD_LOGIC_VECTOR(digit(1 downto 0));                    
+                    mantissa_final_reg <= mantissa_final;
                 when FINALIZE =>
                     special_case <= '0';          
                 when others =>
@@ -253,15 +252,15 @@ begin
     end generate;   
 
     ROUNDING: rounder generic map(P-1) port map (
-        unsigned(exp) & unsigned(mantissa_final(mantissa_final'left downto 1)), 
+        unsigned(exp) & unsigned(mantissa_final_reg(mantissa_final_reg'left downto 1)), 
         sign, 
         rm,
-        mantissa_final(0) & inexact, 
+        mantissa_final_reg(0) & inexact, 
         num_round);      
               
     inexact <= or PR;
     exponent_div_minus_one <= STD_LOGIC_VECTOR(unsigned(exponent_div_reg(E-1 downto 0)) - 1);
-    sign_reg <= sign_d and div;
+    sign <= sign_d and div;
 
     lda <= PR(PR'left);
     ldb <= (not PR(PR'left)) and (or cmp(1 downto 0));
@@ -312,6 +311,7 @@ begin
     cmp(0) <= '1' when signed(PR(PR'left downto PR'left-6)) >= SEL_CONSTANTS(to_integer(unsigned(estimate)), 0) else '0';  -- 2       
    	
    	carry <= (0 => '1', others => '0') when PR(PR'left) = '0' and (or cmp ) = '1' and div_reg = '1' else (others => '0');
+    
     PR_new <= STD_LOGIC_VECTOR(unsigned(PR) + unsigned(F) + carry);
     PR_mul <= PR_new(PR_new'left-2 downto 0) & "00";                
         
@@ -325,7 +325,9 @@ begin
     
     result_o.fflags <= invalid_reg & div_by_zero_reg & "000" when special_case = '1' else
                        "0000" & inexact;
-                            
+    
+    mantissa <= q & STD_LOGIC_VECTOR(digit(1 downto 0)) when digit_sign = '0' else 
+                qm & STD_LOGIC_VECTOR(digit(1 downto 0));                               
     
     RESULT_GEN: if P = 32 generate 
         result_o.value <= (63 downto 32 => '1') & sign_reg & num_round when special_case = '0' else 

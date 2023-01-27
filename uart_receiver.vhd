@@ -167,7 +167,7 @@ begin
 	UART_RX_COUNTER: process(clk_i)
 	begin
         if rising_edge(clk_i) then
-            if rst_i = '1' then
+            if rst_i = '1' or state = READY then
                 rx_bit_counter <= "000";
             else 
                 if uart_clk_enable = '1' and uart_clk = '1' and sh_reg_enable = '1' then
