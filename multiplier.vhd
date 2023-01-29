@@ -124,8 +124,7 @@ begin
 	P4 <= A1B3 & A0B2 & X"00000" & "00";
 	P5 <= A0B3 & X"000000000" & "000";
 
-	--MULR <= STD_LOGIC_VECTOR(resize(P0, 128) + resize(P1, 128) + resize(P2, 128) + P3 + resize(P4, 128) + resize(P5, 128));
-    MULR <= (others => '0');
+	MULR <= STD_LOGIC_VECTOR(resize(P0, 128) + resize(P1, 128) + resize(P2, 128) + P3 + resize(P4, 128) + resize(P5, 128));
 	MUX_OUTPUT : process (op_i, MULR)
 	begin
         case op_i is

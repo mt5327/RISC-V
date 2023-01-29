@@ -27,7 +27,7 @@ architecture behavioral of branch_unit is
 begin
 
 	eq_r <= '1' when x_i = y_i else '0';
-
+	
 	lt_r <= '1' when signed((x_i(63) and (not op_i(1))) & x_i) < signed((y_i(63) and ( not op_i(1) )) & y_i) else '0';
 
 	CMP_OUTPUT : process (op_i, eq_r, lt_r)

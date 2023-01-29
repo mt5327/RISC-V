@@ -71,6 +71,7 @@ entity decode is
         
         csr_cmp_mem_o : out STD_LOGIC; 
         csr_cmp_wb_o : out STD_LOGIC;
+        IR_o : out STD_LOGIC_VECTOR (31 downto 0);
                 
         registers_o : out reg_t;
         registers_fp_o : out reg_t;
@@ -86,6 +87,8 @@ architecture behavioral of decode is
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
 	signal mem_read, mem_read_reg, mem_write, mem_write_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
+	
+	signal IR : STD_LOGIC_VECTOR (31 downto 0);
 	
 	signal reg_write_fp : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
@@ -480,8 +483,17 @@ begin
 				alu_operator_reg <= ALU_NONE;
 				mem_operator_reg <= LSU_NONE;
 		        branch_predict.cf_type <= "00";
+		        reg_dst <= (others => '0');
+		        result_select_reg <= "0000";
+	            reg_cmp1_mem_reg <= '0';
+			    reg_cmp1_wb_reg <= '0';
+			    reg_cmp2_mem_reg <= '0';
+			    reg_cmp2_wb_reg <= '0';
+			    reg_cmp3_mem_reg <= '0';
+			    reg_cmp3_wb_reg <= '0';
 			else
 				if pipeline_stall_i = '0' then
+				    IR <= IR_i;
 				    x <= x_data;
 				    y <= y_data;
 				    funct3_reg <= fun3;
@@ -499,7 +511,7 @@ begin
 					imm_reg <= imm;
 					branch_next_pc_reg <= branch_next_pc;
 					reg_write_reg <= reg_write;
-					pc <= pc_i;
+ 					pc <= pc_i;
 					branch_predict <= branch_predict_i;
 					ctrl_flow_reg <= ctrl_flow;
 					mem_operator_reg <= mem_operator;
@@ -523,6 +535,7 @@ begin
 			if rst_i = '1' or flush = '1' then
 				fp_regs_IDEX.write <= '0';
 				fp_regs_IDEX.fp_op <= FPU_NONE;
+				fp_regs_IDEX.enable_fpu_subunit <= (others => '0');
 			else
 				if pipeline_stall_i = '0' then
 					fp_regs_IDEX.fp_op <= fpu_operator;
@@ -638,7 +651,7 @@ begin
 	reg_dst_o <= reg_dst;
 
 	pc_o <= pc;
-
+    IR_o <= IR;
 	fp_regs_IDEX_o <= fp_regs_IDEX;
 	csr_read_addr_o <= IR_i(31 downto 20);
 

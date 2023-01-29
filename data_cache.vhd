@@ -145,7 +145,7 @@ begin
 
 	miss_o <= miss and enable_mem_i;
 	read_address_o <= memory_address;
-	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + num_bits(BLOCK_SIZE/8) - 1 downto num_bits(BLOCK_SIZE/8));
+	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + num_bits(BLOCK_SIZE/64)  - 1 downto num_bits(BLOCK_SIZE/64));
 	cache_line_o <= cache(to_integer(unsigned(block_address)));
 
 	DOUBLE_WORD_SELECT : for i in 0 to BLOCK_SIZE/64-1 generate

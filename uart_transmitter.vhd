@@ -21,13 +21,13 @@ architecture behavioral of uart_transmitter is
 
     signal uart_tx_fin : STD_LOGIC;
     
-	signal uart_clk, uart_clk_enable, uart_tx_data_bits, parity_bit : STD_LOGIC;
+	signal uart_clk, uart_clk_enable, uart_tx_data_bits : STD_LOGIC;
     signal tx : STD_LOGIC := '1';
 
 	type state_type is (READY, START, DATA, PARITY, STOP);
 	signal state, next_state : state_type;
 
-    signal tx_data : STD_LOGIC_VECTOR (10 downto 0);
+    signal tx_data : STD_LOGIC_VECTOR (10 downto 0) := (others => '1');
 
 begin 
 
@@ -111,21 +111,19 @@ begin
     begin
         if rising_edge(clk_i) then
             if rst_i ='1' then
-                tx_data <= (others => '0');
                 tx <= '1';
+                tx_data <= (others => '1');
             else
                 if state = READY then
                     if uart_tx_enable_i = '1' then
-                        tx_data <= '1' & parity_bit & -- 
-                        dout_i & '0';
-                    end if;
-                    tx <= '1';        
+                        tx_data <= '1' & ( (xor DOUT_i) xor '0' ) & DOUT_i & '0';
+                    end if; 
                 elsif uart_clk_enable = '1' then
                     if uart_clk = '1' then
-                        tx_data <= '0' & tx_data(10 downto 1);
+                        tx_data <= '1' & tx_data(10 downto 1);
                     end if;
-                    tx <= tx_data(0);
                 end if;
+                tx <= tx_data(0);
             end if;
         end if;
     end process;
@@ -151,8 +149,6 @@ begin
             end if;    
         end if;
 	end process;
-
-	parity_bit <= (xor DOUT_i) xor '0';
 	
 	uart_clk <= '1' when counter = MAX_VALUE - 1 else '0';
 

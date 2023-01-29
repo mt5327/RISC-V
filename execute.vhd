@@ -34,6 +34,8 @@ entity execute is
 		branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
         branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
         
+        IR_i : in STD_LOGIC_VECTOR (31 downto 0);
+        
 		reg_write_i : in STD_LOGIC;
 
 		reg_dst_i : in STD_LOGIC_VECTOR (4 downto 0);
@@ -65,7 +67,7 @@ entity execute is
 		
 		csr_mux_sel_i : in STD_LOGIC_VECTOR (2 downto 0);
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
-        
+                
         csr_write_i : in STD_LOGIC;
         csr_write_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
         csr_exception_id_i : in STD_LOGIC_VECTOR (3 downto 0);
@@ -239,7 +241,7 @@ begin
 	             result_div when "0010",
 	             result_fp.value when "0100",
 	             csr_data_mux when "1000",
-	             (others => '-') when others;
+	             (others => '0') when others;
     
     with x_mux_sel_i select 
         x_sel <= reg_dst.data when "01",
@@ -281,6 +283,9 @@ begin
 				reg_write_fp_reg <= '0';
 				mem_req.read <= '0';
 		        mem_req.write <= '0';
+		        uart_tx_enable_reg <= '0';
+		        mem_req.MEMOp <= LSU_NONE;
+		        reg_dst.dest <= (others => '0');
 			else
 				if pipeline_stall_i = '0' then
                     reg_write_fp_reg <= reg_write_fp;
@@ -312,7 +317,7 @@ begin
 			end if;
 		end if;
 	end process;
-  
+
 	enable_mul <= result_select_i(0) and (not mul_valid);
 	enable_div <= result_select_i (1) and (not div_valid);
 	enable_fp <= '0'; -- result_select_i(2) and (not result_fp.valid);
@@ -322,8 +327,8 @@ begin
     mem_write <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(0); 
     mem_write_fp <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(1);
     
-    uart_tx_enable <= '1' when mem_write_i(0) = '1'  and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
-
+    uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
+ 
     reg_write <= reg_write_i; 	
 	reg_write_fp <= fp_regs_idex_i.write;
  
@@ -365,6 +370,7 @@ begin
                                       (4 downto 0 => fp_regs_idex_i.precision(i)) and
                                       (4 downto 0 => not results_fp(i).valid);
     end generate;
+
 	csr_o <= csr;
 
     mem_req_o <= mem_req;

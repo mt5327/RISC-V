@@ -99,6 +99,7 @@ begin
 		                and branch_predict.cf_type when BRANCH,
 		                '0' when others; 
 
+    assert pc(pc'left downto pc'left-7) /= X"13" report to_hstring(pc)  severity FAILURE;
 
 	instr_address_o <= STD_LOGIC_VECTOR(pc(ADDRESS_WIDTH-1 downto 2));
 	pc_o <= STD_LOGIC_VECTOR(pc_reg);

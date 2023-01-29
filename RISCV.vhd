@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity RISCV is
 	generic (
-		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\uart_test\\main.hex";
+		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\coremark\\main.hex";
 		ADDRESS_WIDTH : NATURAL := 18;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 2;
@@ -29,15 +29,15 @@ entity RISCV is
 		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
         
 	-- !!! SIMULATION ONLY !!! 
- 	--    test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
-     --   system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
+ 	  --  test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
+       -- system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
 end RISCV;
 
 architecture behavioral of RISCV is
 
 	component fetch is
 		generic (
-			ADDRESS_WIDTH : NATURAL := 19;
+			ADDRESS_WIDTH : NATURAL := 18;
 			BHT_INDEX_WIDTH : NATURAL := 2);
 		port (
 			clk_i : in STD_LOGIC;
@@ -103,6 +103,8 @@ architecture behavioral of RISCV is
             
             x_o : out STD_LOGIC_VECTOR (63 downto 0);
             y_o : out STD_LOGIC_VECTOR (63 downto 0);
+        
+            IR_o : out STD_LOGIC_VECTOR (31 downto 0);
             
             csr_write_o : out STD_LOGIC;
             csr_write_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
@@ -153,7 +155,8 @@ architecture behavioral of RISCV is
             
             imm_i : in STD_LOGIC_VECTOR (63 downto 0);
             pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-    
+            IR_i : in STD_LOGIC_VECTOR (31 downto 0);
+
             branch_predict_i : in BRANCH_PREDICTION;
             branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
             branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -240,12 +243,12 @@ architecture behavioral of RISCV is
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
             exception_i : in STD_LOGIC;
-            mem_write_i : in STD_LOGIC;
             MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
             MDR_i : in STD_LOGIC_VECTOR (63 downto 0);
             memory_operation_i : in MEM_OP;	
             cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 4 downto 0));
             unaligned_access_o : out STD_LOGIC;
+            miss_i : in STD_LOGIC;
             data_i : in STD_LOGIC_VECTOR (63 downto 0);
             data_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component load_store_unit;
@@ -358,7 +361,7 @@ architecture behavioral of RISCV is
 	signal result_fp : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal pc_decode, pc_execute, mem_data : STD_LOGIC_VECTOR (63 downto 0);
-	signal IR, IR_decode : STD_LOGIC_VECTOR(31 downto 0);
+	signal IR, IR_decode, IR_execute : STD_LOGIC_VECTOR(31 downto 0);
 
     signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
 
@@ -483,7 +486,7 @@ begin
 
         reg_cmp3_mem_o => reg_cmp3_mem,
         reg_cmp3_wb_o => reg_cmp3_wb,
-
+        IR_o => IR_execute,
 		reg_dst_o => reg_dst_execute,
 		csr_operator_o => csr_operator,
 		csr_read_addr_o => csr_read_addr,
@@ -509,7 +512,7 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		pipeline_stall_i => pipeline_stall,
-
+        IR_i => IR_execute,
 		pc_i => pc_execute,
 		pc_src_i => pc_src,
 		imm_src_i => imm_src,
@@ -605,11 +608,11 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		exception_i => exception,
-		mem_write_i => mem_req.write,
 		MAR_i => mem_req.MAR(ADDRESS_WIDTH-1 downto 0),
 		MDR_i => mem_req.MDR,
 		memory_operation_i => mem_req.MEMOp,
 	    unaligned_access_o => unaligned_access,
+		miss_i => miss_data,
 		cache_req_o => cache_req,
 		data_i => data,
 		data_o => mem_data
@@ -799,7 +802,7 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
- --   test_number_o <= registers(10);
-  --  system_time_o <= system_time;
+--    test_number_o <= registers(10);
+ --   system_time_o <= system_time;
     
 end behavioral;

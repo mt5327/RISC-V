@@ -24,7 +24,8 @@ architecture behavioral of uart_receiver is
 	signal rx_data : STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
 	signal sh_reg_enable, mem_write, parity_error, parity_bit, rx_done, stop_bit, start_bit : STD_LOGIC := '0';
 
-	signal uart_clk, uart_clk_enable, uart_rx_start, rx, rx_reg, cpu_enable : STD_LOGIC;
+	signal uart_clk, uart_clk_enable, uart_rx_start, cpu_enable : STD_LOGIC := '0';
+    signal rx, rx_reg : STD_LOGIC := '1';
 
 	type state_type is (READY, START, DATA, PARITY, STOP);
 	signal state, next_state : state_type;
@@ -170,7 +171,7 @@ begin
             if rst_i = '1' or state = READY then
                 rx_bit_counter <= "000";
             else 
-                if uart_clk_enable = '1' and uart_clk = '1' and sh_reg_enable = '1' then
+                if uart_clk = '1' and sh_reg_enable = '1' then
                     if rx_bit_counter = "111" then
                         rx_bit_counter <= (others => '0');
                     else
@@ -184,8 +185,13 @@ begin
 	UART_RX_CDC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			rx_reg <= rx_i;
-			rx <= rx_reg;
+		  if rst_i = '1' then
+		      rx_reg <= '1';
+		      rx <= '1';
+		  else
+    	      rx_reg <= rx_i;
+	   		  rx <= rx_reg;
+	       end if;
 		end if;  
 	end process;
 	
@@ -193,7 +199,7 @@ begin
 	PARITY_CHECK : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or cpu_enable = '1' then
+			if rst_i = '1' then
 				parity_error <= '0';
 			else
 				if uart_clk = '1' and parity_bit = '1' then

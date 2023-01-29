@@ -218,7 +218,7 @@ begin
 	begin
 		case fp_op_i is 
 --	    	when FPU_ADD | FPU_SUB | FPU_MUL | FPU_FMADD | FPU_FMSUB | FPU_FNMADD | FPU_FNMSUB => result_o <= result_fma;
---	--		when FPU_DIV | FPU_SQRT => result_o <= result_div;
+--  		when FPU_DIV | FPU_SQRT => result_o <= result_div;
 --		    when FPU_CVT_FI => result_o <= result_cvt_fi;
 --		    when FPU_CVT_IF => result_o <= result_cvt_if;
 --			when FPU_CVT_FF => result_o <= result_cvt_ff;
@@ -226,8 +226,8 @@ begin
 --	        when FPU_CMP => result_o <= ((63 downto 1 => '0') & result_cmp, fflags_cmp, '1');
 --			when FPU_SGNJ => result_o <= (result_sgnj, "00000", '1');
 --	        when FPU_CLASS => result_o <= ((63 downto 10 => '0') & result_class, "00000", '1');
---	        when FPU_MV_FX => result_o <= (x, "00000", '1'); 
---			when FPU_MV_XF => result_o <= (x_int, "00000", '1');
+	        when FPU_MV_FX => result_o <= (x, "00000", '1'); 
+			when FPU_MV_XF => result_o <= (x_int, "00000", '1');
 		    when others => result_o <= ((others => '-'), (others => '-'), '0');
 		end case; 
 	end process;

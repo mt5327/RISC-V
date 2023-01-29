@@ -10,12 +10,12 @@ entity load_store_unit is
 		clk_i : in STD_LOGIC;
 		rst_i : in STD_LOGIC;
 		exception_i : in STD_LOGIC;
-		mem_write_i : in STD_LOGIC;
 	    MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
 		MDR_i : in STD_LOGIC_VECTOR (63 downto 0);
 	    memory_operation_i : in MEM_OP;	
 		cache_req_o : out CACHE_REQUEST (MAR(ADDRESS_WIDTH - 4 downto 0));
 		unaligned_access_o : out STD_LOGIC;
+		miss_i : in STD_LOGIC;
 		data_i : in STD_LOGIC_VECTOR (63 downto 0);
 		data_o : out STD_LOGIC_VECTOR (63 downto 0));
 end load_store_unit;
@@ -29,7 +29,7 @@ architecture behavioral of load_store_unit is
 	signal h : STD_LOGIC_VECTOR (15 downto 0);
 	signal w : STD_LOGIC_VECTOR (31 downto 0);
 	signal lb, lh, lw, d, MDR : STD_LOGIC_VECTOR (63 downto 0);
-	signal unaligned_address, unaligned_address_reg : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 4 downto 0);
+	signal addr, unaligned_address, unaligned_address_reg : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 4 downto 0);
     signal int_column : integer range 0 to 7;
         
     alias column : STD_LOGIC_VECTOR (2 downto 0) is MAR_i(2 downto 0);
@@ -126,7 +126,7 @@ begin
 	DATA_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if unaligned = '1' then
+			if unaligned = '1' and unaligned_access = '0' then
 				reg_data <= data_i;
 			end if;
 		end if;
@@ -137,11 +137,14 @@ begin
         if rising_edge(clk_i) then
             if rst_i = '1' or exception_i = '1' then
                 unaligned_access <= '0';
+                unaligned_address_reg <= (others => '0');
+
             else      
                 if unaligned = '1' and unaligned_access = '0' then
                     unaligned_access <= '1';
                     unaligned_address_reg <= unaligned_address;
                 else 
+                    unaligned_address_reg <= (others => '0');
                     unaligned_access <= '0';
                 end if;
             end if;
@@ -214,7 +217,8 @@ begin
 
 	data_o <= data_mem;
 	
-	cache_req_o.MAR <= MAR_i(ADDRESS_WIDTH-1 downto 3) when unaligned_access = '0' else unaligned_address_reg;
+	addr <= MAR_i(ADDRESS_WIDTH-1 downto 3) when unaligned_access = '0' else unaligned_address_reg;
+	cache_req_o.MAR <= addr;
 
 	cache_req_o.MDR <= MDR;
 	cache_req_o.we <= we;
