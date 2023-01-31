@@ -93,6 +93,8 @@ begin
 			end if;
 		end if;
 	end process;
+	
+	assert pc /= X"0000000000000084" report "M";
 
 	with IR_i(6 downto 0) select
 	   predict_taken <= '1' when JAL,

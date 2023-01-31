@@ -26,11 +26,11 @@ entity RISCV is
         cpu_enable_i : in STD_LOGIC;
         -- Seven-segment display       
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
         
 	-- !!! SIMULATION ONLY !!! 
- 	  --  test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
-       -- system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
+ 	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
+        system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
 end RISCV;
 
 architecture behavioral of RISCV is
@@ -679,7 +679,7 @@ begin
         reg_cmp2_mem_i => reg_cmp2_mem,
         reg_cmp2_wb_i => reg_cmp2_wb,
 
-        reg_cmp3_mem_i => reg_cmp1_mem,
+        reg_cmp3_mem_i => reg_cmp3_mem,
         reg_cmp3_wb_i => reg_cmp3_wb,
 
         csr_cmp_mem_i => csr_cmp_mem,
@@ -877,7 +877,7 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
---    test_number_o <= registers(10);
- --   system_time_o <= system_time;
+    test_number_o <= registers(10);
+    system_time_o <= system_time;
     
 end behavioral;

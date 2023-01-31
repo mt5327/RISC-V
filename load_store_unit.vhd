@@ -126,7 +126,7 @@ begin
 	DATA_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if unaligned = '1' and miss_i = '0' and unaligned_access = '0' then
+			if unaligned_access = '0' and miss_i = '0' then
 				reg_data <= data_i;
 			end if;
 		end if;
