@@ -7,7 +7,7 @@ use work.constants.all;
 entity RISCV is
 	generic (
 		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\coremark\\main.hex";
-		ADDRESS_WIDTH : NATURAL := 18;
+		ADDRESS_WIDTH : NATURAL := 16;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 2;
 		BHT_INDEX_WIDTH : NATURAL := 2);
@@ -237,6 +237,40 @@ architecture behavioral of RISCV is
 			system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component csr_regfile;
 
+    component forwarding_unit is
+        port ( 
+            reg_cmp1_mem_i : in STD_LOGIC;
+            reg_cmp1_wb_i : in STD_LOGIC;
+            
+            reg_cmp2_mem_i : in STD_LOGIC;
+            reg_cmp2_wb_i : in STD_LOGIC;
+    
+            reg_cmp3_mem_i : in STD_LOGIC;
+            reg_cmp3_wb_i : in STD_LOGIC;
+    
+            csr_cmp_mem_i : in STD_LOGIC;
+            csr_cmp_wb_i : in STD_LOGIC;
+    
+            reg_write_mem_i : in STD_LOGIC;
+            reg_write_wb_i : in STD_LOGIC;
+            
+            reg_fp_write_mem_i : in STD_LOGIC;
+            reg_fp_write_wb_i : in STD_LOGIC;
+            
+            csr_write_i : in STD_LOGIC;
+            csr_write_mem_i : in STD_LOGIC;
+            csr_write_wb_i : in STD_LOGIC; 
+                    
+            x_mux_sel_o : out STD_LOGIC_VECTOR (1 downto 0);
+            y_mux_sel_o : out STD_LOGIC_VECTOR (1 downto 0);
+         
+            x_fp_mux_sel_o : out STD_LOGIC_VECTOR (1 downto 0);
+            y_fp_mux_sel_o : out STD_LOGIC_VECTOR (1 downto 0);
+            z_fp_mux_sel_o : out STD_LOGIC_VECTOR (1 downto 0);
+            
+            csr_mux_sel_o : out STD_LOGIC_VECTOR (2 downto 0));
+    end component forwarding_unit;
+
 	component load_store_unit is
 		generic (ADDRESS_WIDTH : NATURAL := 14);
 		port (
@@ -254,7 +288,7 @@ architecture behavioral of RISCV is
 	end component load_store_unit;
 
 	component RAM is
-		generic (
+		generic ( 
 			RAM_FILENAME : STRING := "C:\\cygwin64\\riscv\\hex\\fact.hex";
 			BLOCK_ADDRESS_WIDTH : NATURAL;
 			BLOCK_SIZE : NATURAL);
@@ -270,7 +304,7 @@ architecture behavioral of RISCV is
 			write_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
  
 			cache_line_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
-			DOUT_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
+			data_imem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
 	end component;
 
 	component instruction_cache is
@@ -287,7 +321,46 @@ architecture behavioral of RISCV is
 			IR_o : out STD_LOGIC_VECTOR (31 downto 0);
 			miss_o : out STD_LOGIC);
 	end component instruction_cache;
+    
+    component instruction_memory is
+	   generic (
+	       RAM_FILENAME : STRING := "C:\\DigitalDesign\\hex\\fmin.hex";
+	       BLOCK_ADDRESS_WIDTH : NATURAL;
+	       BLOCK_SIZE : NATURAL);
+	   port (
+           clk_i : in STD_LOGIC;
+		   rst_i : in STD_LOGIC;
 
+           exception_i : in STD_LOGIC;
+           mem_init_i : in STD_LOGIC;
+    
+           UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
+           read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
+    
+           data_imem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
+    end component instruction_memory;
+
+    component data_memory is
+	   generic (
+	       RAM_FILENAME : STRING := "C:\\DigitalDesign\\hex\\lb.hex";
+	       BLOCK_ADDRESS_WIDTH : NATURAL;
+	       BLOCK_SIZE : NATURAL);
+	   port (
+           clk_i : in STD_LOGIC;
+		   rst_i : in STD_LOGIC;
+
+           exception_i : in STD_LOGIC;
+           mem_init_i : in STD_LOGIC;
+           mem_write_i : in STD_LOGIC;
+    
+           UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
+           read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
+           write_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
+
+           cache_line_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
+           data_dmem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
+    end component data_memory;
+    
 	component data_cache is
 		generic (
 			ADDRESS_WIDTH : NATURAL := 14;
@@ -297,7 +370,6 @@ architecture behavioral of RISCV is
 			clk_i : in STD_LOGIC;
 			rst_i : in STD_LOGIC;
 			enable_mem_i : in STD_LOGIC;
-			memory_busy_i : in STD_LOGIC;
 			cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 3 - 1 downto 0));
 			mem_write_i : in STD_LOGIC;
 			mem_write_o : out STD_LOGIC;
@@ -351,8 +423,7 @@ architecture behavioral of RISCV is
 
 	signal mem_init, mem_write_ram : STD_LOGIC;
     signal mem_read, mem_write : STD_LOGIC_VECTOR (1 downto 0);
-	signal x_fwd, y_fwd, result_fwd, x, y, reg_src1_data, reg_src2_data : STD_LOGIC_VECTOR (63 downto 0);
-	signal x_fwd_fp, y_fwd_fp, z_fwd_fp : STD_LOGIC_VECTOR (63 downto 0);
+	signal x, y : STD_LOGIC_VECTOR (63 downto 0);
 	signal UART_data : STD_LOGIC_VECTOR (3 downto 0);
 
 	signal alu_operator : ALU_OP;
@@ -396,26 +467,24 @@ architecture behavioral of RISCV is
 
     signal funct3 : STD_LOGIC_VECTOR (2 downto 0);
 
-	signal cache_line, DOUT : STD_LOGIC_VECTOR(BLOCK_SIZE - 1 downto 0);
+	signal cache_line, data_imem, data_dmem : STD_LOGIC_VECTOR(BLOCK_SIZE - 1 downto 0);
 	signal instr_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 3 downto 0);
-	signal read_address, read_address_instr, read_address_data, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
+	signal read_address_imem, read_address_dmem, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
 	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
 	signal csr_mux_sel : STD_LOGIC_VECTOR (2 downto 0);
-	signal CSR_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
+	signal csr_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
 	signal cathode : STD_LOGIC_VECTOR (6 downto 0) := (others => '0');
 	signal exception_num : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
 	signal anode : STD_LOGIC := '1';
 
-	signal x_fwd_mem, x_fwd_wb, y_fwd_mem, y_fwd_wb, x_fp_fwd_mem, x_fp_fwd_wb, y_fp_fwd_mem, y_fp_fwd_wb, z_fp_fwd_mem, z_fp_fwd_wb, csr_fwd_mem, csr_fwd_wb : STD_LOGIC;
-
     signal reg_cmp1_mem, reg_cmp1_wb, reg_cmp2_mem, reg_cmp2_wb, reg_cmp3_mem, reg_cmp3_wb, csr_cmp_mem, csr_cmp_wb : STD_LOGIC;
 
 begin
-
+    
 	IF_Stage : fetch
 	generic map(
 		ADDRESS_WIDTH => ADDRESS_WIDTH,
@@ -601,7 +670,41 @@ begin
 		exception_num_o => exception_num,
 		system_time_o => system_time
 	);
+	
+	FU : forwarding_unit
+    port map (
+        reg_cmp1_mem_i => reg_cmp1_mem,
+        reg_cmp1_wb_i => reg_cmp1_wb,
+        
+        reg_cmp2_mem_i => reg_cmp2_mem,
+        reg_cmp2_wb_i => reg_cmp2_wb,
 
+        reg_cmp3_mem_i => reg_cmp1_mem,
+        reg_cmp3_wb_i => reg_cmp3_wb,
+
+        csr_cmp_mem_i => csr_cmp_mem,
+        csr_cmp_wb_i => csr_cmp_wb,
+
+        reg_write_mem_i => reg_dst_memory.write,
+        reg_write_wb_i => reg_dst.write,
+        
+        reg_fp_write_mem_i => reg_write_fp,
+        reg_fp_write_wb_i => reg_dst_fp.write,
+        
+        csr_write_i => result_select(3),
+        csr_write_mem_i => csr_write_memory.write,
+        csr_write_wb_i => csr_write.write,
+                
+        x_mux_sel_o => x_mux_sel,
+        y_mux_sel_o => y_mux_sel,
+     
+        x_fp_mux_sel_o => x_fp_mux_sel,
+        y_fp_mux_sel_o => y_fp_mux_sel,
+        z_fp_mux_sel_o => z_fp_mux_sel,
+        
+        csr_mux_sel_o => csr_mux_sel  
+    );    
+    
 	LSU : load_store_unit
 	generic map(ADDRESS_WIDTH => ADDRESS_WIDTH)
 	port map(
@@ -618,11 +721,31 @@ begin
 		data_o => mem_data
 	);
 
-	C_RAM : RAM
+    IMEM: instruction_memory 
 	generic map(
+		RAM_FILENAME => RAM_FILENAME,
 		BLOCK_SIZE => BLOCK_SIZE,
-		BLOCK_ADDRESS_WIDTH => ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8),
-		RAM_FILENAME => RAM_FILENAME)
+		BLOCK_ADDRESS_WIDTH => ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8)
+    )
+	port map(
+		clk_i => clk_i,
+		rst_i => rst_i,
+
+		mem_init_i => mem_init,
+		exception_i => exception,
+
+		UART_data_i => UART_data,
+		data_imem_o => data_imem,
+
+		read_address_i => read_address_imem
+    );
+    
+    DMEM: data_memory 
+	generic map(
+	    RAM_FILENAME => RAM_FILENAME,
+		BLOCK_SIZE => BLOCK_SIZE,
+		BLOCK_ADDRESS_WIDTH => ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8)
+    )
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
@@ -630,14 +753,14 @@ begin
 		mem_init_i => mem_init,
 		mem_write_i => mem_write_ram,
 		exception_i => exception,
-
+        
 		UART_data_i => UART_data,
-		DOUT_o => DOUT,
+		data_dmem_o => data_dmem,
 
-		read_address_i => read_address,
+		read_address_i => read_address_dmem,
 		write_address_i => write_address,
 		cache_line_i => cache_line
-	);
+    );
 
 	ICACHE : instruction_cache
 	generic map(
@@ -649,8 +772,8 @@ begin
 		rst_i => rst_i,
 
 		instr_address_i => instr_address,
-		data_i => DOUT,
-		read_address_o => read_address_instr,
+		data_i => data_imem,
+		read_address_o => read_address_imem,
 		IR_o => IR,
 		miss_o => miss_instr
 	);
@@ -665,12 +788,11 @@ begin
 		rst_i => rst_i,
 		enable_mem_i => mem_req.read or mem_req.write,
 		cache_req_i => cache_req,
-		memory_busy_i => miss_instr,
 		mem_write_i => mem_req.write,
 		mem_write_o => mem_write_ram,
-		data_i => DOUT,
+		data_i => data_dmem,
 		data_o => data,
-		read_address_o => read_address_data,
+		read_address_o => read_address_dmem,
 		write_address_o => write_address,
 		miss_o => miss_data,
 		cache_line_o => cache_line
@@ -738,62 +860,15 @@ begin
 	              "0110000" when "0011",
 	              "0000000" when "1000",
 	              "1111111" when others;
-	
-    read_address <= read_address_instr when miss_instr = '1' else
-                    read_address_data;
-	
+		
 	-- HAZARD AND STALL CHECK  
  
 	pipeline_stall <= multicycle_op or miss_data or miss_instr or exception or unaligned_access or uart_tx_busy;
 	
 	pipeline_stall_if <= pipeline_stall or load_hazard;
-
-	x_fwd_mem <= reg_cmp1_mem and reg_dst_memory.write; 
-	x_fwd_wb <= reg_cmp1_wb and reg_dst.write;
-
-    y_fwd_mem <= reg_cmp2_mem and reg_dst_memory.write;
-	y_fwd_wb <= reg_cmp2_wb and reg_dst.write;
-
-    x_mux_sel <= "01" when x_fwd_mem = '1' else                                                                                                                                                                                                                                                                                                                                                                                                                                                         
-                 "10" when x_fwd_wb = '1' else 
-                 "11";
-                 
-    y_mux_sel <= "01" when y_fwd_mem = '1' else 
-                 "10" when y_fwd_wb = '1' else 
-                 "11";
-
- 	-- FORWARDING LOGIC FLOATING POINT
-	x_fp_fwd_mem <= reg_cmp1_mem and reg_write_fp;
-	x_fp_fwd_wb <= reg_cmp1_wb and reg_dst_fp.write;
-
-    y_fp_fwd_mem <= reg_cmp2_mem and reg_write_fp;
-	y_fp_fwd_wb <= reg_cmp2_wb and reg_dst_fp.write;
-    
-    z_fp_fwd_mem <= reg_cmp3_mem and reg_write_fp;
-	z_fp_fwd_wb <= reg_cmp3_wb and reg_dst_fp.write;
-
-    x_fp_mux_sel <= "01" when x_fp_fwd_mem = '1' else 
-                    "10" when x_fp_fwd_wb = '1' else 
-                    "11";
-                 
-    y_fp_mux_sel <= "01" when y_fp_fwd_mem = '1' else 
-                    "10" when y_fp_fwd_wb = '1' else 
-                    "11"; 
-    
-    z_fp_mux_sel <= "01" when z_fp_fwd_mem = '1' else
-                    "10" when z_fp_fwd_wb = '1' else
-                    "11";
-                                          
-    -- FORWARDING LOGIC CSR
-    csr_fwd_mem <= csr_write_memory.write and csr_cmp_mem;
-    csr_fwd_wb <= csr_write.write and csr_cmp_wb;
-    
+          
     csr_data <= csr_write.data when csr_write.write_addr = csr_read_addr and csr_write.write = '1' else csr_read_data;
-    
-    csr_mux_sel <= "001" when csr_fwd_mem = '1' else
-                   "010" when csr_fwd_wb = '1' else
-                   "100" when result_select(3) = '1' else "000";
-                   
+                        
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable or cpu_enable_i;
 	LED_o(3) <= exception;

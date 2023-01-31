@@ -126,7 +126,7 @@ begin
 	DATA_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if unaligned = '1' and unaligned_access = '0' then
+			if unaligned = '1' and miss_i = '0' and unaligned_access = '0' then
 				reg_data <= data_i;
 			end if;
 		end if;
@@ -137,18 +137,19 @@ begin
         if rising_edge(clk_i) then
             if rst_i = '1' or exception_i = '1' then
                 unaligned_access <= '0';
-                unaligned_address_reg <= (others => '0');
-
-            else      
-                if unaligned = '1' and unaligned_access = '0' then
-                    unaligned_access <= '1';
-                    unaligned_address_reg <= unaligned_address;
-                else 
-                    unaligned_address_reg <= (others => '0');
-                    unaligned_access <= '0';
+                unaligned_address_reg <= (others => '0'); 
+            else
+                if miss_i = '0' then      
+                    if unaligned = '1' and unaligned_access = '0' then
+                        unaligned_access <= '1';
+                        unaligned_address_reg <= unaligned_address;
+                    else 
+                        unaligned_address_reg <= (others => '0');
+                        unaligned_access <= '0';
+                    end if;
                 end if;
             end if;
-        end if; 
+        end if;  
     end process;
 
     with column select

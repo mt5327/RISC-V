@@ -324,10 +324,16 @@ begin
     
     memory_address <= STD_LOGIC_VECTOR(unsigned(x_sel) + unsigned(imm_i));  
     
-    mem_write <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(0); 
-    mem_write_fp <= (nor memory_address(63 downto ADDRESS_WIDTH ) ) and mem_write_i(1);
+    mem_write <= mem_write_i(0) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
+    mem_write_fp <= mem_write_i(1) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
     
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
+    process (uart_tx_enable) 
+    begin
+        if uart_tx_enable = '1' then
+            report "UART start";
+        end if;
+    end process;
  
     reg_write <= reg_write_i; 	
 	reg_write_fp <= fp_regs_idex_i.write;
