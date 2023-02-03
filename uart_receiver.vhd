@@ -5,27 +5,38 @@ use IEEE.NUMERIC_STD.ALL;
 use work.constants.ALL;
 
 entity uart_receiver is
+    Generic ( BLOCK_SIZE : NATURAL; 
+              BLOCK_ADDRESS_WIDTH : NATURAL);
     Port ( clk_i : in STD_LOGIC;
            rst_i : in STD_LOGIC;
+           exception_i : in STD_LOGIC;
            rx_i : in STD_LOGIC;
            
            cpu_enable_o : out STD_LOGIC;
-           mem_write_o : out STD_LOGIC;
-           rx_error_o : out STD_LOGIC;
-           DIN_o : out STD_LOGIC_VECTOR (3 downto 0));
+           mem_init_imem_o : out STD_LOGIC;
+           mem_init_dmem_o : out STD_LOGIC;
+           uart_data_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
+           write_address_uart_o : out STD_LOGIC_VECTOR (BLOCK_ADDRESS_WIDTH-1 downto 0);
+           rx_error_o : out STD_LOGIC);
 end uart_receiver;
 
 architecture behavioral of uart_receiver is
 
 	signal counter : unsigned (9 downto 0) := (others => '0');
 
+	signal uart_reg : STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
+
+	subtype octet_t is NATURAL range 31 downto 0;
+
+	signal octet : octet_t := 31;
     signal rx_bit_counter : unsigned (2 downto 0) := "000";
 
 	signal rx_data : STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
-	signal sh_reg_enable, mem_write, parity_error, parity_bit, rx_done, stop_bit, start_bit : STD_LOGIC := '0';
+	signal sh_reg_enable, reg_write, mem_write, mem_write_reg, parity_error, parity_bit, rx_done, stop_bit, start_bit : STD_LOGIC := '0';
 
-	signal uart_clk, uart_clk_enable, uart_rx_start, cpu_enable : STD_LOGIC := '0';
+	signal uart_clk, uart_clk_enable, uart_rx_start : STD_LOGIC := '0';
     signal rx, rx_reg : STD_LOGIC := '1';
+	signal uart_address : unsigned(BLOCK_ADDRESS_WIDTH downto 0) := (others => '0');
 
 	type state_type is (READY, START, DATA, PARITY, STOP);
 	signal state, next_state : state_type;
@@ -75,12 +86,8 @@ begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				state <= READY;
-				cpu_enable_o <= '0';
-				mem_write_o <= '0';
 			else
 				state <= next_state;
-				cpu_enable_o <= cpu_enable;
-				mem_write_o <= rx_done and mem_write;
 			end if;
 		end if;
 	end process;
@@ -208,14 +215,42 @@ begin
 			end if;
 		end if;
 	end process;
+	
+	UART_REGISTER : process (clk_i)
+	begin
+		if rising_edge(clk_i) then
+			if rst_i = '1' or exception_i = '1' then
+				uart_address <= (others => '0');
+				octet <= 31;
+				mem_write <= '0';
+			else
+				if reg_write = '1' then
+					uart_reg(octet * 4 + 3 downto octet * 4) <= to_hex(rx_data);
+					if octet = 0 then
+						octet <= 31;
+					    mem_write <= '1';
+					else
+						octet <= octet - 1;
+					end if;
+				elsif mem_write = '1' then
+					uart_address <= uart_address + 1;
+					mem_write <= '0';
+				end if;
+			end if;
+		end if;
+	end process;
 
 	uart_clk <= '1' when counter = MAX_VALUE - 1 else '0';
 	uart_rx_start <= '1' when counter = HALF_MAX_VALUE - 1 and start_bit = '1' else '0';
 	rx_done <= uart_clk and stop_bit;
-	mem_write <= '1' when unsigned(rx_data) >= 48 else '0';
-	cpu_enable <= '1' when rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0' else '0';
+
+	reg_write <= '1' when unsigned(rx_data) >= 48 and rx_done = '1' else '0';
+	cpu_enable_o <= '1' when rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0' else '0';
 
 	rx_error_o <= parity_error;
-	DIN_o <= to_hex(rx_data);
-
+    mem_init_imem_o <= mem_write and not uart_address(BLOCK_ADDRESS_WIDTH);
+    mem_init_dmem_o <= mem_write and uart_address(BLOCK_ADDRESS_WIDTH);
+    write_address_uart_o <= STD_LOGIC_VECTOR(uart_address(BLOCK_ADDRESS_WIDTH-1 downto 0));
+    uart_data_o <= uart_reg;
+	
 end behavioral;

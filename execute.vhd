@@ -33,9 +33,7 @@ entity execute is
 		branch_predict_i : in BRANCH_PREDICTION;
 		branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
         branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-        
-        IR_i : in STD_LOGIC_VECTOR (31 downto 0);
-        
+                
 		reg_write_i : in STD_LOGIC;
 
 		reg_dst_i : in STD_LOGIC_VECTOR (4 downto 0);
@@ -328,13 +326,7 @@ begin
     mem_write_fp <= mem_write_i(1) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
     
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
-    process (uart_tx_enable) 
-    begin
-        if uart_tx_enable = '1' then
-            report "UART start";
-        end if;
-    end process;
- 
+    
     reg_write <= reg_write_i; 	
 	reg_write_fp <= fp_regs_idex_i.write;
  

@@ -145,7 +145,7 @@ begin
 	read_address_o <= memory_address;
 	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH  - 1 downto OFFSET_WIDTH);
 	cache_line_o <= cache(to_integer(unsigned(block_address)));
-
+    
 	DOUBLE_WORD_SELECT : for i in 0 to BLOCK_SIZE/64-1 generate
 		data_o <= cache(to_integer(unsigned(block_address)))(i * 64 + 63 downto i * 64) when unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 0)) = i else (others => 'Z');
 	end generate;

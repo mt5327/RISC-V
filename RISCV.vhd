@@ -26,11 +26,11 @@ entity RISCV is
         cpu_enable_i : in STD_LOGIC;
         -- Seven-segment display       
 		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0);
+		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
         
 	-- !!! SIMULATION ONLY !!! 
- 	    test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
-        system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
+ 	 --   test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
+     --   system_time_o : out STD_LOGIC_VECTOR (63 downto 0));
 end RISCV;
 
 architecture behavioral of RISCV is
@@ -103,9 +103,7 @@ architecture behavioral of RISCV is
             
             x_o : out STD_LOGIC_VECTOR (63 downto 0);
             y_o : out STD_LOGIC_VECTOR (63 downto 0);
-        
-            IR_o : out STD_LOGIC_VECTOR (31 downto 0);
-            
+                    
             csr_write_o : out STD_LOGIC;
             csr_write_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
             csr_exception_id_o : out STD_LOGIC_VECTOR (3 downto 0);
@@ -155,7 +153,6 @@ architecture behavioral of RISCV is
             
             imm_i : in STD_LOGIC_VECTOR (63 downto 0);
             pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-            IR_i : in STD_LOGIC_VECTOR (31 downto 0);
 
             branch_predict_i : in BRANCH_PREDICTION;
             branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
@@ -287,26 +284,6 @@ architecture behavioral of RISCV is
             data_o : out STD_LOGIC_VECTOR (63 downto 0));
 	end component load_store_unit;
 
-	component RAM is
-		generic ( 
-			RAM_FILENAME : STRING := "C:\\cygwin64\\riscv\\hex\\fact.hex";
-			BLOCK_ADDRESS_WIDTH : NATURAL;
-			BLOCK_SIZE : NATURAL);
-		port (
-			clk_i : in STD_LOGIC;
-			rst_i : in STD_LOGIC;
-
-			exception_i : in STD_LOGIC;
-			mem_init_i : in STD_LOGIC;
-			mem_write_i : in STD_LOGIC;
-			UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
-			read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
-			write_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
- 
-			cache_line_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
-			data_imem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
-	end component;
-
 	component instruction_cache is
 		generic (
 			ADDRESS_WIDTH : NATURAL := 19;
@@ -329,14 +306,13 @@ architecture behavioral of RISCV is
 	       BLOCK_SIZE : NATURAL);
 	   port (
            clk_i : in STD_LOGIC;
-		   rst_i : in STD_LOGIC;
 
            exception_i : in STD_LOGIC;
            mem_init_i : in STD_LOGIC;
     
-           UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
+           uart_data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
            read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
-    
+           write_address_i : in STD_LOGIC_VECTOR (BLOCK_ADDRESS_WIDTH - 1 downto 0);
            data_imem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
     end component instruction_memory;
 
@@ -353,10 +329,10 @@ architecture behavioral of RISCV is
            mem_init_i : in STD_LOGIC;
            mem_write_i : in STD_LOGIC;
     
-           UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
+           uart_data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
            read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
            write_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
-
+           write_address_uart_i : in STD_LOGIC_VECTOR (BLOCK_ADDRESS_WIDTH-1 downto 0);
            cache_line_i : in STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
            data_dmem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
     end component data_memory;
@@ -382,19 +358,25 @@ architecture behavioral of RISCV is
 	end component data_cache;
 
     component uart_receiver is
+        Generic ( BLOCK_SIZE : NATURAL; 
+                  BLOCK_ADDRESS_WIDTH : NATURAL);
         Port ( clk_i : in STD_LOGIC;
                rst_i : in STD_LOGIC;
+               exception_i : in STD_LOGIC;
                rx_i : in STD_LOGIC;
                
                cpu_enable_o : out STD_LOGIC;
-               mem_write_o : out STD_LOGIC;
-               rx_error_o : out STD_LOGIC;
-               DIN_o : out STD_LOGIC_VECTOR (3 downto 0));
+               mem_init_imem_o : out STD_LOGIC;
+               mem_init_dmem_o : out STD_LOGIC;
+               uart_data_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
+               write_address_uart_o : out STD_LOGIC_VECTOR (BLOCK_ADDRESS_WIDTH-1 downto 0);
+               rx_error_o : out STD_LOGIC);
     end component uart_receiver;
     
     component uart_transmitter is
         Port ( clk_i : in STD_LOGIC;
                rst_i : in STD_LOGIC;
+               cpu_enable_i : in STD_LOGIC;
                uart_tx_enable_i : in STD_LOGIC;
                DOUT_i : in STD_LOGIC_VECTOR (7 downto 0);
                tx_o : out STD_LOGIC;
@@ -421,10 +403,10 @@ architecture behavioral of RISCV is
 	signal load_hazard, exception, cpu_enable, uart_tx_enable, uart_tx_busy : STD_LOGIC := '0';
 	signal multicycle_op, miss_instr, miss_data : STD_LOGIC;
 
-	signal mem_init, mem_write_ram : STD_LOGIC;
+	signal mem_init_imem, mem_init_dmem, mem_write_ram : STD_LOGIC;
     signal mem_read, mem_write : STD_LOGIC_VECTOR (1 downto 0);
 	signal x, y : STD_LOGIC_VECTOR (63 downto 0);
-	signal UART_data : STD_LOGIC_VECTOR (3 downto 0);
+	signal uart_data : STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
 
 	signal alu_operator : ALU_OP;
 	signal mem_operator : MEM_OP;
@@ -432,7 +414,7 @@ architecture behavioral of RISCV is
 	signal result_fp : STD_LOGIC_VECTOR (63 downto 0);
 
 	signal pc_decode, pc_execute, mem_data : STD_LOGIC_VECTOR (63 downto 0);
-	signal IR, IR_decode, IR_execute : STD_LOGIC_VECTOR(31 downto 0);
+	signal IR, IR_decode : STD_LOGIC_VECTOR(31 downto 0);
 
     signal csr_operator : STD_LOGIC_VECTOR (1 downto 0);
 
@@ -469,7 +451,7 @@ architecture behavioral of RISCV is
 
 	signal cache_line, data_imem, data_dmem : STD_LOGIC_VECTOR(BLOCK_SIZE - 1 downto 0);
 	signal instr_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - 3 downto 0);
-	signal read_address_imem, read_address_dmem, write_address : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
+	signal read_address_imem, read_address_dmem, write_address_uart, write_address_dmem : STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
 	signal branch_predict_id, branch_predict : BRANCH_PREDICTION;
 
 	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
@@ -555,7 +537,6 @@ begin
 
         reg_cmp3_mem_o => reg_cmp3_mem,
         reg_cmp3_wb_o => reg_cmp3_wb,
-        IR_o => IR_execute,
 		reg_dst_o => reg_dst_execute,
 		csr_operator_o => csr_operator,
 		csr_read_addr_o => csr_read_addr,
@@ -581,7 +562,6 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		pipeline_stall_i => pipeline_stall,
-        IR_i => IR_execute,
 		pc_i => pc_execute,
 		pc_src_i => pc_src,
 		imm_src_i => imm_src,
@@ -729,15 +709,15 @@ begin
     )
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
 
-		mem_init_i => mem_init,
+		mem_init_i => mem_init_imem,
 		exception_i => exception,
 
-		UART_data_i => UART_data,
+		uart_data_i => uart_data,
 		data_imem_o => data_imem,
-
-		read_address_i => read_address_imem
+    
+		read_address_i => read_address_imem,
+		write_address_i => write_address_uart
     );
     
     DMEM: data_memory 
@@ -748,17 +728,17 @@ begin
     )
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
-
-		mem_init_i => mem_init,
+        rst_i => rst_i,
+		mem_init_i => mem_init_dmem,
 		mem_write_i => mem_write_ram,
 		exception_i => exception,
         
-		UART_data_i => UART_data,
+		uart_data_i => uart_data,
 		data_dmem_o => data_dmem,
-
+       
 		read_address_i => read_address_dmem,
-		write_address_i => write_address,
+		write_address_i => write_address_dmem,
+		write_address_uart_i => write_address_uart,
 		cache_line_i => cache_line
     );
 
@@ -793,27 +773,33 @@ begin
 		data_i => data_dmem,
 		data_o => data,
 		read_address_o => read_address_dmem,
-		write_address_o => write_address,
+		write_address_o => write_address_dmem,
 		miss_o => miss_data,
 		cache_line_o => cache_line
 	);
 
 	UART_RX : uart_receiver
+    generic map (
+        BLOCK_SIZE => BLOCK_SIZE,
+		BLOCK_ADDRESS_WIDTH => ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8))
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
 		rx_i => rx_i,
-
+        exception_i => exception,
 		rx_error_o => LED_o(2),
 		cpu_enable_o => cpu_enable,
-		mem_write_o => mem_init,
-		DIN_o => UART_data
+		mem_init_imem_o => mem_init_imem,
+		mem_init_dmem_o => mem_init_dmem,
+		uart_data_o => uart_data,
+		write_address_uart_o => write_address_uart
 	);
 	
 	UART_TX : uart_transmitter
     port map ( 
         clk_i => clk_i,
         rst_i => rst_i,
+        cpu_enable_i => cpu_enable or cpu_enable_i,
         uart_tx_enable_i => uart_tx_enable,
         tx_o => tx_o,
         uart_tx_busy_o => uart_tx_busy,
@@ -861,6 +847,8 @@ begin
 	              "0000000" when "1000",
 	              "1111111" when others;
 		
+		
+		
 	-- HAZARD AND STALL CHECK  
  
 	pipeline_stall <= multicycle_op or miss_data or miss_instr or exception or unaligned_access or uart_tx_busy;
@@ -877,7 +865,7 @@ begin
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
-    test_number_o <= registers(10);
-    system_time_o <= system_time;
+ --   test_number_o <= registers(10);
+ --   system_time_o <= system_time;
     
 end behavioral;

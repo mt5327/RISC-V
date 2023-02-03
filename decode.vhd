@@ -71,7 +71,6 @@ entity decode is
         
         csr_cmp_mem_o : out STD_LOGIC; 
         csr_cmp_wb_o : out STD_LOGIC;
-        IR_o : out STD_LOGIC_VECTOR (31 downto 0);
                 
         registers_o : out reg_t;
         registers_fp_o : out reg_t;
@@ -87,9 +86,7 @@ architecture behavioral of decode is
 	signal reg_dst : STD_LOGIC_VECTOR (4 downto 0);
 	signal pc_src, pc_src_reg, imm_src, imm_src_reg, ctrl_flow, ctrl_flow_reg, reg_write, reg_write_reg : STD_LOGIC := '0';
 	signal mem_read, mem_read_reg, mem_write, mem_write_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
-	
-	signal IR : STD_LOGIC_VECTOR (31 downto 0);
-	
+		
 	signal reg_write_fp : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
 	signal fp_regs_IDEX : FP_IDEX;
@@ -493,7 +490,6 @@ begin
 			    reg_cmp3_wb_reg <= '0';
 			else
 				if pipeline_stall_i = '0' then
-				    IR <= IR_i;
 				    x <= x_data;
 				    y <= y_data;
 				    funct3_reg <= fun3;
@@ -651,7 +647,6 @@ begin
 	reg_dst_o <= reg_dst;
 
 	pc_o <= pc;
-    IR_o <= IR;
 	fp_regs_IDEX_o <= fp_regs_IDEX;
 	csr_read_addr_o <= IR_i(31 downto 20);
 

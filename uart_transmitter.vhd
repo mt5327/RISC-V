@@ -7,6 +7,7 @@ use work.constants.ALL;
 entity uart_transmitter is
     Port ( clk_i : in STD_LOGIC;
            rst_i : in STD_LOGIC;
+           cpu_enable_i : in STD_LOGIC;
            uart_tx_enable_i : in STD_LOGIC;
            DOUT_i : in STD_LOGIC_VECTOR (7 downto 0);
            tx_o : out STD_LOGIC;
@@ -53,7 +54,7 @@ begin
     SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_i = '1' or cpu_enable_i = '0' then
 				state <= READY;
 			else
 				state <= next_state;
@@ -110,7 +111,7 @@ begin
 	SHIFT_REGISTER : process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i ='1' then
+            if rst_i ='1' or cpu_enable_i = '0' then
                 tx <= '1';
                 tx_data <= (others => '1');
             else
@@ -136,7 +137,7 @@ begin
 	UART_TX_COUNTER: process(clk_i)
 	begin
         if rising_edge(clk_i) then
-            if rst_i = '1' or state = READY then
+            if rst_i = '1' or state = READY or cpu_enable_i = '0' then
                 tx_bit_counter <= "000";
             else 
                 if uart_clk = '1' and uart_tx_data_bits = '1' then

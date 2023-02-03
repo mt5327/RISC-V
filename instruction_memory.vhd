@@ -10,16 +10,15 @@ entity instruction_memory is
 		BLOCK_ADDRESS_WIDTH : NATURAL;
 		BLOCK_SIZE : NATURAL);
 	port (
-		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+        clk_i : in STD_LOGIC;
 
-		exception_i : in STD_LOGIC;
-		mem_init_i : in STD_LOGIC;
+        exception_i : in STD_LOGIC;
+        mem_init_i : in STD_LOGIC;
 
-		UART_data_i : in STD_LOGIC_VECTOR (3 downto 0);
-		read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
-
-		data_imem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
+        uart_data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
+        read_address_i : in STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0);
+        write_address_i : in STD_LOGIC_VECTOR (BLOCK_ADDRESS_WIDTH - 1 downto 0);
+        data_imem_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0));
 end instruction_memory;
 
 architecture behavioral of instruction_memory is
@@ -49,6 +48,15 @@ architecture behavioral of instruction_memory is
     signal data_imem : STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
 
 begin
+
+	WRITE_ACCESS : process (clk_i)
+	begin
+		if rising_edge(clk_i) then
+		   if mem_init_i = '1' then
+	           ram(to_integer(unsigned(write_address_i))) <= uart_data_i;
+	       end if;
+		end if;
+	end process;
 
 	READ_ACCESS : process (clk_i)
 	begin
