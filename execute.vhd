@@ -30,6 +30,8 @@ entity execute is
 		imm_i : in STD_LOGIC_VECTOR (63 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
 
+        instr_valid_i : in STD_LOGIC;
+
 		branch_predict_i : in BRANCH_PREDICTION;
 		branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
         branch_next_pc_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -151,8 +153,10 @@ architecture behavioral of execute is
 	signal mem_read, mem_read_fp, mem_write, mem_write_fp : STD_LOGIC;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
+	signal csr : CSR := ('0', (others => '0'), '0', NO_EXCEPTION, (others => '0'), (others => '0'));
     signal memory_address : STD_LOGIC_VECTOR (63 downto 0);
+
+    signal instr_valid, instr_valid_reg : STD_LOGIC;
     
     signal uart_tx_enable, uart_tx_enable_reg : STD_LOGIC;
     
@@ -310,7 +314,7 @@ begin
 				csr.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-                    csr <= (csr_write_i, csr_write_addr_i, csr_exception_id_i, pc_i, csr_data);
+                    csr <= (csr_write_i, csr_write_addr_i, instr_valid, csr_exception_id_i, pc_i, csr_data);
 				end if;
 			end if;
 		end if;
@@ -318,7 +322,7 @@ begin
 
 	enable_mul <= result_select_i(0) and (not mul_valid);
 	enable_div <= result_select_i (1) and (not div_valid);
-	enable_fp <= '0'; -- result_select_i(2) and (not result_fp.valid);
+	enable_fp <= result_select_i(2) and (not result_fp.valid);
     
     memory_address <= STD_LOGIC_VECTOR(unsigned(x_sel) + unsigned(imm_i));  
     
@@ -326,6 +330,14 @@ begin
     mem_write_fp <= mem_write_i(1) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
     
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
+
+    process (pc_i)
+    begin
+        if pc_i = X"0000000000002fb0" then
+            report "M";
+        end if; 
+    end process;
+    
     
     reg_write <= reg_write_i; 	
 	reg_write_fp <= fp_regs_idex_i.write;
@@ -375,5 +387,6 @@ begin
 	branch_info_o <= branch_inf;
 	
 	uart_tx_enable_o <= uart_tx_enable_reg;
-	
+	instr_valid <= instr_valid_i and ( and exception_id ); 
+
 end behavioral; 

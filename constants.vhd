@@ -1,6 +1,6 @@
 library IEEE;
-use IEEE.STD_LOGIC_1164.ALL;
-use IEEE.NUMERIC_STD.ALL;
+use IEEE.STD_LOGIC_1164.all;
+use IEEE.NUMERIC_STD.all;
 
 package constants is
 
@@ -81,6 +81,7 @@ constant FCSR : STD_LOGIC_VECTOR (11 downto 0) := X"003";
 
 constant CYCLE : STD_LOGIC_VECTOR (11 downto 0) := X"C00";
 constant TIMER : STD_LOGIC_VECTOR (11 downto 0) := X"C01";
+constant INSTRET : STD_LOGIC_VECTOR (11 downto 0) := X"C02";
 
 constant MISA : STD_LOGIC_VECTOR (11 downto 0) := X"301";
 constant MTVEC : STD_LOGIC_VECTOR (11 downto 0) := X"305";
@@ -149,6 +150,7 @@ end record;
 type CSR is record
     write : STD_LOGIC;
     write_addr : STD_LOGIC_VECTOR (11 downto 0);
+    instr_valid : STD_LOGIC;
     exception_id : STD_LOGIC_VECTOR (3 downto 0);
     epc : STD_LOGIC_VECTOR (63 downto 0);
     data : STD_LOGIC_VECTOR (63 downto 0);

@@ -18,7 +18,8 @@ entity decode is
 		frm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		funct3_o : out STD_LOGIC_VECTOR (2 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-
+        instr_valid_i : in STD_LOGIC;
+        instr_valid_o : out STD_LOGIC;
 		branch_predict_i : in BRANCH_PREDICTION;
 
 		csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -98,6 +99,8 @@ architecture behavioral of decode is
     signal enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
     signal csr_write_addr, csr_write_addr_reg : STD_LOGIC_VECTOR (11 downto 0);
 	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write, csr_write_reg : STD_LOGIC;
+
+    signal instr_valid, instr_valid_reg : STD_LOGIC;
 
     signal csr_data : STD_LOGIC_VECTOR (63 downto 0);
 
@@ -468,7 +471,9 @@ begin
 		               BREAKPOINT when IR_i = X"00100073" else
 		               ENVIROMENT_CALL_USER_MODE when IR_i = X"00000073" else
 		               NO_EXCEPTION;
-
+  
+    instr_valid <= instr_valid_i and ( and csr_exception_id ); 
+   
     process (clk_i)
  	begin
 		if rising_edge(clk_i) then
@@ -493,6 +498,7 @@ begin
 				    x <= x_data;
 				    y <= y_data;
 				    funct3_reg <= fun3;
+				    instr_valid_reg <= instr_valid;
 			        reg_cmp1_mem_reg <= reg_cmp1_mem;
 			        reg_cmp1_wb_reg <= reg_cmp1_wb;
 			        reg_cmp2_mem_reg <= reg_cmp2_mem;
@@ -554,7 +560,6 @@ begin
 				csr_exception_id_reg <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-   
                 	csr_write_reg <= csr_write;
 				    csr_operator_reg <= csr_operator;
 				    csr_exception_id_reg <= csr_exception_id;
@@ -678,5 +683,6 @@ begin
     csr_exception_id_o <= csr_exception_id_reg;
 
     result_select_o <= result_select_reg;
-
+    instr_valid_o <= instr_valid_reg;
+    
 end behavioral;

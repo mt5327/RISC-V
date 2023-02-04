@@ -49,6 +49,7 @@ architecture behavioral of RISCV is
 			IR_i : in STD_LOGIC_VECTOR(31 downto 0);
 			instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 3 downto 0);
 			pc_o : out STD_LOGIC_VECTOR(63 downto 0);
+			instr_valid_o : out STD_LOGIC;
 			IR_o : out STD_LOGIC_VECTOR(31 downto 0);
 			branch_predict_o : out BRANCH_PREDICTION);
 	end component fetch;
@@ -74,7 +75,9 @@ architecture behavioral of RISCV is
             csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
             
             pc_o : out STD_LOGIC_VECTOR (63 downto 0);
-    
+            instr_valid_i : in STD_LOGIC;
+            instr_valid_o : out STD_LOGIC;
+            
             branch_predict_o : out BRANCH_PREDICTION;
     
             mem_read_o : out STD_LOGIC_VECTOR (1 downto 0);
@@ -153,6 +156,7 @@ architecture behavioral of RISCV is
             
             imm_i : in STD_LOGIC_VECTOR (63 downto 0);
             pc_i : in STD_LOGIC_VECTOR (63 downto 0);
+            instr_valid_i : in STD_LOGIC;
 
             branch_predict_i : in BRANCH_PREDICTION;
             branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
@@ -274,6 +278,7 @@ architecture behavioral of RISCV is
             clk_i : in STD_LOGIC;
             rst_i : in STD_LOGIC;
             exception_i : in STD_LOGIC;
+            enable_mem_i : in STD_LOGIC;
             MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
             MDR_i : in STD_LOGIC_VECTOR (63 downto 0);
             memory_operation_i : in MEM_OP;	
@@ -458,6 +463,8 @@ architecture behavioral of RISCV is
 	signal csr_mux_sel : STD_LOGIC_VECTOR (2 downto 0);
 	signal csr_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 
+    signal instr_valid_decode, instr_valid : STD_LOGIC;
+
 	-- 7 segment display
 	signal cathode : STD_LOGIC_VECTOR (6 downto 0) := (others => '0');
 	signal exception_num : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
@@ -483,7 +490,7 @@ begin
 
 		instr_address_o => instr_address,
 		IR_i => IR,
-
+        instr_valid_o => instr_valid_decode,
 		pc_o => pc_decode,
 		IR_o => IR_decode
 	);
@@ -519,6 +526,9 @@ begin
 		mem_operator_o => mem_operator,
 
 		imm_o => imm,
+		
+		instr_valid_i => instr_valid_decode,
+		instr_valid_o => instr_valid,
 
 		branch_predict_i => branch_predict_id,
 		branch_predict_o => branch_predict,
@@ -566,7 +576,7 @@ begin
 		pc_src_i => pc_src,
 		imm_src_i => imm_src,
 		ctrl_flow_i => ctrl_flow,
-	
+	    instr_valid_i => instr_valid,
 	    result_select_i => result_select,
 	
 		multicycle_op_o => multicycle_op,
@@ -691,6 +701,7 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		exception_i => exception,
+		enable_mem_i => mem_req.read or mem_req.write,
 		MAR_i => mem_req.MAR(ADDRESS_WIDTH-1 downto 0),
 		MDR_i => mem_req.MDR,
 		memory_operation_i => mem_req.MEMOp,

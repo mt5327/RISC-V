@@ -21,7 +21,7 @@ end FP_Comparator;
 
 architecture behavioral of FP_Comparator is
 
-	signal cmp, cmp_fle, cmp_flt, cmp_feq, lt, lt_abs, eq, x_nan, y_nan, nan, signaling_nan : STD_LOGIC;
+	signal cmp, lt, lt_abs, eq, x_nan, y_nan, nan, signaling_nan : STD_LOGIC;
 
 	signal fp_infos : fp_infos_t(0 to 1);
 
@@ -38,7 +38,7 @@ architecture behavioral of FP_Comparator is
 
 	signal invalid_nan : STD_LOGIC;
 
-	signal min_max_result, fp_min, fp_max : STD_LOGIC_VECTOR (P - 1 downto 0);
+	signal min_max_result : STD_LOGIC_VECTOR (P - 1 downto 0);
     signal invalid_sp_x, invalid_sp_y  : STD_LOGIC;
 begin
 
@@ -49,42 +49,50 @@ begin
 	
 	eq <= '1' when (unsigned(x_i(P-1 downto 0)) = unsigned(y_i(P-1 downto 0))) or (fp_infos(0).zero = '1' and fp_infos(1).zero = '1') else '0';
 	lt <= lt_abs xor (x_i(P-1) or y_i(P-1));
-	fp_min <= x_i(P-1 downto 0) when lt = '1' and fp_infos(0).nan = '0' else y_i(P-1 downto 0);
-	fp_max <= x_i(P-1 downto 0) when lt = '0' and fp_infos(0).nan = '0' else y_i(P-1 downto 0);
 
 	signaling_nan <= fp_infos(0).signaling_nan or fp_infos(1).signaling_nan;
  
-	MIN_MAX : process (fp_min, fp_max, funct3_i, fp_infos(0).nan, fp_infos(1).nan)
+	MIN_MAX : process (all)
 	begin
 		if fp_infos(0).nan = '1' and fp_infos(1).nan = '1' then
 			min_max_result <= (P - 2 downto P - E - 2 => '1', others => '0');
+		elsif fp_infos(0).nan = '1' then
+		    min_max_result <= y_i;
+		elsif fp_infos(1).nan = '1' then
+		    min_max_result <= x_i;
 		else
 			case funct3_i is
-				when "000" => min_max_result <= fp_min;
-				when "001" => min_max_result <= fp_max;
+				when "000" => 
+				    if lt = '1' then
+				        min_max_result <= x_i;
+				    else 
+				        min_max_result <= y_i;
+				    end if;
+				when "001" => 
+				    if lt = '1' then
+				        min_max_result <= y_i;
+				    else 
+				        min_max_result <= x_i;
+				    end if;				
 				when others => min_max_result <= (others => '-');
 			end case;
 		end if;
 	end process;
-    
-    cmp_fle <= (lt or eq) and (not nan);
-    cmp_flt <= lt and (not eq) and (not nan);
-    cmp_feq <= eq and (not nan);
-    
+
 	nan <= fp_infos(0).nan or fp_infos(1).nan;
 	
-	COMPARE : process (funct3_i, cmp_fle, cmp_flt, cmp_feq, nan)
+	COMPARE : process (all)
 	begin
 		case funct3_i is
 			when FLE =>
 			    invalid_nan <= nan;
-			    cmp <= cmp_fle;
+			    cmp <= (lt or eq) and (not nan);
 			when FLT =>
 			    invalid_nan <= nan;
-			    cmp <= cmp_flt;
+			    cmp <= lt and (not eq) and (not nan);
 			when FEQ =>
 			    invalid_nan <= '0';
-				cmp <= cmp_feq;
+				cmp <= eq and (not nan);
 			when others => cmp <= '0'; invalid_nan <= '0';
 		end case;
 	end process;

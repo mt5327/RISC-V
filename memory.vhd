@@ -9,6 +9,7 @@ entity memory is
 		rst_i : in STD_LOGIC;
 
 		pipeline_stall_i : in STD_LOGIC;
+        
         mem_read_i : in STD_LOGIC;
         mem_operator_i : in MEM_OP;
 		reg_dst_i : in REG;
@@ -28,8 +29,10 @@ end memory;
 architecture behavioral of memory is
 
 	signal data, data_fp : STD_LOGIC_VECTOR (63 downto 0);
-	signal csr : CSR := ('0', X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
+	signal csr : CSR := ('0', X"000", '0', NO_EXCEPTION, (others => '0'), (others => '0'));
 	signal reg_dst, reg_dst_fp : REG;
+	
+	signal instr_valid : STD_LOGIC;
         
 begin
        

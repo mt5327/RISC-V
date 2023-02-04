@@ -43,7 +43,7 @@ architecture behavioral of multiplier is
 	signal P2 : signed (112 downto 0);
 	signal P3, S : signed(127 downto 0);
 
-	signal x_is_signed, y_is_signed, mul_valid, mul_valid_reg : STD_LOGIC;
+	signal x_is_signed, y_is_signed : STD_LOGIC;
 
 	signal MULR : STD_LOGIC_VECTOR (127 downto 0);
 
@@ -78,10 +78,8 @@ begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
 				state <= IDLE;
-				mul_valid_o <= '0';
 			else
 				state <= next_state;
-				mul_valid_o <= mul_valid;
 			end if;
 		end if;
 	end process;
@@ -135,6 +133,6 @@ begin
         end case;
 	end process;
 
-	mul_valid <= '1' when state = MULTIPLY else '0';
+	mul_valid_o <= '1' when state = FINALIZE else '0';
 
 end behavioral;

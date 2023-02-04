@@ -52,18 +52,19 @@ architecture behavioral of data_cache is
 	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto OFFSET_WIDTH);
 
 	alias block_address : STD_LOGIC_VECTOR(INDEX_WIDTH - 1 downto 0) is cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH - 1 downto OFFSET_WIDTH);
-	signal cache_offset : INTEGER range 0 to 64 * (2**OFFSET_WIDTH-1);
+	signal cache_offset : INTEGER range 0 to 64 * (2**OFFSET_WIDTH - 1);
+
+    constant max : INTEGER := 64 * (2**OFFSET_WIDTH - 1);
 
 	type state_type is (CHECK, WRITE_BACK, WRITE_ALLOCATE);
 	signal state, next_state : state_type := CHECK;
-    signal val : STD_LOGIC;
 
 begin
 
 	tag_eq <= '1' when tag = tags(to_integer(unsigned(block_address))) else '0';
-	miss <= not ( val and tag_eq and check_miss );
-    val <= valid(to_integer(unsigned(block_address)));
+	miss <= not ( valid(to_integer(unsigned(block_address))) and tag_eq and check_miss );
     cache_offset <= to_integer(unsigned(cache_req_i.MAR(OFFSET_WIDTH - 1 downto 0)) & "000000");
+
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
@@ -82,7 +83,7 @@ begin
 		next_state <= state;
 		case state is
 			when CHECK =>
-				if miss = '1' and enable_mem_i = '1' then
+				if enable_mem_i = '1' and miss = '1' then
 					if dirty(to_integer(unsigned(block_address))) = '1' then
 						next_state <= WRITE_BACK;
 					else

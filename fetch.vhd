@@ -16,6 +16,7 @@ entity fetch is
 		branch_info_i : in BRANCH_INFO;
 		IR_i : in STD_LOGIC_VECTOR(31 downto 0);
 		instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 3 downto 0);
+		instr_valid_o : out STD_LOGIC;
 		pc_o : out STD_LOGIC_VECTOR(63 downto 0);
 		IR_o : out STD_LOGIC_VECTOR(31 downto 0);
 		branch_predict_o : out BRANCH_PREDICTION);
@@ -41,7 +42,7 @@ architecture behavioral of fetch is
 	signal IR : STD_LOGIC_VECTOR(31 downto 0) := NOP;
 
 	signal branch_predict, branch_predict_reg : BRANCH_PREDICTION;
-	signal predict_taken : STD_LOGIC;
+	signal predict_taken, instr_valid : STD_LOGIC;
 
 begin
 
@@ -83,10 +84,12 @@ begin
 				pc_reg <= (others => '0');
 				IR <= NOP;
 				branch_predict_reg.cf_type <= "00";
+				instr_valid <= '1';
 			else
 				if pipeline_stall_i = '0' then
 					pc_reg <= pc;
 					IR <= IR_i;
+					instr_valid <= '1';
                     branch_predict_reg.cf_type <= branch_predict.cf_type;
 					branch_predict_reg.predicted_address <= branch_predict.predicted_address;
 				end if;
@@ -103,5 +106,5 @@ begin
 	pc_o <= STD_LOGIC_VECTOR(pc_reg);
 	IR_o <= IR; 
 	branch_predict_o <= branch_predict_reg;
-
+    instr_valid_o <= instr_valid;
 end behavioral;
