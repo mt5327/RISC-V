@@ -114,8 +114,6 @@ architecture behavioral of decode is
     signal reg_cmp3_mem_reg, reg_cmp3_wb_reg : STD_LOGIC;
     signal csr_cmp_mem_reg, csr_cmp_wb_reg : STD_LOGIC;
 
-    signal reg_dst_not_zero : STD_LOGIC;
-
 	alias opcode : STD_LOGIC_VECTOR(6 downto 0) is IR_i(6 downto 0);
 
 	alias reg_src1 : STD_LOGIC_VECTOR(4 downto 0) is IR_i(19 downto 15);
@@ -395,7 +393,7 @@ begin
     branch_next_pc <= STD_LOGIC_VECTOR(unsigned(pc_i) + FOUR);
 
     load_hazard_int <= mem_read_reg(0) and ( ( reg_cmp1_mem and reg_src1_valid ) or 
-                                          ( reg_cmp2_mem and reg_src2_valid ) );
+                                             ( reg_cmp2_mem and reg_src2_valid ) );
 
     load_hazard_fp <= mem_read_reg(1) and ( ( reg_cmp1_mem and reg_fp_src1_valid ) or 
                                          ( reg_cmp2_mem and reg_fp_src2_valid ) or
