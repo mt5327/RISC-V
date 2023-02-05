@@ -105,7 +105,6 @@ architecture behavioral of FP_Divider is
             z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
     end component rounder;
 
-    
     signal fp_info_x, fp_info_y : FP_INFO;
      
 begin

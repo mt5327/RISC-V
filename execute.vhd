@@ -147,7 +147,7 @@ architecture behavioral of execute is
     signal result_fp : FP_RESULT;
 	signal result, result_mul, result_div, x, y, x_sel, y_sel, x_fp_sel, y_fp_sel, z_fp_sel, MDR : STD_LOGIC_VECTOR (63 downto 0);
 	signal instr_misaligned, reg_write_fp, reg_write_fp_reg, reg_write : STD_LOGIC := '0';
-	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp, alu_out : STD_LOGIC := '0';
+	signal div_valid, mul_valid, enable_mul, enable_div, enable_fp : STD_LOGIC := '0';
 	signal mem_req : MEMORY_REQUEST := ('0', '0', (others => '0'), (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
 	signal mem_read, mem_read_fp, mem_write, mem_write_fp : STD_LOGIC;
@@ -156,7 +156,7 @@ architecture behavioral of execute is
 	signal csr : CSR := ('0', (others => '0'), '0', NO_EXCEPTION, (others => '0'), (others => '0'));
     signal memory_address : STD_LOGIC_VECTOR (63 downto 0);
 
-    signal instr_valid, instr_valid_reg : STD_LOGIC;
+    signal instr_valid : STD_LOGIC;
     
     signal uart_tx_enable, uart_tx_enable_reg : STD_LOGIC;
     
@@ -270,8 +270,6 @@ begin
                     result_fwd_fp_wb_i when "10",
                     fp_regs_idex_i.z when others;
 
-	instr_misaligned <= ( or branch_inf.target_address(1 downto 0) ) and branch_inf.taken;
-
 	with mem_write_i select 
 	   MDR <= y_sel when "01",
 	          y_fp_sel when "10",
@@ -295,7 +293,7 @@ begin
 					reg_dst.data <= result;
 					reg_dst.write <= reg_write;
 					reg_dst.dest <= reg_dst_i;
-					mem_req.read <= or mem_read_i;
+					mem_req.read <= mem_read or mem_read_fp;
 					mem_req.write <= mem_write or mem_write_fp;
 					mem_req.MEMOp <= mem_operator_i;
 					mem_req.MDR <= MDR;
@@ -317,18 +315,21 @@ begin
                     csr <= (csr_write_i, csr_write_addr_i, instr_valid, csr_exception_id_i, pc_i, csr_data);
 				end if;
 			end if;
-		end if;
+		end if; 
 	end process;
 
 	enable_mul <= result_select_i(0) and (not mul_valid);
-	enable_div <= result_select_i (1) and (not div_valid);
+	enable_div <= result_select_i(1) and (not div_valid);
 	enable_fp <= result_select_i(2) and (not result_fp.valid);
     
     memory_address <= STD_LOGIC_VECTOR(unsigned(x_sel) + unsigned(imm_i));  
     
     mem_write <= mem_write_i(0) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
     mem_write_fp <= mem_write_i(1) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
-    
+
+    mem_read <= mem_read_i(0) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
+    mem_read_fp <= mem_read_i(1) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
+        
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
 
     process (pc_i)
@@ -338,9 +339,8 @@ begin
         end if; 
     end process;
     
-    
-    reg_write <= reg_write_i; 	
-	reg_write_fp <= fp_regs_idex_i.write;
+    reg_write <= mem_read when mem_read_i(0) = '1' else reg_write_i; 	
+	reg_write_fp <= mem_read_fp when mem_read_i(1) = '1' else fp_regs_idex_i.write;
  
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
@@ -387,6 +387,8 @@ begin
 	branch_info_o <= branch_inf;
 	
 	uart_tx_enable_o <= uart_tx_enable_reg;
+
 	instr_valid <= instr_valid_i and ( and exception_id ); 
+	instr_misaligned <= ( or branch_inf.target_address(1 downto 0) ) and branch_inf.taken;
 
 end behavioral; 

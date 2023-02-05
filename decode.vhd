@@ -97,7 +97,7 @@ architecture behavioral of decode is
 	signal branch_predict : BRANCH_PREDICTION;
     signal write_fflags : STD_LOGIC;
     signal enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
-    signal csr_write_addr, csr_write_addr_reg : STD_LOGIC_VECTOR (11 downto 0);
+    signal csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
 	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write, csr_write_reg : STD_LOGIC;
 
     signal instr_valid, instr_valid_reg : STD_LOGIC;
@@ -398,7 +398,7 @@ begin
     load_hazard_fp <= mem_read_reg(1) and ( ( reg_cmp1_mem and reg_fp_src1_valid ) or 
                                          ( reg_cmp2_mem and reg_fp_src2_valid ) or
                                          ( reg_cmp3_mem and reg_fp_src3_valid ) );
-    
+
     flush <= ( load_hazard_int or load_hazard_fp or flush_i ) and not pipeline_stall_i;
 
 	OFFSET_SELECT : process (IR_i, imm_s, branch_target_address)

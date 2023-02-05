@@ -858,8 +858,6 @@ begin
 	              "0000000" when "1000",
 	              "1111111" when others;
 		
-		
-		
 	-- HAZARD AND STALL CHECK  
  
 	pipeline_stall <= multicycle_op or miss_data or miss_instr or exception or unaligned_access or uart_tx_busy;

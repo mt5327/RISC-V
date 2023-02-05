@@ -148,7 +148,7 @@ begin
 	          STD_LOGIC_VECTOR(remainder);
 
 	z_signed <= STD_LOGIC_VECTOR(-signed(result)) when sign_reg = '1' and div_by_zero_reg = '0' else
-	     result;
+	            result;
 	     
 	z <= (63 downto 32 => z_signed(31)) & z_signed(31 downto 0) when is_word_reg = '1' else z_signed; 
 	z_o <= z_reg;

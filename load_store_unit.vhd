@@ -127,7 +127,7 @@ begin
 	DATA_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if enable_mem_i = '1' and unaligned_access = '0' and miss_i = '0' then
+			if enable_mem_i = '1' and unaligned = '1' and unaligned_access = '0' and miss_i = '0' then
 				reg_data <= data_i;
 			end if;
 		end if;
@@ -219,7 +219,9 @@ begin
 
 	data_o <= data_mem;
 	
-	cache_req_o.MAR <= MAR_i(ADDRESS_WIDTH-1 downto 3) when unaligned_access = '0' else unaligned_address_reg;
+	cache_req_o.MAR <= MAR_i(ADDRESS_WIDTH-1 downto 3) when unaligned_access = '0' else 
+	                   unaligned_address_reg;
+	                   
 	cache_req_o.MDR <= MDR;
 	cache_req_o.we <= we;
 
