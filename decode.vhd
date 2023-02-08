@@ -23,7 +23,7 @@ entity decode is
 		branch_predict_i : in BRANCH_PREDICTION;
 
 		csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
-        csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+        csr_read_address_o : out STD_LOGIC_VECTOR (11 downto 0);
 		
 		pc_o : out STD_LOGIC_VECTOR (63 downto 0);
 
@@ -51,13 +51,13 @@ entity decode is
 		reg_dst_fp_i : in REG;
 		
 		reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
-		csr_mem_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+		csr_mem_address_i : in STD_LOGIC_VECTOR (11 downto 0);
 		
 		x_o : out STD_LOGIC_VECTOR (63 downto 0);
 	    y_o : out STD_LOGIC_VECTOR (63 downto 0);
         
         csr_write_o : out STD_LOGIC;
-        csr_write_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+        csr_write_address_o : out STD_LOGIC_VECTOR (11 downto 0);
         csr_exception_id_o : out STD_LOGIC_VECTOR (3 downto 0);
         csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
         
@@ -97,7 +97,7 @@ architecture behavioral of decode is
 	signal branch_predict : BRANCH_PREDICTION;
     signal write_fflags : STD_LOGIC;
     signal enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
-    signal csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
+    signal csr_write_address : STD_LOGIC_VECTOR (11 downto 0);
 	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write, csr_write_reg : STD_LOGIC;
 
     signal instr_valid, instr_valid_reg : STD_LOGIC;
@@ -123,6 +123,8 @@ architecture behavioral of decode is
 	alias funct3 : STD_LOGIC_VECTOR(2 downto 0) is IR_i(14 downto 12);
 	alias funct5 : STD_LOGIC_VECTOR(4 downto 0) is IR_i(31 downto 27);
 	alias funct7 : STD_LOGIC_VECTOR(6 downto 0) is IR_i(31 downto 25);
+
+    alias csr_address : STD_LOGIC_VECTOR (11 downto 0) is IR_i(31 downto 20);
 
     signal registers, registers_fp : reg_t;
     signal csr_operator, csr_operator_reg : STD_LOGIC_VECTOR (1 downto 0) := "00";
@@ -182,7 +184,7 @@ begin
 					when "000" | "001" | "100" | "101" | "110" | "111" => invalid_instruction <= '0';
 					when others => invalid_instruction <= '1';
 				end case;
-	        -- LOAD / STORE
+	        -- LOAD / STORE integer
 			when LOAD =>
 				case funct3 is
 					when "000" => mem_operator <= LSU_LB;
@@ -202,6 +204,7 @@ begin
 					when "011" => mem_operator <= LSU_SD;
 					when others => invalid_instruction <= '1';
 				end case;
+            -- LOAD / STORE floating point
 			when LOAD_FP =>
 				case funct3 is
 					when "010" => mem_operator <= LSU_FLW;
@@ -272,7 +275,7 @@ begin
 
 					when others => invalid_instruction <= '1';
 				end case;
-
+				
 			when RR32 =>
 				case funct is
 					when "0000000000" => alu_operator <= ALU_ADDW;
@@ -422,8 +425,8 @@ begin
     reg_cmp3_mem <= '1' when reg_src3 = reg_dst else '0'; 
     reg_cmp3_wb <= '1' when reg_src3 = reg_mem_i else '0';
 
-    csr_cmp_mem <= '1' when IR_i(31 downto 20) = csr_write_addr else '0';
-    csr_cmp_wb <= '1' when IR_i(31 downto 20) = csr_mem_addr_i else '0';
+    csr_cmp_mem <= '1' when csr_address = csr_write_address else '0';
+    csr_cmp_wb <= '1' when csr_address = csr_mem_address_i else '0';
     
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
@@ -570,7 +573,7 @@ begin
 	end process;
 	
 	csr_data_o <= csr_data;
-    csr_write_addr <= IR_i(31 downto 20) when write_fflags = '0' else FFLAGS; 
+    csr_write_address <= csr_address when write_fflags = '0' else FFLAGS; 
 	csr_write <= (csr_operator(1) and (or IR_i(19 downto 15))) or csr_operator(0) or write_fflags;			  
 	
 	with alu_operator select
@@ -651,7 +654,7 @@ begin
 
 	pc_o <= pc;
 	fp_regs_IDEX_o <= fp_regs_IDEX;
-	csr_read_addr_o <= IR_i(31 downto 20);
+	csr_read_address_o <= IR_i(31 downto 20);
 
     x_o <= x;
 	
@@ -675,7 +678,7 @@ begin
     csr_operator_o <= csr_operator_reg;
     csr_cmp_mem_o <= csr_cmp_mem_reg;
     csr_cmp_wb_o <= csr_cmp_wb_reg;
-    csr_write_addr_o <= csr_write_addr;
+    csr_write_address_o <= csr_write_address;
 
     csr_write_o <= csr_write_reg;
     csr_exception_id_o <= csr_exception_id_reg;

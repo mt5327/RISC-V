@@ -69,7 +69,7 @@ entity execute is
 		csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
                 
         csr_write_i : in STD_LOGIC;
-        csr_write_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+        csr_write_address_i : in STD_LOGIC_VECTOR (11 downto 0);
         csr_exception_id_i : in STD_LOGIC_VECTOR (3 downto 0);
         csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
 		csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -312,7 +312,7 @@ begin
 				csr.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-                    csr <= (csr_write_i, csr_write_addr_i, instr_valid, csr_exception_id_i, pc_i, csr_data);
+                    csr <= (csr_write_i, csr_write_address_i, instr_valid, csr_exception_id_i, pc_i, csr_data);
 				end if;
 			end if;
 		end if; 

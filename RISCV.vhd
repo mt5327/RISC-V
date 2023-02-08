@@ -72,7 +72,7 @@ architecture behavioral of RISCV is
             branch_predict_i : in BRANCH_PREDICTION;
     
             csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
-            csr_read_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+            csr_read_address_o : out STD_LOGIC_VECTOR (11 downto 0);
             
             pc_o : out STD_LOGIC_VECTOR (63 downto 0);
             instr_valid_i : in STD_LOGIC;
@@ -102,13 +102,13 @@ architecture behavioral of RISCV is
             reg_dst_fp_i : in REG;
             
             reg_mem_i : in STD_LOGIC_VECTOR (4 downto 0);
-            csr_mem_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+            csr_mem_address_i : in STD_LOGIC_VECTOR (11 downto 0);
             
             x_o : out STD_LOGIC_VECTOR (63 downto 0);
             y_o : out STD_LOGIC_VECTOR (63 downto 0);
                     
             csr_write_o : out STD_LOGIC;
-            csr_write_addr_o : out STD_LOGIC_VECTOR (11 downto 0);
+            csr_write_address_o : out STD_LOGIC_VECTOR (11 downto 0);
             csr_exception_id_o : out STD_LOGIC_VECTOR (3 downto 0);
             csr_data_o : out STD_LOGIC_VECTOR (63 downto 0);
             
@@ -195,7 +195,7 @@ architecture behavioral of RISCV is
             csr_data_wb_i : in STD_LOGIC_VECTOR (63 downto 0);
             
             csr_write_i : in STD_LOGIC;
-            csr_write_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+            csr_write_address_i : in STD_LOGIC_VECTOR (11 downto 0);
             csr_exception_id_i : in STD_LOGIC_VECTOR (3 downto 0);
             csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
             csr_operator_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -209,7 +209,6 @@ architecture behavioral of RISCV is
     
             pipeline_stall_i : in STD_LOGIC;
             mem_read_i : in STD_LOGIC;
-            mem_operator_i : in MEM_OP;
             reg_dst_i : in REG;
             
             reg_write_fp_i : in STD_LOGIC;
@@ -230,7 +229,7 @@ architecture behavioral of RISCV is
 			rst_i : in STD_LOGIC;
 			cpu_enable_i : in STD_LOGIC;
 			csr_i : in CSR;
-			csr_read_addr_i : in STD_LOGIC_VECTOR (11 downto 0);
+			csr_read_address_i : in STD_LOGIC_VECTOR (11 downto 0);
 			CSR_data_o : out STD_LOGIC_VECTOR (63 downto 0);
 			mpc_o : out STD_LOGIC_VECTOR (63 downto 0);
 			fcsr_o : out STD_LOGIC_VECTOR (7 downto 0);
@@ -461,7 +460,7 @@ architecture behavioral of RISCV is
 
 	signal x_mux_sel, y_mux_sel, x_fp_mux_sel, y_fp_mux_sel, z_fp_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
 	signal csr_mux_sel : STD_LOGIC_VECTOR (2 downto 0);
-	signal csr_read_addr, csr_write_addr : STD_LOGIC_VECTOR (11 downto 0);
+	signal csr_read_address, csr_write_address : STD_LOGIC_VECTOR (11 downto 0);
 
     signal instr_valid_decode, instr_valid : STD_LOGIC;
 
@@ -537,7 +536,7 @@ begin
 
 		reg_write_o => reg_write,
         reg_mem_i => reg_dst_memory.dest,
-		csr_mem_addr_i => csr_write_memory.write_addr,
+		csr_mem_address_i => csr_write_memory.write_address,
 
         reg_cmp1_mem_o => reg_cmp1_mem,
         reg_cmp1_wb_o => reg_cmp1_wb,
@@ -549,8 +548,8 @@ begin
         reg_cmp3_wb_o => reg_cmp3_wb,
 		reg_dst_o => reg_dst_execute,
 		csr_operator_o => csr_operator,
-		csr_read_addr_o => csr_read_addr,
-		csr_write_addr_o => csr_write_addr,
+		csr_read_address_o => csr_read_address,
+		csr_write_address_o => csr_write_address,
 		csr_exception_id_o => csr_exception_id,
 		csr_data_o => csr_data_execute,
 		csr_write_o => csr_write_execute,
@@ -605,7 +604,7 @@ begin
         uart_tx_enable_o => uart_tx_enable,
 
 		csr_write_i => csr_write_execute,
-		csr_write_addr_i => csr_write_addr,
+		csr_write_address_i => csr_write_address,
         csr_exception_id_i => csr_exception_id,
         csr_data_i => csr_data_execute,
 		
@@ -633,7 +632,6 @@ begin
 		rst_i => rst_i,
 
 		mem_read_i => mem_req.read,
-	    mem_operator_i => mem_req.MEMOp,	
 		pipeline_stall_i => pipeline_stall,
 
 		reg_write_fp_i => reg_write_fp,
@@ -653,7 +651,7 @@ begin
 		rst_i => rst_i,
 		cpu_enable_i => cpu_enable or cpu_enable_i,
 		csr_i => csr_write,
-		csr_read_addr_i => csr_read_addr,
+		csr_read_address_i => csr_read_address,
 		csr_data_o => csr_read_data,
 		mpc_o => mpc,
 		fcsr_o => fcsr,
@@ -864,7 +862,7 @@ begin
 	
 	pipeline_stall_if <= pipeline_stall or load_hazard;
           
-    csr_data <= csr_write.data when csr_write.write_addr = csr_read_addr and csr_write.write = '1' else csr_read_data;
+    csr_data <= csr_write.data when csr_write.write_address = csr_read_address and csr_write.write = '1' else csr_read_data;
                         
 	LED_o(0) <= rst_i;
 	LED_o(1) <= cpu_enable or cpu_enable_i;

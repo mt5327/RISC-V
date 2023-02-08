@@ -31,8 +31,9 @@ architecture behavioral of FP_Converter_float_to_float is
 	signal exp_reg, exp : signed(11 downto 0);
 	signal exp_final, exp_final_reg : signed(DST_E-1 downto 0);
 	signal x_mantissa, x_mantissa_reg, mantissa_norm : unsigned(SRC_M-1 downto 0);
-	signal mantissa, mantissa_reg, mantissa_shifted, mantissa_shifted_reg : unsigned(2 * 52 downto 0);
- 
+	signal mantissa, mantissa_shifted : unsigned(2 * 52 downto 0);
+	signal mantissa_shifted_reg : unsigned(2 * 52 - 1 downto 0);
+
 	signal sign, special_case, special_case_reg, overflow, underflow, inexact, valid : STD_LOGIC;
 	signal round_sticky: STD_LOGIC_VECTOR (1 downto 0);
     
@@ -124,7 +125,7 @@ begin
 
     exp_underflow <= '1' when exp_reg < 1 else '0';
     mantissa_norm <= shift_left(x_mantissa_reg, to_integer(mantissa_lzc_reg));
-    mantissa_reg <= mantissa_norm & (mantissa'length - mantissa_norm'length - 1 downto 0 => '0');
+    mantissa <= mantissa_norm & (mantissa'length - mantissa_norm'length - 1 downto 0 => '0');
    
     special_value <= (DST_P-1 => x_i(SRC_P-1), others => '0') when fp_class.zero = '1' else
                      (DST_P-2 downto DST_P-DST_E-2 => '1', others => '0'); 
@@ -139,12 +140,12 @@ begin
         end if;
     end process;
 
-    mantissa_shifted <= shift_right(mantissa_reg, to_integer(denorm_shamt));
+    mantissa_shifted <= shift_right(mantissa, to_integer(denorm_shamt));
 
     process (clk_i)
     begin
         if rising_edge(clk_i) then
-            mantissa_shifted_reg <= mantissa_shifted;
+            mantissa_shifted_reg <= mantissa_shifted(mantissa_shifted'left-1 downto 0);
             special_value_reg <= special_value;
             sign <= x_i(SRC_P-1);
             rm <= rm_i;

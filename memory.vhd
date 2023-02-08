@@ -11,7 +11,6 @@ entity memory is
 		pipeline_stall_i : in STD_LOGIC;
         
         mem_read_i : in STD_LOGIC;
-        mem_operator_i : in MEM_OP;
 		reg_dst_i : in REG;
         
 		reg_write_fp_i : in STD_LOGIC;
