@@ -30,8 +30,8 @@ begin
 			if enable_i = '1' then
 				x <= x_i;
 				y <= y_i;
-			    product <= "*"(x, y)(SIZE - 1 downto 0);
 			end if;
+			product <= "*"(x, y)(SIZE - 1 downto 0);
 		end if;
 	end process;
 	

@@ -311,7 +311,6 @@ architecture behavioral of RISCV is
 	   port (
            clk_i : in STD_LOGIC;
 
-           exception_i : in STD_LOGIC;
            mem_init_i : in STD_LOGIC;
     
            uart_data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
@@ -327,9 +326,7 @@ architecture behavioral of RISCV is
 	       BLOCK_SIZE : NATURAL);
 	   port (
            clk_i : in STD_LOGIC;
-		   rst_i : in STD_LOGIC;
 
-           exception_i : in STD_LOGIC;
            mem_init_i : in STD_LOGIC;
            mem_write_i : in STD_LOGIC;
     
@@ -720,7 +717,6 @@ begin
 		clk_i => clk_i,
 
 		mem_init_i => mem_init_imem,
-		exception_i => exception,
 
 		uart_data_i => uart_data,
 		data_imem_o => data_imem,
@@ -737,10 +733,9 @@ begin
     )
 	port map(
 		clk_i => clk_i,
-        rst_i => rst_i,
+
 		mem_init_i => mem_init_dmem,
 		mem_write_i => mem_write_ram,
-		exception_i => exception,
         
 		uart_data_i => uart_data,
 		data_dmem_o => data_dmem,

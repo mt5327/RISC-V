@@ -331,13 +331,6 @@ begin
     mem_read_fp <= mem_read_i(1) and memory_address(ADDRESS_WIDTH) and (nor memory_address(63 downto ADDRESS_WIDTH+1)); 
         
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
-
-    process (pc_i)
-    begin
-        if pc_i = X"0000000000002fb0" then
-            report "M";
-        end if; 
-    end process;
     
     reg_write <= mem_read when mem_read_i(0) = '1' else reg_write_i; 	
 	reg_write_fp <= mem_read_fp when mem_read_i(1) = '1' else fp_regs_idex_i.write;
@@ -356,7 +349,8 @@ begin
 
     csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
 	
-	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else csr_exception_id_i;
+	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else 
+	                csr_exception_id_i;
 
 	with csr_operator_i select
 	   csr_result <= csr_data_sel when CSR_RW,
@@ -377,8 +371,8 @@ begin
                      
     ENABLE_FPU_SUBUNIT_GEN: for i in 0 to 1 generate 
         enable_fpu_subunit(i*5+4 downto i*5) <= fp_regs_idex_i.enable_fpu_subunit(4 downto 0) and 
-                                      (4 downto 0 => fp_regs_idex_i.precision(i)) and
-                                      (4 downto 0 => not results_fp(i).valid);
+                                                (4 downto 0 => fp_regs_idex_i.precision(i)) and
+                                                (4 downto 0 => not results_fp(i).valid);
     end generate;
 
 	csr_o <= csr;

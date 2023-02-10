@@ -12,7 +12,6 @@ entity instruction_memory is
 	port (
         clk_i : in STD_LOGIC;
 
-        exception_i : in STD_LOGIC;
         mem_init_i : in STD_LOGIC;
 
         uart_data_i : in STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);

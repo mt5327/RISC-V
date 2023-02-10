@@ -10,9 +10,7 @@ entity data_memory is
 		BLOCK_SIZE : NATURAL);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
 
-		exception_i : in STD_LOGIC;
 		mem_init_i : in STD_LOGIC;
 		mem_write_i : in STD_LOGIC;
 
