@@ -97,6 +97,13 @@ begin
 		end if;
 	end process;
 	
+	process (pc)
+	begin
+	   if pc = x"0000000000000308" then
+	       report "M";
+	   end if;
+	end process;
+	
 	with IR_i(6 downto 0) select
 	   predict_taken <= '1' when JAL,
 		                and branch_predict.cf_type when BRANCH,

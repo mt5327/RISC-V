@@ -45,24 +45,27 @@ architecture behavioral of FMA is
 	signal exponent_diff, exponent_diff_reg : signed(E downto 0) := (others => '0');
 	signal exponent_tent, exponent_a_reg : signed(E - 1 downto 0);
 
+
     signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
 	signal exp, exp_reg, exp_fin, exponent_tent_reg : unsigned (E - 1 downto 0);
 	signal t, k, f : unsigned(LOWER_SUM_WIDTH - 1 downto 0);
 	signal mantissa_x, mantissa_y : unsigned (M - 1 downto 0);
-	signal P_mantissa, P_mantissa_reg, A_mantissa, A_mantissa_reg, mantissa_sum, mantissa_sum_reg, s : unsigned (3 * M + 4 downto 0);
+	signal P_mantissa, P_mantissa_reg, A_mantissa, A_mantissa_reg, s : unsigned (3 * M + 4 downto 0);
+	signal mantissa_sum, mantissa_sum_reg : unsigned (3 * M + 5 downto 0);
+	
 	signal mantissa_z, mantissa_z_reg, shifted_mantissa_z : unsigned(3 * M + 4 downto 0);
 
 	signal add_sticky_bit, add_sticky_bit_reg, sum_sticky_bit : STD_LOGIC;
 
 	signal rounded_num : STD_LOGIC_VECTOR(P - 2 downto 0) := (others => '0');
-	signal num : unsigned (P - 2 downto 0);
+	signal num : unsigned (LOWER_SUM_WIDTH-1 downto 0);
 	signal add_shamt, add_shamt_reg, norm_shamt, norm_shamt_pa, norm_shamt_subnormal, norm_shamt_subnormal_reg : unsigned(SHIFT_SIZE - 1 downto 0);
 	signal lz_counter, lz_counter_reg : unsigned(num_bits(LOWER_SUM_WIDTH) - 1 downto 0);
 
 	signal y, z: STD_LOGIC_VECTOR (P-1 downto 0);
     signal fp_valid, fp_valid_reg : STD_LOGIC := '0';
 
-	signal mantissa, mantissa_reg : unsigned(3 * M + 4 downto 0);
+	signal mantissa, mantissa_reg : unsigned(3 * M + 5 downto 0);
 	signal mantissa_final : unsigned(M-1 downto 0);
 	signal special_value, special_value_reg : STD_LOGIC_VECTOR (P-1 downto 0) := (others => '0');
 
@@ -79,7 +82,7 @@ architecture behavioral of FMA is
 	signal exponent_plus_1, exponent_minus_1 : unsigned(E - 1 downto 0);
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
 
-	signal enable, enable_output_regs, result_is_subnormal : STD_LOGIC;
+	signal is_zero, enable, enable_output_regs, result_is_subnormal : STD_LOGIC;
 
 	alias sign_y : STD_LOGIC is y(P - 1);
 
@@ -385,15 +388,15 @@ begin
 			A_mantissa_reg <= A_mantissa;
 		end if;
 	end process;
-	
+
+	mantissa_sum <= ('0' & P_mantissa_reg) + ('0' & A_mantissa_reg) + effective_substraction_reg;
+	num <= mantissa_sum(LOWER_SUM_WIDTH-1 downto 0);
 	process (clk_i) begin
 	   if rising_edge(clk_i) then
 	       mantissa_sum_reg <= mantissa_sum;
 	   end if;
     end process;
 	   
-
-	mantissa_sum <= P_mantissa_reg + A_mantissa_reg + effective_substraction_reg;
 
 	t <= P_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0) xor (A_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0));
 	k <= P_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0) nor (A_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0));
@@ -404,7 +407,7 @@ begin
 	norm_shamt_subnormal <= unsigned("+"(to_signed(M + 4, norm_shamt'length), exponent_p_reg)(SHIFT_SIZE - 1 downto 0));
 	is_product_anchored <= '1' when exponent_diff_reg <= 2 else '0';
 
-    process (clk_i) begin
+    process (clk_i) begin 
         if rising_edge(clk_i) then
             lz_counter_reg <= lz_counter;
             add_sticky_bit_reg <= add_sticky_bit;
@@ -415,11 +418,12 @@ begin
         end if;
     end process;
 
-	exponent_pa <= exponent_p_reg - signed(resize(lz_counter_reg, exponent_p'length)) + 1;
+	exponent_pa <= exponent_p_reg - signed(resize(lz_counter_reg, exponent_p'length)) + 2;
 
-	s <= unsigned(-signed(mantissa_sum_reg)) when ((not effective_substraction_reg) and sum_carry) = '1' else
-		 mantissa_sum_reg;
-
+	s <= unsigned(-signed(mantissa_sum_reg(mantissa_sum_reg'left-1 downto 0))) when ((not effective_substraction_reg) and sum_carry) = '1' else
+		 mantissa_sum_reg(mantissa_sum_reg'left-1 downto 0);
+		 
+    is_zero <= nor product;
 	norm_shamt_pa <= to_unsigned(M + 2, norm_shamt_pa'length) + resize(lz_counter_reg, norm_shamt_pa'length);
 
 	NORM_SHIFT_AMOUNT : process (all)
@@ -427,17 +431,17 @@ begin
 	   exp <= exponent_tent_reg(E - 1 downto 0);
 	   norm_shamt <= add_shamt_reg;
 	   if is_product_anchored_reg = '1' then
-	       if exponent_pa(exponent_pa'left) = '1' then
-	           exp <= (others => '0');
-	           norm_shamt <= norm_shamt_subnormal_reg;
-	       else
+	       if exponent_pa(exponent_pa'left) = '0' and is_zero = '0' then
 	           exp <= unsigned(exponent_pa(E - 1 downto 0));
 	           norm_shamt <= norm_shamt_pa;
+	       else
+	     	   exp <= (others => '0');
+	           norm_shamt <= norm_shamt_subnormal_reg;
 	       end if;
 	   end if;
     end process;
 
-	mantissa <= shift_left(s, to_integer(norm_shamt));
+	mantissa <= shift_left('0' & s, to_integer(norm_shamt));
 	
 	process (clk_i) begin 
 	   if rising_edge(clk_i) then 
@@ -454,7 +458,7 @@ begin
 	begin
 		exp_fin <= exp_reg;
 		mantissa_final <= mantissa_reg(mantissa'left - 2 downto mantissa'left - M - 1);
-        sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
+        sticky_bit <= or mantissa_reg(mantissa'left-M-2 downto 0);
         if mantissa_reg(mantissa_reg'left) = '1' then
             exp_fin <= exponent_plus_1;
             mantissa_final <= mantissa_reg(mantissa'left - 1 downto mantissa'left - M);

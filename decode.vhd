@@ -90,7 +90,7 @@ architecture behavioral of decode is
 		
 	signal reg_write_fp : STD_LOGIC := '0';
 	signal imm_b, imm_s : STD_LOGIC_VECTOR(11 downto 0);
-	signal fp_regs_IDEX : FP_IDEX;
+	signal fp_regs_IDEX : FP_IDEX := ((others => '0'), (others => '0'), (others => '0'), '0', "00", FPU_NONE, "00000");
 	signal alu_operator, alu_operator_reg : ALU_OP := ALU_NONE;
 	signal fpu_operator : FPU_OP := FPU_NONE;
 	signal mem_operator, mem_operator_reg : MEM_OP := LSU_NONE;
@@ -654,7 +654,7 @@ begin
 
 	pc_o <= pc;
 	fp_regs_IDEX_o <= fp_regs_IDEX;
-	csr_read_address_o <= IR_i(31 downto 20);
+	csr_read_address_o <= csr_address;
 
     x_o <= x;
 	

@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity RISCV is
 	generic (
-		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\coremark\\main.hex";
+		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\quicksort\\main.hex";
 		ADDRESS_WIDTH : NATURAL := 16;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 2;
