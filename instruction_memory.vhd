@@ -41,7 +41,8 @@ architecture behavioral of instruction_memory is
 		return ram_content;
 	end function;
 
-	signal ram : ram_type := initramfromFile(RAM_FILENAME);
+	--signal ram : ram_type := initramfromFile(RAM_FILENAME);
+	signal ram : ram_type := (others => (others => '0'));
 	attribute ram_style of ram : signal is "block";
 
     signal data_imem : STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);

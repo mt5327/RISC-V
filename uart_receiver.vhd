@@ -26,9 +26,9 @@ architecture behavioral of uart_receiver is
 
 	signal uart_reg : STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 
-	subtype octet_t is NATURAL range 31 downto 0;
+	subtype octet_t is NATURAL range 63 downto 0;
 
-	signal octet : octet_t := 31;
+	signal octet : octet_t := 63;
     signal rx_bit_counter : unsigned (2 downto 0) := "000";
 
 	signal rx_data : STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
@@ -221,13 +221,13 @@ begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' or exception_i = '1' then
 				uart_address <= (others => '0');
-				octet <= 31;
+				octet <= 63;
 				mem_write <= '0';
 			else
 				if reg_write = '1' then
 					uart_reg(octet * 4 + 3 downto octet * 4) <= to_hex(rx_data);
 					if octet = 0 then
-						octet <= 31;
+						octet <= 63;
 					    mem_write <= '1';
 					else
 						octet <= octet - 1;
