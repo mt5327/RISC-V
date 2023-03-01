@@ -32,7 +32,7 @@ architecture behavioral of data_memory is
 		variable ramfileline : line;
 		variable ram_content : ram_type;
 	begin
-		for i in 0 to 2 ** (BLOCK_ADDRESS_WIDTH+1) - 1 loop
+		for i in 0 to 2 ** (BLOCK_ADDRESS_WIDTH+1) - 1   loop
 		  if i >= (2**(BLOCK_ADDRESS_WIDTH)) then
             if not endfile(ramfile) then
                 readline (ramfile, ramfileline);
@@ -48,16 +48,12 @@ architecture behavioral of data_memory is
  	end function;
 
 	signal MDR : STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
-
-	subtype octet_t is NATURAL range 31 downto 0;
-
-	signal octet : octet_t := 31;
 	signal MAR, uart_address : unsigned(BLOCK_ADDRESS_WIDTH - 1 downto 0) := (others => '0');
 
 	signal mem_write : STD_LOGIC := '0';
 	
-	--signal ram : ram_type := initramfromFile(RAM_FILENAME);
-	signal ram : ram_type := (others => (others => '0'));
+	signal ram : ram_type := initramfromFile(RAM_FILENAME);
+	--signal ram : ram_type := (others => (others => '0'));
 	attribute ram_style of ram : signal is "block";
 
     signal data_dmem : STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
@@ -66,8 +62,11 @@ architecture behavioral of data_memory is
 begin
 
 	mem_write <= mem_write_i or mem_init_i;
-	MAR <= unsigned(write_address_uart_i) when mem_init_i = '1' else unsigned(write_address_i);
-	MDR <= uart_data_i when mem_init_i = '1' else cache_line_i;
+	MAR <= unsigned(write_address_uart_i) when mem_init_i = '1' else 
+	       unsigned(write_address_i);
+	
+	MDR <= uart_data_i when mem_init_i = '1' else 
+	       cache_line_i;
 
     WRITE_ACCESS : process (clk_i)
     begin

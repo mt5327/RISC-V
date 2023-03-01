@@ -488,12 +488,6 @@ begin
 		        branch_predict.cf_type <= "00";
 		        reg_dst <= (others => '0');
 		        result_select_reg <= "0000";
-	            reg_cmp1_mem_reg <= '0';
-			    reg_cmp1_wb_reg <= '0';
-			    reg_cmp2_mem_reg <= '0';
-			    reg_cmp2_wb_reg <= '0';
-			    reg_cmp3_mem_reg <= '0';
-			    reg_cmp3_wb_reg <= '0';
 			else
 				if pipeline_stall_i = '0' then
 				    x <= x_data;

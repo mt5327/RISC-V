@@ -7,7 +7,7 @@ use work.constants.all;
 entity RISCV is
 	generic (
 		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\quicksort\\main.hex";
-		ADDRESS_WIDTH : NATURAL := 16;
+		ADDRESS_WIDTH : NATURAL := 17;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 2;
 		BHT_INDEX_WIDTH : NATURAL := 2);
@@ -365,8 +365,8 @@ architecture behavioral of RISCV is
                rst_i : in STD_LOGIC;
                exception_i : in STD_LOGIC;
                rx_i : in STD_LOGIC;
-               
-               cpu_enable_o : out STD_LOGIC;
+               cpu_enable_i : in STD_LOGIC;
+     --          cpu_enable_o : out STD_LOGIC;
                mem_init_imem_o : out STD_LOGIC;
                mem_init_dmem_o : out STD_LOGIC;
                uart_data_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
@@ -401,7 +401,8 @@ architecture behavioral of RISCV is
 	end component VGA;
 
 	signal pipeline_stall, pipeline_stall_if : STD_LOGIC := '0';
-	signal load_hazard, exception, cpu_enable, uart_tx_enable, uart_tx_busy : STD_LOGIC := '0';
+	signal load_hazard, exception, --cpu_enable, 
+	uart_tx_enable, uart_tx_busy : STD_LOGIC := '0';
 	signal multicycle_op, miss_instr, miss_data : STD_LOGIC;
 
 	signal mem_init_imem, mem_init_dmem, mem_write_ram : STD_LOGIC;
@@ -479,7 +480,7 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 
-		cpu_enable_i => cpu_enable or cpu_enable_i,
+		cpu_enable_i => cpu_enable_i,
 		pipeline_stall_i => pipeline_stall_if,
 		branch_info_i => branch_inf,
 		branch_predict_o => branch_predict_id,
@@ -495,7 +496,7 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		cpu_enable_i => cpu_enable or cpu_enable_i,
+		cpu_enable_i => cpu_enable_i,
 		flush_i => branch_inf.mispredict,
 		load_hazard_o => load_hazard,
 		pipeline_stall_i => pipeline_stall,
@@ -646,7 +647,7 @@ begin
 	port map(
 		clk_i => clk_i,
 		rst_i => rst_i,
-		cpu_enable_i => cpu_enable or cpu_enable_i,
+		cpu_enable_i => cpu_enable_i,
 		csr_i => csr_write,
 		csr_read_address_i => csr_read_address,
 		csr_data_o => csr_read_data,
@@ -790,9 +791,10 @@ begin
 		clk_i => clk_i,
 		rst_i => rst_i,
 		rx_i => rx_i,
+		cpu_enable_i => cpu_enable_i,
         exception_i => exception,
 		rx_error_o => LED_o(2),
-		cpu_enable_o => cpu_enable,
+--		cpu_enable_o => cpu_enable,
 		mem_init_imem_o => mem_init_imem,
 		mem_init_dmem_o => mem_init_dmem,
 		uart_data_o => uart_data,
@@ -803,7 +805,7 @@ begin
     port map ( 
         clk_i => clk_i,
         rst_i => rst_i,
-        cpu_enable_i => cpu_enable or cpu_enable_i,
+        cpu_enable_i => cpu_enable_i,
         uart_tx_enable_i => uart_tx_enable,
         tx_o => tx_o,
         uart_tx_busy_o => uart_tx_busy,
@@ -860,7 +862,7 @@ begin
     csr_data <= csr_write.data when csr_write.write_address = csr_read_address and csr_write.write = '1' else csr_read_data;
                         
 	LED_o(0) <= rst_i;
-	LED_o(1) <= cpu_enable or cpu_enable_i;
+	LED_o(1) <= cpu_enable_i;
 	LED_o(3) <= exception;
 
 	anode_o <= anode;

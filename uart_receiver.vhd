@@ -11,8 +11,8 @@ entity uart_receiver is
            rst_i : in STD_LOGIC;
            exception_i : in STD_LOGIC;
            rx_i : in STD_LOGIC;
-           
-           cpu_enable_o : out STD_LOGIC;
+           cpu_enable_i : in STD_LOGIC;
+          -- cpu_enable_o : out STD_LOGIC;
            mem_init_imem_o : out STD_LOGIC;
            mem_init_dmem_o : out STD_LOGIC;
            uart_data_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
@@ -219,7 +219,7 @@ begin
 	UART_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or exception_i = '1' then
+			if rst_i = '1' or cpu_enable_i = '1' or exception_i = '1' then
 				uart_address <= (others => '0');
 				octet <= 63;
 				mem_write <= '0';
@@ -245,7 +245,9 @@ begin
 	rx_done <= uart_clk and stop_bit;
 
 	reg_write <= '1' when unsigned(rx_data) >= 48 and rx_done = '1' else '0';
-	cpu_enable_o <= '1' when rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0' else '0';
+	--cpu_enable <= '1' when (rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0') or cpu_enable_i = '1' else '0';
+
+ --   cpu_enable_o <= cpu_enable;
 
 	rx_error_o <= parity_error;
     mem_init_imem_o <= mem_write and not uart_address(BLOCK_ADDRESS_WIDTH);

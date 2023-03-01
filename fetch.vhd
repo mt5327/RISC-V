@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity fetch is
 	generic (
-		ADDRESS_WIDTH : NATURAL := 18;
+		ADDRESS_WIDTH : NATURAL := 17;
 		BHT_INDEX_WIDTH : NATURAL := ADDRESS_WIDTH);
 	port (
 		clk_i : in STD_LOGIC;
@@ -97,12 +97,12 @@ begin
 		end if;
 	end process;
 	
-	process (pc)
-	begin
-	   if pc = x"0000000000000308" then
-	       report "M";
-	   end if;
-	end process;
+--	process (pc)
+--	begin
+--	   if pc = x"0000000000000304" then
+--	       report "M";
+--	   end if;
+--	end process;
 	
 	with IR_i(6 downto 0) select
 	   predict_taken <= '1' when JAL,

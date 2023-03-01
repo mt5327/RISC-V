@@ -29,8 +29,13 @@ architecture behavioral of instruction_cache is
 	type state_type is (CHECK, WAIT_MEM, WRITE_TO_CACHE);
 	signal state, next_state : state_type;
 
-	type cache_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (CACHE_SET_SIZE downto 0);
+	signal valid : STD_LOGIC_VECTOR (2 ** INDEX_WIDTH - 1 downto 0) := (others => '0');
+
+	type cache_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 	signal cache : cache_t := (others => (others => '0'));
+
+	type tags_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (TAG_WIDTH - 1 downto 0);
+	signal tags : tags_t := (others => (others => '0'));
 
 	signal read_address : STD_LOGIC_VECTOR (BLOCK_ADDRESS_WIDTH - 1 downto 0);
 	signal miss, tag_eq, check_miss, we : STD_LOGIC;
@@ -41,11 +46,11 @@ architecture behavioral of instruction_cache is
 begin
 
 	read_address <= tag & block_address;
-	tag_eq <= '1' when tag = cache(to_integer(unsigned(block_address)))(CACHE_SET_SIZE - 1 downto CACHE_SET_SIZE - TAG_WIDTH) else '0';
+	tag_eq <= '1' when tag = tags(to_integer(unsigned(block_address))) else '0';
 	check_miss <= '1' when state = CHECK else '0';
 	we <= '1' when state = WRITE_TO_CACHE else '0';
 
-	miss <= not ( cache(to_integer(unsigned(block_address)))(CACHE_SET_SIZE) and tag_eq and check_miss );
+	miss <= not ( valid(to_integer(unsigned(block_address))) and tag_eq and check_miss );
 
 	SYNC_PROC : process (clk_i)
 	begin
@@ -76,10 +81,12 @@ begin
 	begin
 		if rising_edge(clk_i) then
 			if rst_i = '1' then
-				cache <= (others => (others => '0'));
+				valid <= (others => '0');
 			else
 				if we = '1' then
-					cache(to_integer(unsigned(block_address))) <= '1' & tag & data_i;
+                    valid(to_integer(unsigned(block_address))) <= '1';
+                    tags(to_integer(unsigned(block_address))) <= tag;
+                    cache(to_integer(unsigned(block_address))) <= data_i;
 				end if;
 			end if;
 		end if;

@@ -31,14 +31,14 @@ end data_cache;
 
 architecture behavioral of data_cache is
 
-	constant TAG_BITS : NATURAL := ADDRESS_WIDTH - INDEX_WIDTH - num_bits(BLOCK_SIZE/8);
+	constant TAG_WIDTH : NATURAL := ADDRESS_WIDTH - INDEX_WIDTH - num_bits(BLOCK_SIZE/8);
 	constant BLOCK_ADDRESS_WIDTH : NATURAL := ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8);
 	constant OFFSET_WIDTH : NATURAL := num_bits(BLOCK_SIZE/64);
 
 	type cache_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 	signal cache : cache_t := (others => (others => '0'));
 
-	type tags_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0);
+	type tags_t is array (0 to 2 ** INDEX_WIDTH - 1) of STD_LOGIC_VECTOR (TAG_WIDTH - 1 downto 0);
 	signal tags : tags_t := (others => (others => '0'));
 
 	signal valid : STD_LOGIC_VECTOR (2 ** INDEX_WIDTH - 1 downto 0) := (others => '0');
@@ -47,7 +47,7 @@ architecture behavioral of data_cache is
 	signal d, miss, check_miss, tag_eq : STD_LOGIC := '0';
 	signal mem_write, cache_write, write_alloc : STD_LOGIC := '0';
 
-	alias tag : STD_LOGIC_VECTOR (TAG_BITS - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto INDEX_WIDTH + OFFSET_WIDTH);
+	alias tag : STD_LOGIC_VECTOR (TAG_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto INDEX_WIDTH + OFFSET_WIDTH);
 
 	alias memory_address : STD_LOGIC_VECTOR(BLOCK_ADDRESS_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto OFFSET_WIDTH);
 

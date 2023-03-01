@@ -341,7 +341,7 @@ begin
 	reg_write_fp_o <= reg_write_fp_reg;
 	result_fp_o <= result_fp_reg;
 	
-	with csr_mux_sel_i select 
+ 	with csr_mux_sel_i select 
 	    csr_data_mux <= csr.data when "001",
 	                    csr_data_wb_i when "010",
 	                    csr_data_i when "100",
@@ -360,20 +360,22 @@ begin
 
     with result_select_i(3 downto 2) select 
         csr_data <= ((63 downto 5 => '0') & result_fp.fflags) when "01",
-        csr_result when "10", 
-        (others => '0') when others;
+                    csr_result when "10", 
+                    (others => '0') when others;
 
 
     with fp_regs_idex_i.precision select
         result_fp <= results_fp(0) when "01",
                      results_fp(1) when "10",
-                     ((others => '0'), (others => '0'), '0') when others;
+                     ((others => '-'), (others => '-'), '0') when others;
                      
     ENABLE_FPU_SUBUNIT_GEN: for i in 0 to 1 generate 
         enable_fpu_subunit(i*5+4 downto i*5) <= fp_regs_idex_i.enable_fpu_subunit(4 downto 0) and 
                                                 (4 downto 0 => fp_regs_idex_i.precision(i)) and
                                                 (4 downto 0 => not results_fp(i).valid);
     end generate;
+
+
 
 	csr_o <= csr;
 

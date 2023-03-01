@@ -27,7 +27,7 @@ architecture behavioral of FP_Divider is
 	constant BIAS : signed(E downto 0) := to_signed(2 ** (E - 1) - 1, E + 1);
 	constant BIAS_DIV_2 : signed(E-1 downto 0) := to_signed(2 ** (E - 2) - 1, E);
 	constant INFINITY : STD_LOGIC_VECTOR (P - 2 downto 0) := (P - 2 downto P - E - 1 => '1', others => '0');
-    constant NUM_ITERS : natural := (M-2) / 2;
+    constant NUM_ITERS : natural := M / 2;
 
 	signal counter : unsigned (num_bits(NUM_ITERS) downto 0);
 
@@ -35,7 +35,7 @@ architecture behavioral of FP_Divider is
 	signal invalid, invalid_reg, invalid_div, invalid_sqrt, special_case : STD_LOGIC := '0';
 	signal mantissa_x, mantissa_y : STD_LOGIC_VECTOR (M - 1 downto 0);
     signal exponent_div, exponent_x, exponent_y : signed(E downto 0);
-    signal exp, exponent_div_reg, exponent_div_final, exponent_div_minus_one, exponent_sqrt, exponent_sqrt_reg : STD_LOGIC_VECTOR (E-1 downto 0);
+    signal exp, exp_final, exponent_div_reg, exponent_div_final, exponent_div_minus_one, exponent_sqrt, exponent_sqrt_reg : STD_LOGIC_VECTOR (E-1 downto 0);
    
 	alias exp_odd : STD_LOGIC is x_i(P-E-1);
 	alias sign_x : STD_LOGIC is x_i(P - 1);
@@ -43,7 +43,7 @@ architecture behavioral of FP_Divider is
 
     signal digit_sign : STD_LOGIC;
 
-    signal digit, last_digit, sign_rem : signed(2 downto 0);
+    signal digit, last_digit : signed(2 downto 0);
 
 	signal q, qm : STD_LOGIC_VECTOR(q_length(M-2) downto 0) := (others => '0');	
     signal mantissa : STD_LOGIC_VECTOR (q_length(M) downto 0) := (others => '0');
@@ -51,7 +51,7 @@ architecture behavioral of FP_Divider is
 	signal special_value, special_value_reg : STD_LOGIC_VECTOR (P-1 downto 0);
      
     signal mantissa_final, mantissa_final_reg : STD_LOGIC_VECTOR (M-1 downto 0);
-    signal num_round : STD_LOGIC_VECTOR (P-2 downto 0);
+    signal num_round, num_round_reg : STD_LOGIC_VECTOR (P-2 downto 0);
 
 	signal square_estimate, estimate, first_estimate, rm : STD_LOGIC_VECTOR (2 downto 0);
 
@@ -164,7 +164,7 @@ begin
     invalid_div <= fp_info_x.nan or fp_info_y.nan or ( fp_info_x.zero and fp_info_y.inf ) or ( fp_info_x.inf and fp_info_y.zero );
     invalid_sqrt <= fp_info_x.nan or ( ( not fp_info_x.zero ) and sign_x );
          
-    div_by_zero <= fp_info_y.zero and div;
+    div_by_zero <= fp_info_y.zero and div; 
      
     PR_div <= STD_LOGIC_VECTOR(
             ("0" & unsigned(mantissa_x) & (PR_div'left-M-1 downto 0 => '0')) +
@@ -227,10 +227,15 @@ begin
                         qm <= q;
                     end if;
                     
-                    q(position downto position - 1) <= a;
-                    qm(position downto position - 1) <= b;
-                when ROUND => 
+                    if counter > 0 then
+                        q(position downto position - 1) <= a;
+                        qm(position downto position - 1) <= b;
+                    end if;
+                    
+                    exp_final <= exp; 
                     mantissa_final_reg <= mantissa_final;
+                when ROUND =>
+                    num_round_reg <= num_round;
                 when FINALIZE =>
                     special_case <= '0';          
                 when others =>
@@ -239,9 +244,8 @@ begin
         end if;
     end process;    
     
-    digit <= (digit_sign & signed(a)) - sign_rem;                      
-
-               
+    digit <= (digit_sign & signed(a)) - PR_mul(PR'left);                      
+           
     MANTISSA_FINAL_GEN: if M = 24 generate 
         mantissa_final <= mantissa(mantissa'left-1 downto 2) when mantissa(mantissa'left) = '1' else 
                           mantissa(mantissa'left-2 downto 1);     
@@ -251,11 +255,12 @@ begin
     end generate;   
 
     ROUNDING: rounder generic map(P-1) port map (
-        unsigned(exp) & unsigned(mantissa_final_reg(mantissa_final_reg'left downto 1)), 
-        sign, 
-        rm,
-        mantissa_final_reg(0) & inexact, 
-        num_round);      
+        x_i => unsigned(exp_final) & unsigned(mantissa_final_reg(mantissa_final_reg'left downto 1)), 
+        sign_i => sign_reg, 
+        rm_i => rm,
+        round_sticky_i => mantissa_final_reg(0) & inexact, 
+        z_o => num_round
+    );      
               
     inexact <= or PR;
     exponent_div_minus_one <= STD_LOGIC_VECTOR(unsigned(exponent_div_reg(E-1 downto 0)) - 1);
@@ -265,7 +270,6 @@ begin
     ldb <= (not PR(PR'left)) and (or cmp(1 downto 0));
     
     digit_sign <= or cmp(3 downto 2);
-    sign_rem <= "00" & PR_mul(PR'left);
 
     a <= (cmp(0) or cmp(2) or cmp(3)) & (cmp(1) or cmp(2));
     
@@ -329,16 +333,13 @@ begin
                 qm & STD_LOGIC_VECTOR(digit(1 downto 0));                               
     
     RESULT_GEN: if P = 32 generate 
-        result_o.value <= (63 downto 32 => '1') & sign_reg & num_round when special_case = '0' else 
+        result_o.value <= (63 downto 32 => '1') & sign_reg & num_round_reg when special_case = '0' else 
                           (63 downto 32 => '1') & special_value_reg;
     else generate
-        result_o.value <= sign_reg & num_round when special_case = '0' else 
+        result_o.value <= sign_reg & num_round_reg when special_case = '0' else 
                           special_value_reg; 
     end generate;
-
-        
+     
     result_o.valid <= '1' when state = FINALIZE else '0';
-   
-   
    
  end behavioral;  
