@@ -6,7 +6,7 @@ use work.constants.all;
 entity memory is
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 
 		pipeline_stall_i : in STD_LOGIC;
         
@@ -28,11 +28,9 @@ end memory;
 architecture behavioral of memory is
 
 	signal data, data_fp : STD_LOGIC_VECTOR (63 downto 0);
-	signal csr : CSR := ('0', X"000", '0', NO_EXCEPTION, (others => '0'), (others => '0'));
+	signal csr : CSR := ('0', X"000", NO_EXCEPTION, (others => '0'), (others => '0'));
 	signal reg_dst, reg_dst_fp : REG;
-	
-	signal instr_valid : STD_LOGIC;
-        
+	        
 begin
        
     data <= mem_data_i when mem_read_i = '1' else reg_dst_i.data;
@@ -41,7 +39,7 @@ begin
 	REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				reg_dst.write <= '0';
 			else
 				if pipeline_stall_i = '0' then
@@ -56,7 +54,7 @@ begin
 	FP_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				reg_dst_fp.write <= '0';
 			else
 				if pipeline_stall_i = '0' then
@@ -71,7 +69,7 @@ begin
 	CSR_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				csr.write <= '0';
 				csr.exception_id <= NO_EXCEPTION;
 			else

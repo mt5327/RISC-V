@@ -7,7 +7,7 @@ use work.constants.all;
 entity multiplier is
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 		enable_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -76,7 +76,7 @@ begin
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				state <= IDLE;
 			else
 				state <= next_state;

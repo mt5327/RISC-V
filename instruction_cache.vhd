@@ -11,7 +11,7 @@ entity instruction_cache is
 		INDEX_WIDTH : NATURAL := 2);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 
 		instr_address_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 3 downto 0);
 		read_address_o : out STD_LOGIC_VECTOR (ADDRESS_WIDTH - num_bits(BLOCK_SIZE/8) - 1 downto 0);
@@ -55,7 +55,7 @@ begin
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				state <= CHECK;
 			else
 				state <= next_state;
@@ -80,7 +80,7 @@ begin
 	CACHE_WRITE : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				valid <= (others => '0');
 			else
 				if we = '1' then

@@ -11,7 +11,7 @@ entity FP_Converter_int_to_float is
 		M : NATURAL);
 	port (
         clk_i : in STD_LOGIC;
-        rst_i : in STD_LOGIC;
+        rst_ni : in STD_LOGIC;
         enable_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -63,7 +63,7 @@ begin
     SYNC_PROC : process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i = '1' then
+            if rst_ni = '0' then
                 state <= IDLE;
             else
                 state <= next_state;

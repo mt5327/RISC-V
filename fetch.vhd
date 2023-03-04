@@ -10,13 +10,11 @@ entity fetch is
 		BHT_INDEX_WIDTH : NATURAL := ADDRESS_WIDTH);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
-		cpu_enable_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 		pipeline_stall_i : in STD_LOGIC;
 		branch_info_i : in BRANCH_INFO;
 		IR_i : in STD_LOGIC_VECTOR(31 downto 0);
 		instr_address_o : out STD_LOGIC_VECTOR(ADDRESS_WIDTH - 3 downto 0);
-		instr_valid_o : out STD_LOGIC;
 		pc_o : out STD_LOGIC_VECTOR(63 downto 0);
 		IR_o : out STD_LOGIC_VECTOR(31 downto 0);
 		branch_predict_o : out BRANCH_PREDICTION);
@@ -28,7 +26,7 @@ architecture behavioral of fetch is
 		generic (BHT_INDEX_WIDTH : NATURAL := 2);
 		port (
 			clk_i : in STD_LOGIC;
-			rst_i : in STD_LOGIC;
+			rst_ni : in STD_LOGIC;
 			pc_i : in unsigned (63 downto 0);
 			branch_info_i : in BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 			opcode_i : in STD_LOGIC_VECTOR (6 downto 0);
@@ -36,13 +34,12 @@ architecture behavioral of fetch is
 			branch_predict_o : out BRANCH_PREDICTION);
 	end component branch_prediction_unit;
 
-	signal pc : unsigned(63 downto 0) := (others => '0');
-	signal pc_reg : unsigned(63 downto 0) := (others => '0');
+	signal pc, pc_reg : unsigned(63 downto 0) := (others => '0');
 
 	signal IR : STD_LOGIC_VECTOR(31 downto 0) := NOP;
 
 	signal branch_predict, branch_predict_reg : BRANCH_PREDICTION;
-	signal predict_taken, instr_valid : STD_LOGIC;
+	signal predict_taken : STD_LOGIC;
 
 begin
 
@@ -50,7 +47,7 @@ begin
 	generic map(BHT_INDEX_WIDTH => BHT_INDEX_WIDTH)
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
+		rst_ni => rst_ni,
 		pc_i => pc,
 		branch_info_i => branch_info_i,
 		opcode_i => IR_i(6 downto 0),
@@ -61,7 +58,7 @@ begin
 	NEXT_PC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or cpu_enable_i = '0' then
+			if rst_ni = '0' then
 				pc <= (others => '0');
 			else
 				if branch_info_i.mispredict = '1' then
@@ -80,29 +77,20 @@ begin
 	REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or branch_info_i.mispredict = '1' or cpu_enable_i = '0' then
+			if rst_ni = '0' or branch_info_i.mispredict = '1' then
 				pc_reg <= (others => '0');
 				IR <= NOP;
 				branch_predict_reg.cf_type <= "00";
-				instr_valid <= '1';
 			else
 				if pipeline_stall_i = '0' then
 					pc_reg <= pc;
 					IR <= IR_i;
-					instr_valid <= '1';
                     branch_predict_reg.cf_type <= branch_predict.cf_type;
 					branch_predict_reg.predicted_address <= branch_predict.predicted_address;
 				end if;
 			end if;
 		end if;
 	end process;
-	
---	process (pc)
---	begin
---	   if pc = x"0000000000000304" then
---	       report "M";
---	   end if;
---	end process;
 	
 	with IR_i(6 downto 0) select
 	   predict_taken <= '1' when JAL,
@@ -113,5 +101,5 @@ begin
 	pc_o <= STD_LOGIC_VECTOR(pc_reg);
 	IR_o <= IR; 
 	branch_predict_o <= branch_predict_reg;
-    instr_valid_o <= instr_valid;
+
 end behavioral;

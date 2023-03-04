@@ -11,7 +11,7 @@ entity FP_Converter is
         M : NATURAL);
     port (
         clk_i : in STD_LOGIC;
-        rst_i : in STD_LOGIC;
+        rst_ni : in STD_LOGIC;
         enable_i : in STD_LOGIC_VECTOR (2 downto 0);
         mode_i : in STD_LOGIC_VECTOR (1 downto 0);
         rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -32,7 +32,7 @@ architecture behavioral of FP_Converter is
             M : NATURAL);
         port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC;
             x_i : in STD_LOGIC_VECTOR (P-1 downto 0);
             is_boxed_i : in STD_LOGIC;
@@ -48,7 +48,7 @@ architecture behavioral of FP_Converter is
             M : NATURAL);
         port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC;
             x_i : in STD_LOGIC_VECTOR (63 downto 0);
             mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -71,7 +71,7 @@ architecture behavioral of FP_Converter is
             DST_M : NATURAL);	
         port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC;
             x_i : in STD_LOGIC_VECTOR (SRC_P-1 downto 0);
             is_boxed_i : in STD_LOGIC;
@@ -85,7 +85,7 @@ begin
     generic map(P, E, M) 
     port map (
         clk_i => clk_i,
-        rst_i => rst_i,
+        rst_ni => rst_ni,
         enable_i => enable_i(0), 
         x_i => x_i(P-1 downto 0), 
         is_boxed_i => is_boxed_i,
@@ -98,7 +98,7 @@ begin
     generic map(P, E, M) 
     port map (
         clk_i => clk_i,
-        rst_i => rst_i,
+        rst_ni => rst_ni,
         enable_i => enable_i(1), 
         x_i => x_int_i, 
         mode_i => mode_i, 
@@ -110,7 +110,7 @@ begin
     generic map(SRC_P, SRC_E, SRC_M, P, E, M) 
     port map (
         clk_i => clk_i,
-        rst_i => rst_i,
+        rst_ni => rst_ni,
         enable_i => enable_i(2), 
         x_i => x_i(SRC_P-1 downto 0), 
         is_boxed_i => is_boxed_i,

@@ -7,7 +7,7 @@ use work.constants.ALL;
 entity VGA is
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 
 		hsync_o : out STD_LOGIC;
 		vsync_o : out STD_LOGIC;
@@ -149,7 +149,7 @@ begin
 	PRESCALER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				counter <= "00";
 				pixel_clk <= '0';
 				else
@@ -167,7 +167,7 @@ begin
 	COUNTERS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				hcount <= (others => '0');
 				vcount <= (others => '0');
 				else

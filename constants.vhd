@@ -150,7 +150,6 @@ end record;
 type CSR is record
     write : STD_LOGIC;
     write_address : STD_LOGIC_VECTOR (11 downto 0);
-    instr_valid : STD_LOGIC;
     exception_id : STD_LOGIC_VECTOR (3 downto 0);
     epc : STD_LOGIC_VECTOR (63 downto 0);
     data : STD_LOGIC_VECTOR (63 downto 0);

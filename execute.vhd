@@ -10,7 +10,7 @@ entity execute is
 		BHT_INDEX_WIDTH : NATURAL := 2);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 
 		pipeline_stall_i : in STD_LOGIC;
 
@@ -29,8 +29,6 @@ entity execute is
         
 		imm_i : in STD_LOGIC_VECTOR (63 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-
-        instr_valid_i : in STD_LOGIC;
 
 		branch_predict_i : in BRANCH_PREDICTION;
 		branch_info_o : out BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
@@ -103,7 +101,7 @@ architecture behavioral of execute is
 	component multiplier is
 		port (
 			clk_i : in STD_LOGIC;
-			rst_i : in STD_LOGIC;
+			rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC;
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
 			y_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -115,7 +113,7 @@ architecture behavioral of execute is
 	component divider is
 		port (
 			clk_i : in STD_LOGIC;
-			rst_i : in STD_LOGIC;
+			rst_ni : in STD_LOGIC;
 			enable_i : in STD_LOGIC;
 			x_i : in STD_LOGIC_VECTOR (63 downto 0);
 			y_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -131,7 +129,7 @@ architecture behavioral of execute is
             M : natural);		
 	    port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             fp_op_i : in FPU_OP;
     	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (4 downto 0);
             cvt_mode_i : in STD_LOGIC_VECTOR (1 downto 0);
@@ -153,10 +151,8 @@ architecture behavioral of execute is
 	signal mem_read, mem_read_fp, mem_write, mem_write_fp : STD_LOGIC;
 	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
-	signal csr : CSR := ('0', (others => '0'), '0', NO_EXCEPTION, (others => '0'), (others => '0'));
+	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
     signal memory_address : STD_LOGIC_VECTOR (63 downto 0);
-
-    signal instr_valid : STD_LOGIC;
     
     signal uart_tx_enable, uart_tx_enable_reg : STD_LOGIC;
     
@@ -192,7 +188,7 @@ begin
 	MUL : multiplier
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
+		rst_ni => rst_ni,
 		enable_i => enable_mul,
 		x_i => x_sel,
 		y_i => y_sel,
@@ -204,7 +200,7 @@ begin
 	DIV : divider
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
+		rst_ni => rst_ni,
 		enable_i => enable_div,
 		x_i => x_sel,
 		y_i => y_sel,
@@ -218,7 +214,7 @@ begin
         generic map (FP_FORMATS(i).P, FP_FORMATS(i).E, FP_FORMATS(i).M)
         port map(
             clk_i => clk_i,
-            rst_i => rst_i,
+            rst_ni => rst_ni,
             fp_op_i => fp_regs_idex_i.fp_op,
             enable_fpu_subunit_i => enable_fpu_subunit(i*5+4 downto i*5),
             rm_i => funct3_i,
@@ -278,7 +274,7 @@ begin
 	REGS : process (clk_i)
 	begin  
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				reg_dst.write <= '0';
 				reg_write_fp_reg <= '0';
 				mem_req.read <= '0';
@@ -307,12 +303,12 @@ begin
 	CS_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				csr.write <= '0';
 				csr.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-                    csr <= (csr_write_i, csr_write_address_i, instr_valid, csr_exception_id_i, pc_i, csr_data);
+                    csr <= (csr_write_i, csr_write_address_i, csr_exception_id_i, pc_i, csr_data);
 				end if;
 			end if;
 		end if; 
@@ -332,8 +328,8 @@ begin
         
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
     
-    reg_write <= mem_read when mem_read_i(0) = '1' else reg_write_i; 	
-	reg_write_fp <= mem_read_fp when mem_read_i(1) = '1' else fp_regs_idex_i.write;
+    reg_write <= mem_read or reg_write_i; 	
+	reg_write_fp <= mem_read_fp or fp_regs_idex_i.write;
  
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
@@ -347,7 +343,8 @@ begin
 	                    csr_data_i when "100",
 	                    (others => '0') when others;
 
-    csr_data_sel <= imm_i when imm_src_i = '1' else x_sel;         
+    csr_data_sel <= imm_i when imm_src_i = '1' else 
+                    x_sel;         
 	
 	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else 
 	                csr_exception_id_i;
@@ -375,8 +372,6 @@ begin
                                                 (4 downto 0 => not results_fp(i).valid);
     end generate;
 
-
-
 	csr_o <= csr;
 
     mem_req_o <= mem_req;
@@ -384,7 +379,6 @@ begin
 	
 	uart_tx_enable_o <= uart_tx_enable_reg;
 
-	instr_valid <= instr_valid_i and ( and exception_id ); 
 	instr_misaligned <= ( or branch_inf.target_address(1 downto 0) ) and branch_inf.taken;
 
 end behavioral; 

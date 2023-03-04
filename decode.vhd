@@ -7,8 +7,7 @@ use work.constants.all;
 entity decode is
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
-        cpu_enable_i: in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
         load_hazard_o : out STD_LOGIC;
 
 		flush_i : in STD_LOGIC;
@@ -18,8 +17,6 @@ entity decode is
 		frm_i : in STD_LOGIC_VECTOR (2 downto 0);
 		funct3_o : out STD_LOGIC_VECTOR (2 downto 0);
 		pc_i : in STD_LOGIC_VECTOR (63 downto 0);
-        instr_valid_i : in STD_LOGIC;
-        instr_valid_o : out STD_LOGIC;
 		branch_predict_i : in BRANCH_PREDICTION;
 
 		csr_data_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -100,8 +97,6 @@ architecture behavioral of decode is
     signal csr_write_address : STD_LOGIC_VECTOR (11 downto 0);
 	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write, csr_write_reg : STD_LOGIC;
 
-    signal instr_valid, instr_valid_reg : STD_LOGIC;
-
     signal csr_data : STD_LOGIC_VECTOR (63 downto 0);
 
     signal reg_cmp1_mem, reg_cmp1_wb : STD_LOGIC;
@@ -140,9 +135,7 @@ architecture behavioral of decode is
 	component regfile is
 		port (
 			clk_i : in STD_LOGIC;
-			rst_i : in STD_LOGIC;
-			cpu_enable_i : in STD_LOGIC;
-
+			rst_ni : in STD_LOGIC;
 			reg_dst_i : REG;
 
 			registers_o : out reg_t);
@@ -153,8 +146,7 @@ begin
 	REGS : regfile
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
-		cpu_enable_i => cpu_enable_i,
+		rst_ni => rst_ni,
 		reg_dst_i => reg_dst_i,
 		registers_o => registers
 	);
@@ -162,8 +154,7 @@ begin
 	FP_REGS : regfile
 	port map(
 		clk_i => clk_i,
-		rst_i => rst_i,
-		cpu_enable_i => cpu_enable_i,
+		rst_ni => rst_ni,
 		reg_dst_i => reg_dst_fp_i,
 		registers_o => registers_fp
 	);
@@ -472,13 +463,11 @@ begin
 		               BREAKPOINT when IR_i = X"00100073" else
 		               ENVIROMENT_CALL_USER_MODE when IR_i = X"00000073" else
 		               NO_EXCEPTION;
-  
-    instr_valid <= instr_valid_i and ( and csr_exception_id ); 
-   
+     
     process (clk_i)
  	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or flush = '1' then
+			if rst_ni = '0' or flush = '1' then
 				ctrl_flow_reg <= '0';
 				reg_write_reg <= '0';
 				mem_read_reg <= "00";
@@ -493,7 +482,6 @@ begin
 				    x <= x_data;
 				    y <= y_data;
 				    funct3_reg <= fun3;
-				    instr_valid_reg <= instr_valid;
 			        reg_cmp1_mem_reg <= reg_cmp1_mem;
 			        reg_cmp1_wb_reg <= reg_cmp1_wb;
 			        reg_cmp2_mem_reg <= reg_cmp2_mem;
@@ -529,7 +517,7 @@ begin
 	process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or flush = '1' then
+			if rst_ni = '0' or flush = '1' then
 				fp_regs_IDEX.write <= '0';
 				fp_regs_IDEX.fp_op <= FPU_NONE;
 				fp_regs_IDEX.enable_fpu_subunit <= (others => '0');
@@ -550,7 +538,7 @@ begin
 	CS_REGS : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or flush = '1' then
+			if rst_ni = '0' or flush = '1' then
 				csr_write_reg <= '0';
 				csr_exception_id_reg <= NO_EXCEPTION;
 			else
@@ -678,6 +666,5 @@ begin
     csr_exception_id_o <= csr_exception_id_reg;
 
     result_select_o <= result_select_reg;
-    instr_valid_o <= instr_valid_reg;
     
 end behavioral;

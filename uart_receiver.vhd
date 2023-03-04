@@ -8,11 +8,9 @@ entity uart_receiver is
     Generic ( BLOCK_SIZE : NATURAL; 
               BLOCK_ADDRESS_WIDTH : NATURAL);
     Port ( clk_i : in STD_LOGIC;
-           rst_i : in STD_LOGIC;
+           rst_ni : in STD_LOGIC;
            exception_i : in STD_LOGIC;
            rx_i : in STD_LOGIC;
-           cpu_enable_i : in STD_LOGIC;
-          -- cpu_enable_o : out STD_LOGIC;
            mem_init_imem_o : out STD_LOGIC;
            mem_init_dmem_o : out STD_LOGIC;
            uart_data_o : out STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
@@ -27,8 +25,8 @@ architecture behavioral of uart_receiver is
 	signal uart_reg : STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 
 	subtype octet_t is NATURAL range 63 downto 0;
-
 	signal octet : octet_t := 63;
+	
     signal rx_bit_counter : unsigned (2 downto 0) := "000";
 
 	signal rx_data : STD_LOGIC_VECTOR (7 downto 0) := (others => '0');
@@ -65,7 +63,7 @@ begin
 	PRESCALER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '1' then
 				counter <= (others => '0');
 			else
 				if uart_clk_enable = '1' then
@@ -84,8 +82,8 @@ begin
     SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
-				state <= READY;
+			if rst_ni = '1' then
+			 	state <= READY;
 			else
 				state <= next_state;
 			end if;
@@ -162,7 +160,7 @@ begin
 	SHIFT_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or (uart_rx_start = '1' and rx = '0') then
+			if rst_ni = '1' or (uart_rx_start = '1' and rx = '0') then
 				rx_data <= (others => '0');
 			else
 				if uart_clk = '1' and sh_reg_enable = '1' then
@@ -175,7 +173,7 @@ begin
 	UART_RX_COUNTER: process(clk_i)
 	begin
         if rising_edge(clk_i) then
-            if rst_i = '1' or state = READY then
+            if rst_ni = '1' or state = READY then
                 rx_bit_counter <= "000";
             else 
                 if uart_clk = '1' and sh_reg_enable = '1' then
@@ -192,7 +190,7 @@ begin
 	UART_RX_CDC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-		  if rst_i = '1' then
+		  if rst_ni = '1' then
 		      rx_reg <= '1';
 		      rx <= '1';
 		  else
@@ -206,7 +204,7 @@ begin
 	PARITY_CHECK : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '1' then
 				parity_error <= '0';
 			else
 				if uart_clk = '1' and parity_bit = '1' then
@@ -219,7 +217,7 @@ begin
 	UART_REGISTER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or cpu_enable_i = '1' or exception_i = '1' then
+			if rst_ni = '1' or exception_i = '1' then
 				uart_address <= (others => '0');
 				octet <= 63;
 				mem_write <= '0';
@@ -245,8 +243,8 @@ begin
 	rx_done <= uart_clk and stop_bit;
 
 	reg_write <= '1' when unsigned(rx_data) >= 48 and rx_done = '1' else '0';
-	--cpu_enable <= '1' when (rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0') or cpu_enable_i = '1' else '0';
 
+	--cpu_enable <= '1' when (rx_data = X"04" and uart_clk_enable = '0' and parity_error = '0') or cpu_enable_i = '1' else '0';
  --   cpu_enable_o <= cpu_enable;
 
 	rx_error_o <= parity_error;

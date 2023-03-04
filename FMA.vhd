@@ -11,7 +11,7 @@ entity FMA is
 		M : NATURAL);
 	port (
         clk_i : in STD_LOGIC;
-        rst_i : in STD_LOGIC;
+        rst_ni : in STD_LOGIC;
         enable_i : in STD_LOGIC;
         fp_op_i : in FPU_OP;
         rm_i  : in STD_LOGIC_VECTOR (2 downto 0);
@@ -24,8 +24,8 @@ end FMA;
 
 architecture behavioral of FMA is
 
-	constant BIAS : signed(E downto 0) := to_signed(2 ** (E - 1) - 1, E + 1);
-	constant E_MIN : signed(E downto 0) := 1 - BIAS;
+	constant BIAS : signed(E+1 downto 0) := to_signed(2 ** (E - 1) - 1, E + 2);
+	constant E_MIN : signed(E+1 downto 0) := 1 - BIAS;
 	constant FP_ONE : STD_LOGIC_VECTOR(P - 1 downto 0) := (P - 3 downto P - E - 1 => '1', others => '0');
 	constant LOWER_SUM_WIDTH : NATURAL := 2 * M + 3;
 	constant SHIFT_SIZE : NATURAL := num_bits(3 * M + 4);
@@ -38,16 +38,17 @@ architecture behavioral of FMA is
 	signal valid, sign_x, sign_z, sign_p, sign_p_reg, effective_substraction, effective_substraction_reg, sign, sign_reg, sticky_bit, is_product_anchored, is_product_anchored_reg : STD_LOGIC := '0';
 
 	-- Exceptions
-	signal invalid, invalid_reg, inexact, underflow, underflow_after_round, overflow, overflow_after_round, special_case, special_case_reg : STD_LOGIC;
+	signal invalid, invalid_reg, inexact, underflow, overflow_before_round, underflow_before_round, underflow_after_round, overflow, overflow_after_round, special_case, special_case_reg : STD_LOGIC;
 
-	signal exponent_x, exponent_y, exponent_z : signed(E downto 0);
-	signal exponent_a, exponent_p, exponent_p_reg, exponent_pa : signed(E downto 0);
-	signal exponent_diff, exponent_diff_reg : signed(E downto 0) := (others => '0');
-	signal exponent_tent, exponent_a_reg : signed(E - 1 downto 0);
+	signal exponent_x, exponent_y, exponent_z : signed(E+1 downto 0);
+	signal exponent_a, exponent_p, exponent_p_reg, exponent_pa : signed(E+1 downto 0);
+	signal exponent_diff, exponent_diff_reg : signed(E+1 downto 0) := (others => '0');
+	signal exponent_tent, exponent_a_reg : signed(E+1 downto 0);
+	signal exp, exp_reg, exp_fin, exponent_tent_reg : signed (E+1 downto 0);
 
+    signal exp_final : unsigned(E-1 downto 0);
 
     signal round_sticky : STD_LOGIC_VECTOR (1 downto 0);
-	signal exp, exp_reg, exp_fin, exponent_tent_reg : unsigned (E - 1 downto 0);
 	signal t, k, f : unsigned(LOWER_SUM_WIDTH - 1 downto 0);
 	signal mantissa_x, mantissa_y : unsigned (M - 1 downto 0);
 	signal P_mantissa, P_mantissa_reg, A_mantissa, A_mantissa_reg, s : unsigned (3 * M + 4 downto 0);
@@ -62,7 +63,7 @@ architecture behavioral of FMA is
 	signal lz_counter, lz_counter_reg : unsigned(num_bits(LOWER_SUM_WIDTH) - 1 downto 0);
 
 	signal y, z: STD_LOGIC_VECTOR (P-1 downto 0);
-    signal fp_valid, fp_valid_reg : STD_LOGIC := '0';
+    signal fp_valid : STD_LOGIC := '0';
 
 	signal mantissa, mantissa_reg : unsigned(3 * M + 5 downto 0);
 	signal mantissa_final : unsigned(M-1 downto 0);
@@ -78,7 +79,6 @@ architecture behavioral of FMA is
 
 	type inputs_type is array (0 to 2) of STD_LOGIC_VECTOR (P-2 downto 0);
 	signal inputs : inputs_type;
-	signal exponent_plus_1, exponent_minus_1 : unsigned(E - 1 downto 0);
 	signal rm : STD_LOGIC_VECTOR (2 downto 0);
 
 	signal is_zero, is_zero_reg, enable, enable_output_regs, result_is_subnormal : STD_LOGIC;
@@ -144,9 +144,8 @@ architecture behavioral of FMA is
 begin
 
     with fp_op_i select 
-        is_boxed <= is_boxed_i(2) & '1' & is_boxed_i(0) when FPU_ADD | FPU_SUB,
-                    '1' & is_boxed_i(1 downto 0) when FPU_MUL,
-                    is_boxed_i when others;
+        is_boxed <=  '1' & is_boxed_i(1 downto 0) when FPU_ADD | FPU_SUB | FPU_MUL,
+                     is_boxed_i when others;
 
 	-- y is 1.0 if addition/subtraction
     with fp_op_i select y <=
@@ -166,7 +165,6 @@ begin
 
 	-- Classify inputs
 
-	
 	inputs(0) <= x_i(P-2 downto 0);
 	inputs(1) <= y(P-2 downto 0);
 	inputs(2) <= z(P-2 downto 0);
@@ -197,7 +195,7 @@ begin
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				state <= IDLE;
 			else
 				state <= next_state;
@@ -236,9 +234,9 @@ begin
 
 	effective_substraction <= sign_x xor sign_y xor sign_z;
 
-	exponent_x <= signed('0' & x_i(P - 2 downto P - E - 1));
-	exponent_y <= signed('0' & y(P - 2 downto P - E - 1));
-	exponent_z <= signed('0' & z(P - 2 downto P - E - 1));
+	exponent_x <= "00" & signed(x_i(P - 2 downto P - E - 1));
+	exponent_y <= "00" & signed(y(P - 2 downto P - E - 1));
+	exponent_z <= "00" & signed(z(P - 2 downto P - E - 1));
 
 	mantissa_x <= unsigned(fp_infos(0).normal & x_i(M - 2 downto 0));
 	mantissa_y <= unsigned(fp_infos(1).normal & y(M - 2 downto 0));
@@ -256,27 +254,27 @@ begin
 
 	exponent_a <= exponent_z + 1 - ((E downto 1 => '0') & fp_infos(2).normal);
 	exponent_diff <= exponent_z - exponent_p;
-	exponent_tent <= exponent_p_reg(E - 1 downto 0) when exponent_diff_reg <= 2 else exponent_a_reg(E - 1 downto 0);
-        
+	exponent_tent <= exponent_p_reg when exponent_diff_reg <= 2 else exponent_a_reg;
+    
     enable <= '1' when enable_i = '1' and state = IDLE else '0';
     enable_output_regs <= '1' when state = ROUND else '0';
-
+ 
 	-- IDLE
 	process (clk_i) 
 	begin
 	   if rising_edge(clk_i) then
 	       if enable = '1' then
-                mantissa_z_reg <= mantissa_z;
-                special_value_reg <= special_value;
-                sign_p_reg <= sign_p; 
-                effective_substraction_reg <= effective_substraction;
-                special_case_reg <= special_case;
-                invalid_reg <= invalid;
-                exponent_diff_reg <= exponent_diff;
-                rm <= rm_i;
-                exponent_p_reg <= exponent_p;
-                exponent_a_reg <= exponent_a(E-1 downto 0);
-           end if;
+            mantissa_z_reg <= mantissa_z;
+            special_value_reg <= special_value;
+            sign_p_reg <= sign_p; 
+            effective_substraction_reg <= effective_substraction;
+            special_case_reg <= special_case;
+            invalid_reg <= invalid;
+            exponent_diff_reg <= exponent_diff;
+            rm <= rm_i;
+            exponent_p_reg <= exponent_p;
+            exponent_a_reg <= exponent_a;
+          end if;
        end if;
 	end process;
 
@@ -408,7 +406,7 @@ begin
             add_shamt_reg <= add_shamt;
             is_product_anchored_reg <= is_product_anchored;
             norm_shamt_subnormal_reg <= norm_shamt_subnormal;
-            exponent_tent_reg <= unsigned(exponent_tent);
+            exponent_tent_reg <= exponent_tent;
             is_zero_reg <= is_zero;
         end if;
     end process;
@@ -422,11 +420,11 @@ begin
 
 	NORM_SHIFT_AMOUNT : process (all)
 	begin
-	   exp <= exponent_tent_reg(E - 1 downto 0);
+	   exp <= exponent_tent_reg;
 	   norm_shamt <= add_shamt_reg;
 	   if is_product_anchored_reg = '1' then
 	       if exponent_pa(exponent_pa'left) = '0' and is_zero_reg = '0' then
-	           exp <= unsigned(exponent_pa(E - 1 downto 0));
+	           exp <= exponent_pa;
 	           norm_shamt <= norm_shamt_pa;
 	       else
 	     	   exp <= (others => '0');
@@ -444,29 +442,28 @@ begin
 	       exp_reg <= exp;
 	   end if; 
     end process;
-    
- --   exponent_plus_1 <= exp_reg + 1;
-	-- exponent_minus_1 <= exp_reg - 1;
-
-	ONE_BIT_NORMALIZATION : process (exp_reg, mantissa_reg)
+      
+	ONE_BIT_NORMALIZATION : process (mantissa_reg, exp_reg)
     begin
-		exp_fin <= exp_reg;
 		mantissa_final <= mantissa_reg(mantissa'left - 2 downto mantissa'left - M - 1);
         sticky_bit <= or mantissa_reg(mantissa'left-M-2 downto 0);
+        exp_fin <= exp_reg;
         if mantissa_reg(mantissa_reg'left) = '1' then
-            exp_fin <= exp_reg + 1;
             mantissa_final <= mantissa_reg(mantissa'left - 1 downto mantissa'left - M);
             sticky_bit <= or mantissa_reg(mantissa'left-M-1 downto 0);
+            exp_fin <= exp_reg + 1;
         elsif mantissa_reg(mantissa_reg'left - 1) = '0' then
-            exp_fin <= exp_reg - 1;
             mantissa_final <= mantissa_reg(mantissa'left-3 downto mantissa'left - M - 2);
             sticky_bit <= or mantissa_reg(mantissa'left-M-3 downto 0);
+            exp_fin <= exp_reg - 1;
         end if;
 	end process;
 
     round_sticky <= mantissa_final(0) & (sticky_bit or add_sticky_bit_reg );
 	
-	ROUNDING : rounder generic map(P - 1) port map(exp_fin & mantissa_final(M - 1 downto 1), sign_reg, rm, round_sticky, rounded_num);
+	exp_final <= to_unsigned(2**E - 2, E) when overflow_before_round = '1' else unsigned(exp_fin(E-1 downto 0));
+	
+	ROUNDING : rounder generic map(P - 1) port map(exp_final & mantissa_final(M - 1 downto 1), sign_reg, rm, round_sticky, rounded_num);
  
     RESULT_GEN: if P = 32 generate 
         result <= (63 downto 32 => '1') & sign_reg & rounded_num when special_case_reg = '0' else 
@@ -479,26 +476,26 @@ begin
     process (clk_i) 
     begin 
         if rising_edge(clk_i) then
-            if enable_output_regs = '1' then    
+            if enable_output_regs = '1' then
                 result_reg <= result;
                 fflags_reg <= fflags_fma;
-                fp_valid_reg <= fp_valid;
             end if;
         end if;
-    end process;  
-     
-	result_o <= ( result_reg, fflags_reg, fp_valid_reg );
-
+    end process; 
+    
+    fp_valid <= '1' when state = FINALIZE else '0';
+	result_o <= ( result_reg, fflags_reg, fp_valid );
+            
     underflow_after_round <= nor rounded_num(rounded_num'left downto M - 1);
+    
+    overflow_before_round <= '1' when exp_fin >= 2**E - 1 else '0';
     overflow_after_round <= and rounded_num(rounded_num'left downto M - 1);
 
+	overflow <= overflow_before_round or overflow_after_round;
 	underflow <= underflow_after_round and inexact;
-	overflow <= overflow_after_round;
 	inexact <= ( or round_sticky ) or overflow;
     	
 	fflags_fma <= "00" & overflow & underflow & inexact when special_case_reg = '0' else
 		          invalid_reg & "0000";
-
-	fp_valid <= '1' when state = ROUND else '0';
 
  end behavioral;   

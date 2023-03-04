@@ -53,11 +53,10 @@ architecture behavioral of data_memory is
 	signal mem_write : STD_LOGIC := '0';
 	
 	signal ram : ram_type := initramfromFile(RAM_FILENAME);
-	--signal ram : ram_type := (others => (others => '0'));
+    --signal ram : ram_type := (others => (others => '0'));
 	attribute ram_style of ram : signal is "block";
 
     signal data_dmem : STD_LOGIC_VECTOR (BLOCK_SIZE-1 downto 0);
-
 
 begin
 

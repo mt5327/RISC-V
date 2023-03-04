@@ -7,7 +7,7 @@ use work.constants.all;
 entity divider is
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 		enable_i : in STD_LOGIC;
 		x_i : in STD_LOGIC_VECTOR (63 downto 0);
 		y_i : in STD_LOGIC_VECTOR (63 downto 0);
@@ -37,7 +37,7 @@ begin
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				state <= IDLE;
 				div_valid_o <= '0';
 			else
@@ -114,35 +114,40 @@ begin
 	
 	terminate <= '1' when remainder < divisor else '0';
 
-	DIVISION : process (clk_i)
-	begin
-		if rising_edge(clk_i) then
-            case state is
-                when IDLE => 
-                    remainder <= x;
-                    divisor <= y;
-                    quotient <= (others => div_by_zero);
-                    div_by_zero_reg <= div_by_zero;
-                    sign_reg <= sign;
-                    div_out_reg <= div_out;
-                    is_word_reg <= is_word;
-                    div_valid <= '0';
-                when DIVIDE =>
-                    if terminate = '0' then
-                        quotient <= new_q;
-                        remainder <= new_r;
-                    else
-                        div_valid <= '1';
-                        z_reg <= z;
-                    end if;
-                when others =>
-                    div_valid <= '0';
-                    div_by_zero_reg <= '0';
-                    div_out_reg <= '0';
-                    is_word_reg <= '0';
-            end case;
-		end if; 
-	end process;
+    DIVISION : process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            if rst_ni = '0' then
+                div_valid <= '0';
+                div_by_zero_reg <= '0';
+            else
+                case state is
+                    when IDLE => 
+                        remainder <= x;
+                        divisor <= y;
+                        quotient <= (others => div_by_zero);
+                        div_by_zero_reg <= div_by_zero;
+                        sign_reg <= sign;
+                        div_out_reg <= div_out;
+                        is_word_reg <= is_word;
+                        div_valid <= '0';
+                    when DIVIDE =>
+                        if terminate = '0' then
+                            quotient <= new_q;
+                            remainder <= new_r;
+                        else
+                            div_valid <= '1';
+                            z_reg <= z;
+                        end if;
+                    when others =>
+                        div_valid <= '0';
+                        div_by_zero_reg <= '0';
+                        div_out_reg <= '0';
+                        is_word_reg <= '0';
+                end case;
+            end if;
+        end if; 
+    end process;
 
 	result <= quotient when div_out_reg = '1' else
 	          STD_LOGIC_VECTOR(remainder);

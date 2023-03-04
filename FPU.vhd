@@ -11,7 +11,7 @@ entity FPU is
 	    M : natural);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 		fp_op_i : in FPU_OP;
 	    enable_fpu_subunit_i : in STD_LOGIC_VECTOR (4 downto 0);
 		rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -32,7 +32,7 @@ architecture behavioral of FPU is
             M : NATURAL);
         port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC;
             fp_op_i : in FPU_OP;
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -50,7 +50,7 @@ architecture behavioral of FPU is
             M : NATURAL);
         port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC;
             fp_op_i : in FPU_OP;
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -67,7 +67,7 @@ architecture behavioral of FPU is
             M : NATURAL);
         port (
             clk_i : in STD_LOGIC;
-            rst_i : in STD_LOGIC;
+            rst_ni : in STD_LOGIC;
             enable_i : in STD_LOGIC_VECTOR (2 downto 0);
             mode_i : in STD_LOGIC_VECTOR (1 downto 0);
             rm_i : in STD_LOGIC_VECTOR (2 downto 0);
@@ -129,7 +129,7 @@ begin
     generic map (P, E, M)
     port map(
         clk_i => clk_i,
-        rst_i => rst_i,
+        rst_ni => rst_ni,
         enable_i => enable_fpu_subunit_i(0),
         fp_op_i => fp_op_i,
         rm_i => rm_i,
@@ -144,7 +144,7 @@ begin
     generic map (P, E, M)
     port map(
         clk_i => clk_i,
-        rst_i => rst_i,
+        rst_ni => rst_ni,
         enable_i => enable_fpu_subunit_i(1),
         fp_op_i => fp_op_i,
         rm_i => rm_i,
@@ -158,7 +158,7 @@ begin
     generic map (P, E, M)
     port map(
         clk_i => clk_i,
-        rst_i => rst_i,
+        rst_ni => rst_ni,
         enable_i => enable_fpu_subunit_i(4 downto 2),
         mode_i => cvt_mode_i,
         rm_i => rm_i,

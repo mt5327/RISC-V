@@ -8,7 +8,7 @@ entity load_store_unit is
 	generic (ADDRESS_WIDTH : NATURAL := 14);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 		exception_i : in STD_LOGIC;
 		enable_mem_i : in STD_LOGIC;
 	    MAR_i : in STD_LOGIC_VECTOR (ADDRESS_WIDTH - 1 downto 0);
@@ -136,7 +136,7 @@ begin
     process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i = '1' or exception_i = '1' then
+            if rst_ni = '0' or exception_i = '1' then
                 unaligned_access <= '0';
                 unaligned_address_reg <= (others => '0'); 
             else

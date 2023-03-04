@@ -8,7 +8,7 @@ entity branch_prediction_unit is
     generic ( BHT_INDEX_WIDTH : NATURAL := 2 );
     port (
         clk_i : in STD_LOGIC;
-        rst_i : in STD_LOGIC;
+        rst_ni : in STD_LOGIC;
         pc_i : in unsigned (63 downto 0);
         branch_info_i : in BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
         opcode_i : in STD_LOGIC_VECTOR (6 downto 0);
@@ -41,7 +41,7 @@ begin
     BHT_UPDATE : process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i = '1' then
+            if rst_ni = '0' then
                 bht <= (others => (others => '0'));
             else
                 if branch_info_i.valid = '1' then
@@ -70,7 +70,7 @@ begin
     BTB_UPDATE : process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i = '1' then
+            if rst_ni = '0' then
                 btb <= (others => (others => '0'));
             else
                 if branch_info_i.mispredict = '1' and branch_info_i.taken = '1' then

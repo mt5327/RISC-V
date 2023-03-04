@@ -11,7 +11,7 @@ entity data_cache is
 		INDEX_WIDTH : NATURAL := 2);
 	port (
 		clk_i : in STD_LOGIC;
-		rst_i : in STD_LOGIC;
+		rst_ni : in STD_LOGIC;
 		enable_mem_i : in STD_LOGIC;
 
 		cache_req_i : in CACHE_REQUEST (MAR(ADDRESS_WIDTH - 4 downto 0));
@@ -66,7 +66,7 @@ begin
 	SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				state <= CHECK;
 				mem_write_o <= '0';
 			else
@@ -120,7 +120,7 @@ begin
 	WRITE_TO_CACHE : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				valid <= (others => '0');
 				dirty <= (others => '0');
 			else

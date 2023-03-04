@@ -6,8 +6,7 @@ use work.constants.ALL;
 
 entity uart_transmitter is
     Port ( clk_i : in STD_LOGIC;
-           rst_i : in STD_LOGIC;
-           cpu_enable_i : in STD_LOGIC;
+           rst_ni : in STD_LOGIC;
            uart_tx_enable_i : in STD_LOGIC;
            DOUT_i : in STD_LOGIC_VECTOR (7 downto 0);
            tx_o : out STD_LOGIC;
@@ -35,7 +34,7 @@ begin
 	PRESCALER : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' then
+			if rst_ni = '0' then
 				counter <= (others => '0');
 			else
 				if uart_clk_enable = '1' then
@@ -54,7 +53,7 @@ begin
     SYNC_PROC : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
-			if rst_i = '1' or cpu_enable_i = '0' then
+			if rst_ni = '0' then
 				state <= READY;
 			else
 				state <= next_state;
@@ -111,7 +110,7 @@ begin
 	SHIFT_REGISTER : process (clk_i)
     begin
         if rising_edge(clk_i) then
-            if rst_i ='1' or cpu_enable_i = '0' then
+            if rst_ni = '0' then
                 tx <= '1';
                 tx_data <= (others => '1');
             else
@@ -132,12 +131,12 @@ begin
     uart_tx_fin <= '1' when state = STOP and uart_clk = '1' else '0'; 
     tx_o <= tx;
     
-    uart_tx_busy_o <= '1' when uart_tx_enable_i and not uart_tx_fin else '0';
+    uart_tx_busy_o <= '1' when uart_tx_enable_i = '1' and uart_tx_fin = '0' else '0';
 	
 	UART_TX_COUNTER: process(clk_i)
 	begin
         if rising_edge(clk_i) then
-            if rst_i = '1' or state = READY or cpu_enable_i = '0' then
+            if rst_ni = '0' or state = READY then
                 tx_bit_counter <= "000";
             else 
                 if uart_clk = '1' and uart_tx_data_bits = '1' then
