@@ -108,7 +108,6 @@ constant WEAKLY_NOT_TAKEN : STD_LOGIC_VECTOR (1 downto 0) := "01";
 constant WEAKLY_TAKEN : STD_LOGIC_VECTOR (1 downto 0) := "10";
 constant STRONGLY_TAKEN : STD_LOGIC_VECTOR (1 downto 0) := "11";
 
-constant REFRESH_RATE : unsigned(19 downto 0) := to_unsigned(999999, 20);
 constant NOP : STD_LOGIC_VECTOR (31 downto 0) := X"00000013";
 
 --constant MAX_VALUE : NATURAL := 5;

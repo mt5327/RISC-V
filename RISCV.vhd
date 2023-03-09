@@ -9,8 +9,8 @@ entity RISCV is
 		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\quicksort\\main.hex";
 		ADDRESS_WIDTH : NATURAL := 17;
 		BLOCK_SIZE : NATURAL := 256;
-		INDEX_WIDTH : NATURAL := 2;
-		BHT_INDEX_WIDTH : NATURAL := 2);
+		INDEX_WIDTH : NATURAL := 8;
+		BHT_INDEX_WIDTH : NATURAL := 3);
 	port (
 		clk_i : in STD_LOGIC;
 		rst_ni : in STD_LOGIC;
@@ -24,8 +24,8 @@ entity RISCV is
 
 		LED_o : out STD_LOGIC_VECTOR (2 downto 0);
         -- Seven-segment display       
-		anode_o : out STD_LOGIC;
-		cathode_o : out STD_LOGIC_VECTOR (6 downto 0));
+		anode_o : out STD_LOGIC_VECTOR (7 downto 0);
+		cathode_o : out STD_LOGIC_VECTOR (7 downto 0));
         
 	-- !!! SIMULATION ONLY !!! 
  	 --   test_number_o : out STD_LOGIC_VECTOR (63 downto 0); 
@@ -435,8 +435,6 @@ architecture behavioral of RISCV is
 
 	signal csr_read_data, csr_data, csr_data_execute : STD_LOGIC_VECTOR (63 downto 0);
 
-	signal counter : unsigned (19 downto 0) := (others => '0');
-
     signal funct3 : STD_LOGIC_VECTOR (2 downto 0);
 
 	signal cache_line, data_imem, data_dmem : STD_LOGIC_VECTOR(BLOCK_SIZE - 1 downto 0);
@@ -449,10 +447,9 @@ architecture behavioral of RISCV is
 	signal csr_read_address, csr_write_address : STD_LOGIC_VECTOR (11 downto 0);
 
 	-- 7 segment display
-	signal cathode : STD_LOGIC_VECTOR (6 downto 0) := (others => '0');
+	signal cathode : STD_LOGIC_VECTOR (7 downto 0) := (others => '1');
 	signal exception_num : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
-	signal anode : STD_LOGIC := '1';
-
+    
     signal reg_cmp1_mem, reg_cmp1_wb, reg_cmp2_mem, reg_cmp2_wb, reg_cmp3_mem, reg_cmp3_wb, csr_cmp_mem, csr_cmp_wb : STD_LOGIC;
 
 begin
@@ -684,7 +681,7 @@ begin
 		cache_req_o => cache_req,
 		data_i => data,
 		data_o => mem_data
-	);
+	); 
 
     IMEM: instruction_memory 
 	generic map(
@@ -802,31 +799,15 @@ begin
 	    rgb_o => rgb_o
 	);
 
-    ANODE_ENABLE : process (clk_i)
-    begin
-        if rising_edge(clk_i) then
-            if rst_ni = '0' then
-                anode <= '1';
-                counter <= (others => '0');
-            else
-                if counter = REFRESH_RATE then
-                    anode <= not anode;
-                    counter <= (others => '0');
-                else
-                    counter <= counter + 1;
-                end if;
-            end if;
-        end if;
-    end process;
-
 	exception <= nand exception_num;
 	
 	with exception_num select 
-	   cathode <= "1000000" when "0000",
-	              "0100100" when "0010",
-	              "0110000" when "0011",
-	              "0000000" when "1000",
-	              "1111111" when others;
+	   cathode <= "10000001" when "0000",
+	              "01001001" when "0010",
+	              "01100001" when "0011",
+	              "00000001" when "1000",
+	              "11111111" when others;
+	
 		
 	-- HAZARD AND STALL CHECK  
  
@@ -839,11 +820,11 @@ begin
 	LED_o(0) <= not rst_ni;
 	LED_o(2) <= exception;
 
-	anode_o <= anode;
+	anode_o <= X"FE";
 	cathode_o <= cathode;
 	
     -- !!!!! SIMULATION ONLY !!!
  --   test_number_o <= registers(10);
  --   system_time_o <= system_time;
     
-end behavioral;
+end behavioral; 
