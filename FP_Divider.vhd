@@ -43,7 +43,7 @@ architecture behavioral of FP_Divider is
 
     signal digit_sign : STD_LOGIC;
 
-    signal digit, last_digit : signed(2 downto 0);
+    signal digit : signed(2 downto 0);
 
 	signal q, qm : STD_LOGIC_VECTOR(q_length(M-2) downto 0) := (others => '0');	
     signal mantissa : STD_LOGIC_VECTOR (q_length(M) downto 0) := (others => '0');
@@ -106,6 +106,8 @@ architecture behavioral of FP_Divider is
     end component rounder;
 
     signal fp_info_x, fp_info_y : FP_INFO;
+    
+    signal exp_mux_sel : STD_LOGIC_VECTOR (1 downto 0);
      
 begin
 
@@ -323,8 +325,11 @@ begin
     exponent_div_final <= exponent_div_reg when mantissa(mantissa'left) = '1' else 
                           exponent_div_minus_one; 
    
-    exp <= exponent_div_final when div_reg = '1' else 
-           exponent_sqrt_reg when sqrt_reg = '1' else (others => '0');                               
+    exp_mux_sel <= sqrt_reg & div_reg;
+    with exp_mux_sel select 
+        exp <= exponent_div_final when "01",
+           exponent_sqrt_reg when "10",
+           (others => '0') when others;               
     
     result_o.fflags <= invalid_reg & div_by_zero_reg & "000" when special_case = '1' else
                        "0000" & inexact;

@@ -44,7 +44,7 @@ architecture behavioral of data_cache is
 	signal valid : STD_LOGIC_VECTOR (2 ** INDEX_WIDTH - 1 downto 0) := (others => '0');
 	signal dirty : STD_LOGIC_VECTOR (2 ** INDEX_WIDTH - 1 downto 0) := (others => '0');
 
-	signal d, miss, check_miss, tag_eq : STD_LOGIC := '0';
+	signal miss, check_miss, tag_eq : STD_LOGIC := '0';
 	signal mem_write, cache_write, write_alloc : STD_LOGIC := '0';
 
 	alias tag : STD_LOGIC_VECTOR (TAG_WIDTH - 1 downto 0) is cache_req_i.MAR(cache_req_i.MAR'left downto INDEX_WIDTH + OFFSET_WIDTH);
@@ -115,8 +115,6 @@ begin
 		end case;
 	end process;
 
-    d <= dirty(to_integer(unsigned(block_address)));
-
 	WRITE_TO_CACHE : process (clk_i)
 	begin
 		if rising_edge(clk_i) then
@@ -143,7 +141,7 @@ begin
 	
 	miss_o <= miss and enable_mem_i;
 	read_address_o <= memory_address;
-	write_address_o <= tags(to_integer(unsigned(block_address))) & cache_req_i.MAR(INDEX_WIDTH + OFFSET_WIDTH  - 1 downto OFFSET_WIDTH);
+	write_address_o <= tags(to_integer(unsigned(block_address))) & block_address;
 	cache_line_o <= cache(to_integer(unsigned(block_address)));
     
 	DOUBLE_WORD_SELECT : for i in 0 to BLOCK_SIZE/64 - 1 generate

@@ -372,6 +372,13 @@ begin
                                                 (4 downto 0 => not results_fp(i).valid);
     end generate;
 
+    process (pc_i) 
+    begin 
+        if pc_i = X"0000000000000308" then
+            report "M";
+        end if;
+    end process;
+
 	csr_o <= csr;
 
     mem_req_o <= mem_req;
