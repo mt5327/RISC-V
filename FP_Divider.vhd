@@ -35,7 +35,7 @@ architecture behavioral of FP_Divider is
 	signal invalid, invalid_reg, invalid_div, invalid_sqrt, special_case : STD_LOGIC := '0';
 	signal mantissa_x, mantissa_y : STD_LOGIC_VECTOR (M - 1 downto 0);
     signal exponent_div, exponent_x, exponent_y : signed(E downto 0);
-    signal exp, exp_final, exponent_div_reg, exponent_div_final, exponent_div_minus_one, exponent_sqrt, exponent_sqrt_reg : STD_LOGIC_VECTOR (E-1 downto 0);
+    signal exp, exp_final, exponent_div_reg, exponent_div_final, exponent_div_minus_one, exponent_sqrt, exponent_sqrt_reg : unsigned (E-1 downto 0);
    
 	alias exp_odd : STD_LOGIC is x_i(P-E-1);
 	alias sign_x : STD_LOGIC is x_i(P - 1);
@@ -156,7 +156,7 @@ begin
     exponent_div <= exponent_x - exponent_y + BIAS + 2 - ( ( (E downto 1 => '0') & fp_info_x.normal) +
                     ( (E downto 1 => '0') & fp_info_y.normal ) );
    
-    exponent_sqrt <= STD_LOGIC_VECTOR(('0' & exponent_x(E - 1 downto 1)) + BIAS_DIV_2 + exp_odd);
+    exponent_sqrt <= unsigned(('0' & exponent_x(E - 1 downto 1)) + BIAS_DIV_2 + exp_odd);
     
     sign_d <= sign_x xor sign_y;
    
@@ -196,7 +196,7 @@ begin
                     qm <= (others => '0');
                     q <= (q'left => '1', others => '0');
                     exponent_sqrt_reg <= exponent_sqrt;
-                    exponent_div_reg <= STD_LOGIC_VECTOR(exponent_div(E-1 downto 0));
+                    exponent_div_reg <= unsigned(exponent_div(E-1 downto 0));
                     append_one <= (append_one'left-1 downto append_one'left-3 => sqrt, others => '0');
                     append_two <= (append_two'left downto append_two'left-1 => sqrt, others => '0');
                     PR <= PR_init;
@@ -257,7 +257,7 @@ begin
     end generate;   
 
     ROUNDING: rounder generic map(P-1) port map (
-        x_i => unsigned(exp_final) & unsigned(mantissa_final_reg(mantissa_final_reg'left downto 1)), 
+        x_i => exp_final & unsigned(mantissa_final_reg(mantissa_final_reg'left downto 1)), 
         sign_i => sign_reg, 
         rm_i => rm,
         round_sticky_i => mantissa_final_reg(0) & inexact, 
@@ -265,7 +265,7 @@ begin
     );      
               
     inexact <= or PR;
-    exponent_div_minus_one <= STD_LOGIC_VECTOR(unsigned(exponent_div_reg(E-1 downto 0)) - 1);
+    exponent_div_minus_one <= exponent_div_reg - 1;
     sign <= sign_d and div;
 
     lda <= PR(PR'left);
@@ -300,14 +300,7 @@ begin
                        "111" when q(q'left) = '1' else
                        q(q'left - 2 downto q'left - 4);
                        
-    --first_estimate <= "100" when sqrt = '1' else y(M-2 downto M-4);
     estimate <= square_estimate when sqrt_reg = '1' else y(M-2 downto M-4);
- 
-   -- cmp_init(3) <= '1' when signed(PR_init(PR'left downto PR'left-6)) < SEL_CONSTANTS(to_integer(unsigned(first_estimate)), 3) else '0'; -- -2       
-  --  cmp_init(2) <= '1' when signed(PR_init(PR'left downto PR'left-6)) < SEL_CONSTANTS(to_integer(unsigned(first_estimate)), 2) and cmp_init(3) = '0' else '0'; -- -1       
-    
- --   cmp_init(1) <= '1' when signed(PR_init(PR'left downto PR'left-6)) >= SEL_CONSTANTS(to_integer(unsigned(first_estimate)), 1) and cmp_init(0) = '0' else '0'; -- 1       
- --   cmp_init(0) <= '1' when signed(PR_init(PR'left downto PR'left-6)) >= SEL_CONSTANTS(to_integer(unsigned(first_estimate)), 0) else '0';  -- 2       
  
    	cmp(3) <= '1' when signed(PR(PR'left downto PR'left-6)) < SEL_CONSTANTS(to_integer(unsigned(estimate)), 3) else '0'; -- -2       
     cmp(2) <= '1' when signed(PR(PR'left downto PR'left-6)) < SEL_CONSTANTS(to_integer(unsigned(estimate)), 2) and cmp(3) = '0' else '0'; -- -1       

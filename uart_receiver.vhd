@@ -5,7 +5,8 @@ use IEEE.NUMERIC_STD.ALL;
 use work.constants.ALL;
 
 entity uart_receiver is
-    Generic ( BLOCK_SIZE : NATURAL; 
+    Generic ( BAUD_RATE : INTEGER := 115200;
+              BLOCK_SIZE : NATURAL; 
               BLOCK_ADDRESS_WIDTH : NATURAL);
     Port ( clk_i : in STD_LOGIC;
            rst_ni : in STD_LOGIC;
@@ -20,7 +21,10 @@ end uart_receiver;
 
 architecture behavioral of uart_receiver is
 
-	signal counter : unsigned (9 downto 0) := (others => '0');
+    constant MAX_VALUE : NATURAL := 100000000 / BAUD_RATE;
+    constant HALF_MAX_VALUE : NATURAL := MAX_VALUE / 2;
+
+	signal counter : unsigned (num_bits(MAX_VALUE-1)-1 downto 0) := (others => '0');
 
 	signal uart_reg : STD_LOGIC_VECTOR (BLOCK_SIZE - 1 downto 0);
 

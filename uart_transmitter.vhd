@@ -5,6 +5,7 @@ use IEEE.NUMERIC_STD.ALL;
 use work.constants.ALL;
 
 entity uart_transmitter is
+    Generic ( BAUD_RATE : INTEGER := 115200 );
     Port ( clk_i : in STD_LOGIC;
            rst_ni : in STD_LOGIC;
            uart_tx_enable_i : in STD_LOGIC;
@@ -15,7 +16,8 @@ end uart_transmitter;
 
 architecture behavioral of uart_transmitter is
 
-	signal counter : unsigned (9 downto 0) := (others => '0');
+    constant MAX_VALUE : NATURAL := 100000000 / BAUD_RATE;
+	signal counter : unsigned (num_bits(MAX_VALUE-1)-1 downto 0) := (others => '0');
 
     signal tx_bit_counter : unsigned (2 downto 0) := "000";
 

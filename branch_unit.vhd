@@ -41,7 +41,7 @@ begin
 		end case;
 	end process;
 
-    jalr <= not branch_predict_i.cf_type(1) and branch_predict_i.cf_type(0);
+    jalr <= '1' when branch_predict_i.cf_type = "01" else '0';      
 	mispredict <= ( cmp xor branch_predict_i.cf_type(0) ) or ( wrong_target and branch_predict_i.cf_type(0) );
 	wrong_target <= '1' when unsigned(offset_i) /= branch_predict_i.predicted_address else '0';
 

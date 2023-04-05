@@ -110,9 +110,6 @@ constant STRONGLY_TAKEN : STD_LOGIC_VECTOR (1 downto 0) := "11";
 
 constant NOP : STD_LOGIC_VECTOR (31 downto 0) := X"00000013";
 
-constant MAX_VALUE : NATURAL := 868; -- ( 100 * 10^6 ) / 115200
-constant HALF_MAX_VALUE : NATURAL := MAX_VALUE / 2;
-
 constant NEG_INFINITY : STD_LOGIC_VECTOR (9 downto 0) := (0 => '1', others => '0');
 constant NEG_NORMAL : STD_LOGIC_VECTOR (9 downto 0) := (1 => '1', others => '0');
 constant NEG_SUBNORMAL : STD_LOGIC_VECTOR (9 downto 0) := (2 => '1', others => '0');

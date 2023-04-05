@@ -6,7 +6,7 @@ use work.constants.all;
 
 entity RISCV is
 	generic (
-		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\quicksort\\main.hex";
+		RAM_FILENAME : STRING := "C:\\cygwin64\\home\\Mitja\\matmul\\main.hex";
 		ADDRESS_WIDTH : NATURAL := 17;
 		BLOCK_SIZE : NATURAL := 256;
 		INDEX_WIDTH : NATURAL := 7;
@@ -351,7 +351,8 @@ architecture behavioral of RISCV is
 	end component data_cache;
 
     component uart_receiver is
-        Generic ( BLOCK_SIZE : NATURAL; 
+        Generic ( BAUD_RATE : INTEGER := 115200;
+                  BLOCK_SIZE : NATURAL; 
                   BLOCK_ADDRESS_WIDTH : NATURAL);
         Port ( clk_i : in STD_LOGIC;
                rst_ni : in STD_LOGIC;
@@ -365,6 +366,7 @@ architecture behavioral of RISCV is
     end component uart_receiver;
     
     component uart_transmitter is
+        Generic ( BAUD_RATE : INTEGER := 115200 );
         Port ( clk_i : in STD_LOGIC;
                rst_ni : in STD_LOGIC;
                uart_tx_enable_i : in STD_LOGIC;

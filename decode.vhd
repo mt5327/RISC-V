@@ -392,10 +392,10 @@ begin
     load_hazard_fp <= mem_read_reg(1) and ( ( reg_cmp1_mem and reg_fp_src1_valid ) or 
                                          ( reg_cmp2_mem and reg_fp_src2_valid ) or
                                          ( reg_cmp3_mem and reg_fp_src3_valid ) );
-
+ 
     flush <= ( load_hazard_int or load_hazard_fp or flush_i ) and not pipeline_stall_i;
 
-	OFFSET_SELECT : process (IR_i, imm_s, branch_target_address)
+	OFFSET_SELECT : process (all)
 	begin
 		case opcode is
 			when LUI | AUIPC => imm <= STD_LOGIC_VECTOR(resize(signed(IR_i(31 downto 12)) & X"000", 64));
