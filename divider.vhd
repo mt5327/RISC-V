@@ -25,7 +25,7 @@ architecture behavioral of divider is
 	signal is_signed, is_word, is_word_reg, sign, sign_reg, div_out, div_out_reg, div_by_zero, div_by_zero_reg, terminate, div_valid, x_sign, y_sign : STD_LOGIC := '0';
 	signal clz_r, clz_y, clz_delta : unsigned (5 downto 0);
 
-	signal q_bit1, q_bit2, result, z, z_reg, z_signed : STD_LOGIC_VECTOR (63 downto 0);
+	signal q_bit1, q_bit2, result, z, z_reg, z_signed : STD_LOGIC_VECTOR (63 downto 0) := (others => '0');
 
 	type state_type is (IDLE, DIVIDE, FINALIZE);
 	signal state, next_state : state_type;
@@ -86,13 +86,14 @@ begin
 	clz_y <= leading_zero_counter(divisor, clz_y'length);
 
 	clz_delta <= clz_y - clz_r;
-    normalized_divisor <= shift_left(divisor, to_integer(clz_y));
-    x_sign <= x_i(x_i'left) and is_signed;
+
+	x_sign <= x_i(x_i'left) and is_signed;
     y_sign <= y_i(y_i'left) and is_signed;
     
 	q_bit1 <= STD_LOGIC_VECTOR(shift_left(NEW_BIT_MASK, to_integer(clz_delta)));
 	q_bit2 <= '0' & q_bit1(63 downto 1);
 
+	normalized_divisor <= shift_left(divisor, to_integer(clz_y));
 	estimated_divisor <= shift_right(normalized_divisor, to_integer(clz_r));
 	estimated_divisor_div_2 <= '0' & estimated_divisor(63 downto 1);
 
@@ -107,8 +108,8 @@ begin
 	         
     with op_i select sign <=
 		x_i(x_i'left) xor y_i(y_i'left) when ALU_DIV | ALU_DIVW, 
-	 	 x_i(x_i'left) when ALU_REM | ALU_REMW,
-			'0'	when others;
+	 	x_i(x_i'left) when ALU_REM | ALU_REMW,
+	    '0'	when others;
 			
 	div_by_zero <= nor y_i;
 	
