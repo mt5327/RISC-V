@@ -86,14 +86,13 @@ begin
 	clz_y <= leading_zero_counter(divisor, clz_y'length);
 
 	clz_delta <= clz_y - clz_r;
-
-	x_sign <= x_i(x_i'left) and is_signed;
+    normalized_divisor <= shift_left(divisor, to_integer(clz_y));
+    x_sign <= x_i(x_i'left) and is_signed;
     y_sign <= y_i(y_i'left) and is_signed;
     
 	q_bit1 <= STD_LOGIC_VECTOR(shift_left(NEW_BIT_MASK, to_integer(clz_delta)));
 	q_bit2 <= '0' & q_bit1(63 downto 1);
 
-	normalized_divisor <= shift_left(divisor, to_integer(clz_y));
 	estimated_divisor <= shift_right(normalized_divisor, to_integer(clz_r));
 	estimated_divisor_div_2 <= '0' & estimated_divisor(63 downto 1);
 
