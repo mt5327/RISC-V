@@ -207,12 +207,10 @@ type fp_infos_t is array (natural range <>) of FP_INFO;
 
 function num_bits(size : natural) return natural;
 function leading_zero_counter(X: unsigned; E : natural) return unsigned;
-function leading_zero_counter(X : unsigned; E : natural) return signed;
 function reverse(x : STD_LOGIC_VECTOR) return STD_LOGIC_VECTOR;
 function check_rm(rm, frm : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC;
 function fp_classify(fp_class : FP_INFO; sign : STD_LOGIC) return STD_LOGIC_VECTOR;
 function fp_sign_injection(x : STD_LOGIC_VECTOR; x_sign : STD_LOGIC; y_sign : STD_LOGIC; funct3 : STD_LOGIC_VECTOR(2 downto 0)) return STD_LOGIC_VECTOR;
-function leading_one_index(X : unsigned) return unsigned;
 function q_length(x : natural) return natural;
 function src_fp_format(P : natural) return FP_FORMAT;
 end package;
@@ -241,20 +239,6 @@ begin
     end loop;
     return counter;
 end function;
-
-function leading_zero_counter(X : unsigned; E : natural) return signed is
-    variable counter : signed(E-1 downto 0);
-begin
-    counter := (others => '0');
-    for i in x'range loop
-        case x(i) is
-            when '0' => counter := counter + 1;
-            when others => exit;
-        end case;
-    end loop;
-    return counter;
-end function;
-
 
 function reverse(x : STD_LOGIC_VECTOR) return STD_LOGIC_VECTOR is
     variable output : STD_LOGIC_VECTOR(x'range);
@@ -307,20 +291,6 @@ begin
     end case;
     return x_v;
 end function fp_sign_injection;
-
-function leading_one_index(X : unsigned) return unsigned is
-    variable index : unsigned(5 downto 0);
-begin
-
-    index := (others => '0');
-    for i in x'range loop
-        if x(i) = '1' then
-            return to_unsigned(i, index'length);
-        end if;
-    end loop;
-    
-    return index;
-end function;
 
 function q_length(x : natural) return natural is
 begin

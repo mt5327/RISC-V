@@ -386,7 +386,6 @@ begin
 		end if;
 	end process;
 	   
-
 	t <= P_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0) xor (A_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0));
 	k <= P_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0) nor (A_mantissa_reg(LOWER_SUM_WIDTH - 1 downto 0));
 	f <= t xor (not k(LOWER_SUM_WIDTH - 2 downto 0) & '1');

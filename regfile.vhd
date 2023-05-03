@@ -15,7 +15,6 @@ end regfile;
 architecture behavioral of regfile is
 
 	signal registers : reg_t := (others => (others => '0'));
-	signal reg_write : STD_LOGIC;
 
 begin
 

@@ -47,7 +47,7 @@ begin
                 else                   
                     if csr_i.write = '1' then
                         case csr_i.write_address is
-                            when FFLAGS => fflags_reg <= csr_i.data(4 downto 0);
+                            when FFLAGS => fflags_reg <= fflags_reg or csr_i.data(4 downto 0);
                             when FRM => frm_reg <= csr_i.data(2 downto 0);
                             when FCSR => fflags_reg <= csr_i.data(4 downto 0);
                                          frm_reg <= csr_i.data(7 downto 5);

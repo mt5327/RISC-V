@@ -328,7 +328,7 @@ begin
         
     uart_tx_enable <= '1' when mem_write_i(0) = '1' and memory_address = X"FFFFFFFFFFFFFFF0" else '0';
     
-    reg_write <= mem_read or reg_write_i; 	
+    reg_write <= '1' when mem_read = '1' or reg_write_i = '1' else '0'; 	
 	reg_write_fp <= mem_read_fp or fp_regs_idex_i.write;
  
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;

@@ -448,6 +448,8 @@ architecture behavioral of RISCV is
 	signal csr_mux_sel : STD_LOGIC_VECTOR (2 downto 0);
 	signal csr_read_address, csr_write_address : STD_LOGIC_VECTOR (11 downto 0);
 
+    signal frm_data : STD_LOGIC_VECTOR (2 downto 0);
+
 	-- 7 segment display
 	signal cathode : STD_LOGIC_VECTOR (7 downto 0) := (others => '1');
 	signal exception_num : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
@@ -482,7 +484,7 @@ begin
 		flush_i => branch_inf.mispredict,
 		load_hazard_o => load_hazard,
 		pipeline_stall_i => pipeline_stall,
-		frm_i => fcsr(7 downto 5),
+		frm_i => frm_data,
 
 		pc_i => pc_decode,
 		pc_o => pc_execute,
@@ -816,7 +818,15 @@ begin
 	pipeline_stall <= multicycle_op or miss_data or miss_instr or exception or unaligned_access or uart_tx_busy;
 	
 	pipeline_stall_if <= pipeline_stall or load_hazard;
-          
+
+    frm_data <= 
+        csr_data_execute(2 downto 0) when csr_write_address = FRM and csr_write_execute = '1' else
+        csr_data_execute(7 downto 5) when csr_write_address = FCSR and csr_write_execute = '1' else
+        csr_write_memory.data(2 downto 0) when csr_write_memory.write_address = FRM and csr_write_memory.write = '1' else
+        csr_write_memory.data(7 downto 5) when csr_write_memory.write_address = FCSR and csr_write_memory.write = '1' else
+        csr_write.data(2 downto 0) when csr_write.write_address = FRM and csr_write.write = '1' else
+        csr_write.data(7 downto 5) when csr_write.write_address = FCSR and csr_write.write = '1' else fcsr(7 downto 5);
+   
     csr_data <= csr_write.data when csr_write.write_address = csr_read_address and csr_write.write = '1' else csr_read_data;
                         
 	LED_o(0) <= not rst_ni;

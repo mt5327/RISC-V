@@ -55,8 +55,14 @@ architecture behavioral of FP_Converter_int_to_float is
 			z_o : out STD_LOGIC_VECTOR (SIZE - 1 downto 0));
 	end component rounder;
 
-	type state_type is (IDLE, CONVERT, ROUND, FINALIZE);
+	type state_type is (IDLE, START, CONVERT, ROUND, FINALIZE);
 	signal state, next_state : state_type;
+
+    component clz is
+        generic ( SIZE : NATURAL := 64 );
+        port ( x_i : in STD_LOGIC_VECTOR (SIZE-1 downto 0);
+               z_o : out unsigned (num_bits(SIZE)-1 downto 0));
+    end component clz;
 
 begin
 
@@ -77,8 +83,9 @@ begin
         case state is
             when IDLE => 
                 if enable_i = '1' then
-                    next_state <= CONVERT;
+                    next_state <= START;
                 end if;
+            when START => next_state <= CONVERT;
             when CONVERT => next_state <= ROUND; 
             when ROUND => next_state <= FINALIZE;
             when FINALIZE => next_state <= IDLE;
@@ -90,9 +97,7 @@ begin
 	long_sign <= x_i(63) and (not mode_i(0));
     int_mantissa <= unsigned(-signed(x_i(31 downto 0))) & (31 downto 0 => '0') when int_sign = '1' else unsigned(x_i(31 downto 0)) & (31 downto 0 => '0');
     long_mantissa <= unsigned(-signed(x_i)) when long_sign = '1' else unsigned(x_i);
-    
-    lz_counter <= leading_zero_counter(mantissa, lz_counter'length);    
-        
+
     mantissa <= int_mantissa when mode_i(1) = '0' else long_mantissa;     
     exp_init <= INT_EXP_INIT when mode_i(1) = '0' else LONG_EXP_INIT; 
     sign <= int_sign when mode_i(1) = '0' else long_sign;
@@ -100,8 +105,16 @@ begin
     process (clk_i)
     begin
         if rising_edge(clk_i) then
-            lz_counter_reg <= lz_counter;
             mantissa_reg <= mantissa;
+        end if;
+    end process;
+    
+    CLZ_MANTISSA: clz port map (STD_LOGIC_VECTOR(mantissa_reg), lz_counter);    
+        
+    process (clk_i)
+    begin
+        if rising_edge(clk_i) then
+            lz_counter_reg <= lz_counter;
         end if;
     end process;
         

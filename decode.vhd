@@ -356,7 +356,7 @@ begin
         end case;
     end process;
 
-	REGISTER_WRITE : process (all)
+	REGISTER_WRITE : process (opcode, IR_i(11 downto 7), funct5)
 	begin
 		case opcode is
 			when LUI | AUIPC | LOAD | JAL | JALR | RI | RI32 | RR | RR32 | SYSTEM =>
@@ -416,8 +416,8 @@ begin
     reg_cmp3_mem <= '1' when reg_src3 = reg_dst else '0'; 
     reg_cmp3_wb <= '1' when reg_src3 = reg_mem_i else '0';
 
-    csr_cmp_mem <= '1' when csr_address = csr_write_address else '0';
-    csr_cmp_wb <= '1' when csr_address = csr_mem_address_i else '0';
+    csr_cmp_mem <= '1' when csr_address = csr_write_address or csr_write_address = FCSR or csr_write_address = FRM else '0';
+    csr_cmp_wb <= '1' when csr_address = csr_mem_address_i or csr_mem_address_i = FCSR or csr_mem_address_i = FRM else '0';
     
 	with opcode select 
 	    pc_src <= '1' when AUIPC | JAL | JALR, 
@@ -540,6 +540,7 @@ begin
 		if rising_edge(clk_i) then
 			if rst_ni = '0' or flush = '1' then
 				csr_write_reg <= '0';
+				csr_operator_reg <= "00";
 				csr_exception_id_reg <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
@@ -564,7 +565,7 @@ begin
                    "00" when others;
 
 
-    process (IR_i)
+    process (opcode, funct5, funct3)
     begin
         case opcode is
             when JALR | BRANCH | LOAD | LOAD_FP | STORE | STORE_FP | RI | RI32 | RR | RR32 => reg_src1_valid <= '1';
@@ -595,7 +596,7 @@ begin
 		                     "10000" when FPU_CVT_FF,
 		                     "00000" when others;	                  
 
-    process (IR_i)
+    process (opcode)
     begin
         case opcode is
             when STORE_FP =>
