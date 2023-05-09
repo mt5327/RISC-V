@@ -412,7 +412,7 @@ begin
 
 	exponent_pa <= exponent_p_reg - signed(resize(lz_counter_reg, exponent_p'length)) + 2;
 
-	s <= unsigned(-signed(mantissa_sum_reg(mantissa_sum_reg'left-1 downto 0))) when ((not effective_substraction_reg) and sum_carry) = '1' else
+	s <= unsigned(-signed(mantissa_sum_reg(mantissa_sum_reg'left-1 downto 0))) when (effective_substraction_reg and not sum_carry) = '1' else
 		 mantissa_sum_reg(mantissa_sum_reg'left-1 downto 0);
 		 
 	norm_shamt_pa <= to_unsigned(M + 2, norm_shamt_pa'length) + resize(lz_counter_reg, norm_shamt_pa'length);
