@@ -244,7 +244,7 @@ begin
 
 	-- Calculate sign of the product
 	sign_p <= sign_x xor sign_y;
-	sign <= '1' when effective_substraction_reg = '1' and sum_carry /= sign_p_reg else
+	sign <= '1' when effective_substraction_reg = '1' and sum_carry = sign_p_reg else
 		    '0' when effective_substraction_reg = '1' else sign_p_reg;
 	
 	-- Calculate exponent of the product
