@@ -339,7 +339,7 @@ begin
 						invalid_instruction <= '1';
 				end case;
 			when others => 
-		       alu_operator <= ALU_NONE;
+			   invalid_instruction <= '1';
 		end case;
 	end process;
 

@@ -419,7 +419,7 @@ architecture behavioral of RISCV is
 	signal fp_op : STD_LOGIC_VECTOR (6 downto 0);
 
 	signal registers, registers_fp : reg_t;
-	signal fcsr : STD_LOGIC_VECTOR (7 downto 0);
+	signal fcsr_data : STD_LOGIC_VECTOR (7 downto 0);
 
 	signal reg_dst_execute : STD_LOGIC_VECTOR (4 downto 0);
 	signal csr_write_execute, reg_write, reg_write_fp : STD_LOGIC := '0';
@@ -631,7 +631,7 @@ begin
 		csr_read_address_i => csr_read_address,
 		csr_data_o => csr_read_data,
 		mpc_o => mpc,
-		fcsr_o => fcsr,
+		fcsr_o => fcsr_data,
 		exception_num_o => exception_num,
 		system_time_o => system_time
 	);
@@ -794,7 +794,7 @@ begin
 		rst_ni => rst_ni,
 
 		pc_i => mpc,
-		fcsr_i => fcsr,
+		fcsr_i => fcsr_data,
 		registers_i => registers,
 		registers_fp_i => registers_fp,
 		

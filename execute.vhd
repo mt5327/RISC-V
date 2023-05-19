@@ -149,7 +149,7 @@ architecture behavioral of execute is
 	signal mem_req : MEMORY_REQUEST := ('0', '0', (others => '0'), (others => '0'), LSU_NONE);
 	signal reg_dst : REG;
 	signal mem_read, mem_read_fp, mem_write, mem_write_fp : STD_LOGIC;
-	signal exception_id : STD_LOGIC_VECTOR (3 downto 0);
+	signal csr_exception : STD_LOGIC_VECTOR (3 downto 0);
 	signal branch_inf : BRANCH_INFO (pc(BHT_INDEX_WIDTH - 1 downto 0));
 	signal csr : CSR := ('0', (others => '0'), NO_EXCEPTION, (others => '0'), (others => '0'));
     signal memory_address : STD_LOGIC_VECTOR (63 downto 0);
@@ -308,7 +308,7 @@ begin
 				csr.exception_id <= NO_EXCEPTION;
 			else
 				if pipeline_stall_i = '0' then
-                    csr <= (csr_write_i, csr_write_address_i, csr_exception_id_i, pc_i, csr_data);
+                    csr <= (csr_write_i, csr_write_address_i, csr_exception, pc_i, csr_data);
 				end if;
 			end if;
 		end if; 
@@ -346,7 +346,7 @@ begin
     csr_data_sel <= imm_i when imm_src_i = '1' else 
                     x_sel;         
 	
-	exception_id <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else 
+	csr_exception <= INSTRUCTION_ADDRESS_MISALIGN when instr_misaligned = '1' else 
 	                csr_exception_id_i;
 
 	with csr_operator_i select
