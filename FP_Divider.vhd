@@ -23,7 +23,6 @@ end FP_Divider;
 
 architecture behavioral of FP_Divider is
 
-	
 	constant BIAS : signed(E downto 0) := to_signed(2 ** (E - 1) - 1, E + 1);
 	constant BIAS_DIV_2 : signed(E-1 downto 0) := to_signed(2 ** (E - 2) - 1, E);
 	constant INFINITY : STD_LOGIC_VECTOR (P - 2 downto 0) := (P - 2 downto P - E - 1 => '1', others => '0');
@@ -53,11 +52,11 @@ architecture behavioral of FP_Divider is
     signal mantissa_final, mantissa_final_reg : STD_LOGIC_VECTOR (M-1 downto 0);
     signal num_round, num_round_reg : STD_LOGIC_VECTOR (P-2 downto 0);
 
-	signal square_estimate, estimate, first_estimate, rm : STD_LOGIC_VECTOR (2 downto 0);
+	signal square_estimate, estimate,rm : STD_LOGIC_VECTOR (2 downto 0);
 
 	signal a, b : STD_LOGIC_VECTOR (1 downto 0);
 	
-	signal cmp, cmp_new, cmp_init : STD_LOGIC_VECTOR (3 downto 0);
+	signal cmp : STD_LOGIC_VECTOR (3 downto 0);
         
   	signal append_one, append_two : STD_LOGIC_VECTOR(q'left+2 downto 0);
     signal x_reg, y_reg, k, y, y_init : STD_LOGIC_VECTOR (q'left+2 downto 0);
@@ -211,7 +210,6 @@ begin
                     position <= q'left-1;   
                     invalid_reg <= invalid;
                     div_by_zero_reg <= div_by_zero;
-                  --  cmp <= cmp_init;
                     counter <= to_unsigned(NUM_ITERS, counter'length);
                 when DIVIDE =>
                     k <= "11" & k(k'left downto 2);
@@ -220,7 +218,6 @@ begin
                     append_one <= "00" & append_one(append_one'left downto 2);
                     append_two <= "00" & append_two(append_two'left downto 2);
                     position <= position - 2;
-                 --   cmp <= cmp_new;
                     if lda = '1' then
                         q <= qm;
                     end if;
