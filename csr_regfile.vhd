@@ -74,7 +74,7 @@ begin
                       cycles when CYCLE,
                       (others => '0') when others;
 
-    exception_num_o <= mcause_reg;
+    exception_num_o <= csr_i.exception_id;
     fcsr_o <= frm_reg & fflags_reg;
     mpc_o <= mepc_reg;
     system_time_o <= cycles;

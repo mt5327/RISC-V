@@ -334,6 +334,7 @@ begin
 	multicycle_op_o <= enable_mul or enable_div or enable_fp;
 	reg_dst_o <= reg_dst;
 
+
 	reg_write_fp_o <= reg_write_fp_reg;
 	result_fp_o <= result_fp_reg;
 	

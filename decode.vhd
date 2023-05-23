@@ -94,7 +94,7 @@ architecture behavioral of decode is
 	signal branch_predict : BRANCH_PREDICTION;
     signal write_fflags : STD_LOGIC;
     signal enable_fpu_subunit : STD_LOGIC_VECTOR (4 downto 0);
-    signal csr_write_address : STD_LOGIC_VECTOR (11 downto 0);
+    signal csr_write_address, csr_write_address_reg : STD_LOGIC_VECTOR (11 downto 0);
 	signal load_hazard_int, load_hazard_fp, flush, invalid_instruction, csr_write, csr_write_reg : STD_LOGIC;
 
     signal csr_data : STD_LOGIC_VECTOR (63 downto 0);
@@ -126,7 +126,7 @@ architecture behavioral of decode is
 
     signal result_select, result_select_reg : STD_LOGIC_VECTOR(3 downto 0) := "0000";
 
-    signal csr_exception_id, csr_exception_id_reg : STD_LOGIC_VECTOR (3 downto 0);
+    signal csr_exception_id, csr_exception_id_reg : STD_LOGIC_VECTOR (3 downto 0) := NO_EXCEPTION;
 
     signal fun3, funct3_reg : STD_LOGIC_VECTOR (2 downto 0);
 
@@ -550,6 +550,7 @@ begin
 				    csr_cmp_mem_reg <= csr_cmp_mem;
 				    csr_cmp_wb_reg <= csr_cmp_wb;
 				    csr_data <= csr_data_i;
+				    csr_write_address_reg <= csr_write_address;
 				end if;
 			end if;
 		end if;
@@ -661,7 +662,7 @@ begin
     csr_operator_o <= csr_operator_reg;
     csr_cmp_mem_o <= csr_cmp_mem_reg;
     csr_cmp_wb_o <= csr_cmp_wb_reg;
-    csr_write_address_o <= csr_write_address;
+    csr_write_address_o <= csr_write_address_reg;
 
     csr_write_o <= csr_write_reg;
     csr_exception_id_o <= csr_exception_id_reg;
